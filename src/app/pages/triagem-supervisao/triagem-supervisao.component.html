@@ -1,0 +1,431 @@
+<app-header></app-header>
+<br /><br /><br /><br />
+
+<!-- ========================================================= -->
+<!-- BARRA SUPERIOR (estilo Central de Triagem)                -->
+<!-- ========================================================= -->
+<div class="container-fluid py-3 border-bottom bg-white">
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <h2 class="h2 py-3 text-success mb-0">Módulo Encaminhamento</h2>
+
+    <!-- Contadores por aba, alinhados à direita -->
+    <div class="ms-auto text-muted small">
+      <ng-container *ngIf="aba === 'pessoas'">
+        {{ pessoasView.length }} pré-cadastro(s) na sua triagem
+      </ng-container>
+      <ng-container *ngIf="aba === 'grupos'">
+        {{ gruposView.length }} grupo(s) na sua triagem
+      </ng-container>
+    </div>
+  </div>
+
+  <!-- Abas estilizadas -->
+  <ul class="nav crenorte-tabs mt-3">
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="aba === 'pessoas'" (click)="setAba('pessoas')"
+        [attr.aria-selected]="aba === 'pessoas'">
+        Pessoas
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="aba === 'grupos'" (click)="setAba('grupos')"
+        [attr.aria-selected]="aba === 'grupos'">
+        Grupos
+      </button>
+    </li>
+  </ul>
+</div>
+
+<!-- ========================================================= -->
+<!-- BARRA DE BUSCA / FILTROS (estilo Central de Triagem)      -->
+<!-- ========================================================= -->
+<div class="container-fluid py-3 bg-light border-bottom">
+  <div class="row g-2 align-items-center">
+    <!-- Busca geral -->
+    <div class="col-12 col-md-6">
+      <input type="text" class="form-control" placeholder="Buscar por nome, CPF, telefone, cidade/UF, grupo…"
+        [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" />
+    </div>
+
+    <!-- Filtros rápidos da aba Pessoas (encaminhamento) -->
+    <div class="col-12 col-md-6" *ngIf="aba === 'pessoas'">
+      <div class="d-flex flex-wrap gap-2 justify-content-md-end">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Encaminhamento">
+          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'todos'"
+            (click)="setEnvioFilter('todos')">
+            Todos
+          </button>
+          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'encaminhado'"
+            (click)="setEnvioFilter('encaminhado')">
+            Encaminhados
+          </button>
+          <button type="button" class="btn btn-outline-warning text-dark"
+            [class.active]="filtroEnvio === 'nao_encaminhado'" (click)="setEnvioFilter('nao_encaminhado')">
+            Não encaminhados
+          </button>
+        </div>
+        <br>
+        <!-- Filtro por assessor -->
+        <select class="form-select form-select-sm w-auto" [(ngModel)]="filtroAssessor"
+          (ngModelChange)="setAssessorFilter($event)">
+
+          <option value="todos">Todos os assessores</option>
+
+          <option *ngFor="let a of assessores" [value]="a.uid">
+            {{ a.nome }}
+          </option>
+        </select>
+
+        <button type="button" class="btn btn-sm btn-outline-dark"
+          (click)="searchTerm = ''; setEnvioFilter('todos'); onSearchChange()">
+          Limpar filtros
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- ESTADO DE CARREGAMENTO (usando loading boolean)           -->
+<!-- ========================================================= -->
+<ng-template #loadingTpl>
+  <div class="container-fluid">
+    <div class="alert alert-info my-3">
+      Carregando informações da sua triagem…
+    </div>
+  </div>
+</ng-template>
+
+<!-- ========================================================= -->
+<!-- CONTEÚDO PRINCIPAL                                        -->
+<!-- ========================================================= -->
+<div *ngIf="!loading; else loadingTpl">
+  <!-- ========================= -->
+  <!-- ABA PESSOAS (estilo lista) -->
+  <!-- ========================= -->
+  <div class="container-fluid" *ngIf="aba === 'pessoas'">
+    <!-- Controles superiores (simples) -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
+      <div class="text-muted small">
+        Mostrando {{ pessoasView.length }} registro(s)
+      </div>
+    </div>
+
+    <!-- Lista de pessoas em card + list-group (estilo Central de Triagem) -->
+    <div class="card mb-4">
+      <div class="list-group list-group-flush">
+        <div class="list-group-item" *ngIf="!pessoasView.length">
+          Nenhum pré-cadastro encontrado na sua triagem.
+        </div>
+
+        <div class="list-group-item" *ngFor="let p of pessoasView">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <!-- ESQUERDA: identificação e dados -->
+            <div>
+              <div class="fw-semibold d-flex align-items-center gap-2">
+                <span>{{ p.nomeCompleto || 'Sem nome' }}</span>
+              </div>
+
+              <div class="text-muted small">
+                <span *ngIf="p.cpf">
+                  CPF: {{ cpfMask(p.cpf) }}
+                </span>
+                <br>
+                <span *ngIf="p.cidade || p.uf">
+                  {{ p.cidade || '—' }}<span *ngIf="p.uf">/{{ p.uf }}</span>
+                </span>
+                <span *ngIf="p.bairro">
+                  • {{ p.bairro }}
+                </span>
+              </div>
+
+              <!-- Informação de grupo (somente se tiver grupo) -->
+              <div class="text-muted small" *ngIf="p.grupoNome">
+                Grupo solidário:
+                {{ p.grupoNome }}
+                <span class="text-muted">
+                  ({{ p.papelNoGrupo || 'membro' }})
+                </span>
+              </div>
+
+              <!-- Informação de encaminhamento (sempre que tiver encaminhado, com ou sem grupo) -->
+              <div class="text-muted small" *ngIf="encaminhadoLabel(p) as encLab">
+                {{ encLab }}
+              </div>
+            </div>
+
+
+            <!-- DIREITA: status de encaminhamento + ação -->
+            <div class="d-flex align-items-center justify-content-end gap-3">
+
+              <div *ngIf="encaminhadoLabel(p)">
+                <span class="badge bg-success">
+                  Encaminhado
+                </span>
+              </div>
+              <div *ngIf="!encaminhadoLabel(p)">
+                <span class="badge bg-warning text-dark">
+                  Não encaminhado
+                </span>
+              </div>
+
+              <button type="button" class="btn btn-sm btn-outline-success" (click)="abrirModalAssessorPessoa(p)">
+                Encaminhar para assessor
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================= -->
+  <!-- ABA GRUPOS (estilo Central) -->
+  <!-- ========================= -->
+  <div class="container-fluid" *ngIf="aba === 'grupos'">
+    <!-- Controles superiores (simples) -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
+      <div class="text-muted small">
+        Mostrando {{ gruposView.length }} grupo(s)
+      </div>
+    </div>
+
+    <!-- Lista de grupos em card estilo Central de Triagem -->
+    <div class="card mb-4">
+      <div class="p-4" *ngIf="!gruposView.length">
+        Nenhum grupo solidário encontrado na sua triagem.
+      </div>
+
+      <div *ngIf="gruposView.length">
+        <div class="triagem-card px-4 py-3 border-bottom" *ngFor="let g of gruposView">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <!-- ESQUERDA: nome + localidade + coordenador + integrantes -->
+            <div>
+              <div class="fw-semibold d-flex align-items-center gap-2">
+                <span>GRUPO &gt; {{ g.nome || 'Grupo sem nome' }}</span>
+              </div>
+
+              <div class="text-muted small">
+                <span *ngIf="g.cidade || g.uf">
+                  {{ g.cidade || '—' }}<span *ngIf="g.uf">/{{ g.uf }}</span>
+                </span>
+              </div>
+
+              <div class="text-muted small" *ngIf="g.coordenadorView?.nome">
+                Coordenador: {{ g.coordenadorView?.nome }}
+              </div>
+
+              <div class="text-muted small">
+                Integrantes: {{ qtdMembrosGrupo(g) }}
+              </div>
+
+              <div class="text-muted small" *ngIf="g.encaminhadoParaNome">
+                Encaminhado para: {{ g.encaminhadoParaNome }}
+              </div>
+            </div>
+
+            <!-- DIREITA: status simples + ações -->
+            <div class="d-flex flex-column align-items-end gap-2">
+              <span class="badge" [ngClass]="g.encaminhadoParaNome ? 'bg-success' : 'bg-warning text-dark'">
+                {{ g.encaminhadoParaNome ? 'Encaminhado' : 'Não encaminhado' }}
+              </span>
+
+              <div class="d-flex flex-wrap justify-content-end gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="abrirDetalheGrupo(g)">
+                  Detalhes do grupo
+                </button>
+
+                <button type="button" class="btn btn-sm btn-success" (click)="abrirModalAssessorGrupo(g)">
+                  {{ g.encaminhadoParaNome ? 'Atualizar assessor' : 'Encaminhar grupo' }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — ESCOLHER ASSESSOR (PESSOA)                        -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="showAssessorPessoaModal">
+  <div class="overlay__backdrop" (click)="fecharModalAssessorPessoa()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <h5 class="mb-0">Encaminhar pré-cadastro para assessor</h5>
+      <button type="button" class="btn-close" (click)="fecharModalAssessorPessoa()"></button>
+    </div>
+
+    <div class="mb-3">
+      <div class="fw-semibold">
+        {{
+        pessoaSelecionada?.nomeCompleto ||
+        'Pré-cadastro'
+        }}
+      </div>
+      <small class="text-muted">
+        CPF:
+        {{
+        cpfMask(
+        pessoaSelecionada?.cpf || ''
+        )
+        }}
+      </small>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label mb-1">Buscar assessor</label>
+      <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..." [(ngModel)]="buscaAssessorPessoa"
+        (ngModelChange)="filtrarAssessoresPessoa()" />
+    </div>
+
+    <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+      <button type="button"
+        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+        *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidPessoa = a.uid"
+        [class.active]="selectedAssessorUidPessoa === a.uid">
+        <div>
+          <div class="fw-semibold">{{ a.nome }}</div>
+          <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+        </div>
+        <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">
+          {{ a.rota }}
+        </span>
+      </button>
+
+      <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
+        Nenhum assessor encontrado.
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="fecharModalAssessorPessoa()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-success" [disabled]="!selectedAssessorUidPessoa"
+        (click)="confirmarEncaminharPessoa()">
+        Encaminhar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — ESCOLHER ASSESSOR (GRUPO)                         -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="showAssessorGrupoModal">
+  <div class="overlay__backdrop" (click)="fecharModalAssessorGrupo()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <h5 class="mb-0">Encaminhar grupo para assessor</h5>
+      <button type="button" class="btn-close" (click)="fecharModalAssessorGrupo()"></button>
+    </div>
+
+    <div class="mb-3">
+      <div class="fw-semibold">
+        {{ grupoSelecionado?.nome || 'Grupo' }}
+      </div>
+      <small class="text-muted">
+        {{ grupoSelecionado?.cidade || '' }}
+        <span *ngIf="grupoSelecionado?.cidade && grupoSelecionado?.uf">-&nbsp;</span>
+        {{ grupoSelecionado?.uf || '' }}
+      </small>
+    </div>
+
+    <div class="mb-2">
+      <label class="form-label mb-1">Buscar assessor</label>
+      <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..." [(ngModel)]="buscaAssessorGrupo"
+        (ngModelChange)="filtrarAssessoresGrupo()" />
+    </div>
+
+    <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+      <button type="button"
+        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+        *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidGrupo = a.uid"
+        [class.active]="selectedAssessorUidGrupo === a.uid">
+        <div>
+          <div class="fw-semibold">{{ a.nome }}</div>
+          <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+        </div>
+        <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">
+          {{ a.rota }}
+        </span>
+      </button>
+
+      <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
+        Nenhum assessor encontrado.
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="fecharModalAssessorGrupo()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-success" [disabled]="!selectedAssessorUidGrupo"
+        (click)="confirmarEncaminharGrupo()">
+        Encaminhar grupo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — DETALHE DO GRUPO (estilo Central de Triagem)      -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="grupoDetalhe as gDet">
+  <div class="overlay__backdrop" (click)="fecharDetalheGrupo()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <div class="py-2">
+        <div class="fw-semibold">
+          GRUPO &gt; {{ gDet.nome || 'Grupo' }}
+        </div>
+        <small class="text-muted d-block">
+          Localidade:
+          {{ gDet.cidade || '—' }}
+          <span *ngIf="gDet.uf">/{{ gDet.uf }}</span>
+        </small>
+        <small class="text-muted d-block" *ngIf="gDet.coordenadorView?.nome">
+          Coordenador: {{ gDet.coordenadorView?.nome }}
+        </small>
+      </div>
+      <button type="button" class="btn-close" aria-label="Fechar" (click)="fecharDetalheGrupo()"></button>
+    </div>
+
+    <div class="py-2">
+      <h6 class="mt-1">
+        Membros ({{ qtdMembrosGrupo(gDet) }})
+      </h6>
+
+      <div class="border rounded" style="max-height: 260px; overflow-y: auto;">
+        <ng-container *ngIf="gDet.membrosView?.length; else semMembrosTpl">
+          <div class="px-3 py-2 border-bottom" *ngFor="let m of gDet.membrosView">
+            <div class="fw-semibold">
+              {{ m.nome || 'Sem nome' }}
+            </div>
+            <small class="text-muted d-block" *ngIf="m.cpf">
+              CPF: {{ cpfMask(m.cpf) }}
+            </small>
+            <small class="text-muted d-block" *ngIf="m.telefone">
+              Tel: {{ m.telefone }}
+            </small>
+          </div>
+        </ng-container>
+        <ng-template #semMembrosTpl>
+          <div class="px-3 py-2 text-muted">
+            Nenhum membro vinculado ao grupo.
+          </div>
+        </ng-template>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-outline-secondary" (click)="fecharDetalheGrupo()">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

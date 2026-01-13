@@ -1,0 +1,93 @@
+<div class="container py-4 crn-page">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 crn-header">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-people-fill me-2"></i>Novo Grupo Solidário
+    </h3>
+
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-secondary" routerLink="/grupos/relatorio">
+        <i class="bi bi-list-check me-1"></i> Relatório de Grupos
+      </a>
+    </div>
+  </div>
+
+  <div class="crn-card">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label crn-label">Nome do Grupo</label>
+        <div class="position-relative">
+          <i class="bi bi-type crn-input-icon"></i>
+          <input class="form-control crn-input" [(ngModel)]="nomeGrupo" placeholder="Ex.: Grupo Esperança" />
+        </div>
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label crn-label">CPF do Coordenador (Cliente aprovado)</label>
+        <div class="position-relative">
+          <i class="bi bi-person-vcard crn-input-icon"></i>
+          <input class="form-control crn-input" [(ngModel)]="coordenadorCpf" placeholder="Somente dígitos" />
+        </div>
+        <div class="form-text">O grupo será vinculado a este CPF.</div>
+      </div>
+
+      <div class="col-12">
+        <div class="d-flex align-items-center justify-content-between">
+          <label class="form-label crn-label mb-0">Integrantes</label>
+          <button class="btn btn-sm btn-outline-success" (click)="addIntegrante()">
+            <i class="bi bi-plus-lg me-1"></i>Adicionar integrante
+          </button>
+        </div>
+
+        <div *ngIf="integrantes.length === 0" class="text-muted small mt-2">
+          Nenhum integrante adicionado.
+        </div>
+
+        <!-- lista desktop -->
+        <div class="list-group mt-2 d-none d-md-block">
+          <div class="list-group-item d-flex align-items-center gap-2" *ngFor="let it of integrantes; index as i">
+            <div class="flex-fill">
+              <input class="form-control" [(ngModel)]="integrantes[i].cpf" placeholder="CPF (somente dígitos)" />
+            </div>
+            <div class="flex-fill">
+              <input class="form-control" [(ngModel)]="integrantes[i].nome" placeholder="Nome (opcional)" />
+            </div>
+            <button class="btn btn-outline-danger" (click)="removeIntegrante(i)">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- lista mobile -->
+        <div class="d-block d-md-none mt-2">
+          <div class="mobile-card shadow-sm border rounded-4 p-3 mb-2" *ngFor="let it of integrantes; index as i">
+            <div class="d-flex flex-column gap-2">
+              <input class="form-control" [(ngModel)]="integrantes[i].cpf" placeholder="CPF (somente dígitos)" />
+              <input class="form-control" [(ngModel)]="integrantes[i].nome" placeholder="Nome (opcional)" />
+              <button class="btn btn-outline-danger w-100" (click)="removeIntegrante(i)">
+                <i class="bi bi-trash me-1"></i> Remover
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Ações -->
+      <div class="col-12 d-flex gap-2 justify-content-end">
+        <button class="btn btn-outline-secondary" (click)="limpar()">
+          <i class="bi bi-eraser me-1"></i> Limpar
+        </button>
+        <button class="btn btn-success" [disabled]="salvando" (click)="salvarGrupo()">
+          <i class="bi bi-check2-circle me-1"></i>
+          {{ salvando ? 'Salvando...' : 'Criar Grupo' }}
+        </button>
+      </div>
+
+      <!-- Mensagens -->
+      <div *ngIf="msg" class="col-12">
+        <div class="alert" [ngClass]="ok ? 'alert-success' : 'alert-warning'">
+          {{ msg }}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

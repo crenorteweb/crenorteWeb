@@ -1,0 +1,744 @@
+<app-header></app-header>
+<br>
+<br><br><br><br>
+
+<div class="container py-4">
+  <!-- Header -->
+  <div
+    class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3"
+  >
+    <div>
+      <h3 class="fw-bold text-success mb-0">
+        <i class="bi bi-cash-coin me-2"></i>Central de Cobrança (Grupos)
+      </h3>
+  
+    </div>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      <button class="btn btn-success rounded-3" (click)="openCreateModal()">
+        <i class="bi bi-plus-lg me-1"></i> Criar Grupo de Cobrança
+      </button>
+      <span *ngIf="saving()" class="text-muted small">
+        <i class="bi bi-arrow-repeat me-1"></i>carregando…
+      </span>
+      <span *ngIf="msg()" class="text-muted small">{{ msg() }}</span>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card shadow-sm rounded-4 mb-3">
+    <div class="card-body">
+      <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+          <label class="form-label mb-1">Cidade</label>
+          <input
+            type="text"
+            class="form-control"
+            placeholder="ex.: Belém"
+            [(ngModel)]="filtroCidade"
+            name="fCidade"
+          />
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label mb-1">Venc. parcelas de</label>
+          <input
+            type="date"
+            class="form-control"
+            [(ngModel)]="dataIni"
+            name="fIni"
+          />
+        </div>
+        <div class="col-6 col-md-3">
+          <label class="form-label mb-1">Venc. parcelas até</label>
+          <input
+            type="date"
+            class="form-control"
+            [(ngModel)]="dataFim"
+            name="fFim"
+          />
+        </div>
+        <div class="col-12 col-md-3">
+          <label class="form-label mb-1"
+            >Buscar (unidade, contrato, grupo, membro…)</label
+          >
+          <input
+            type="text"
+            class="form-control"
+            placeholder="Unidade, contrato, operador, grupo, membro…"
+            [(ngModel)]="textoBusca"
+            name="fBusca"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nenhum resultado -->
+  <div
+    class="alert alert-light border rounded-4 d-flex align-items-center gap-2"
+    *ngIf="gruposFiltrados().length === 0"
+  >
+    <i class="bi bi-inboxes text-muted fs-4"></i>
+    <div>
+      <div class="fw-semibold">Nenhum grupo encontrado com os filtros atuais.</div>
+      <small class="text-muted"
+        >Ajuste os filtros de cidade, vencimento ou busca livre.</small
+      >
+    </div>
+  </div>
+
+  <!-- LISTA: UNIDADE → CONTRATO (DROPDOWN) -->
+  <div class="row g-3">
+    <div class="col-12" *ngFor="let g of gruposFiltrados()">
+      <div class="card shadow-sm rounded-4">
+        <!-- Cabeçalho -->
+        <div
+          class="card-header bg-white border-0 rounded-top-4 py-3 px-3 d-flex flex-wrap align-items-center justify-content-between gap-2"
+        >
+          <div class="d-flex flex-column">
+            <div class="d-flex flex-wrap align-items-center gap-2">
+              <span class="badge text-bg-primary rounded-pill">
+                <i class="bi bi-building me-1"></i>
+                {{ g.unidade || 'Unidade não informada' }}
+              </span>
+
+              <span class="fw-semibold">
+                Contrato #{{ g.numeroContrato }}
+                <span *ngIf="g.numeroProposta">
+                  • Proposta {{ g.numeroProposta }}
+                </span>
+              </span>
+
+              <span
+                class="badge rounded-pill"
+                [ngClass]="{
+                  'text-bg-success': g.situacao === 'Pago' || g.situacao === 'Quitado',
+                  'text-bg-danger': g.situacao === 'Atrasado',
+                  'text-bg-secondary':
+                    !g.situacao || g.situacao === 'Não Pago'
+                }"
+              >
+                {{ g.situacao || 'Situação não informada' }}
+              </span>
+            </div>
+
+            <div class="small text-muted mt-1">
+              <span class="me-2">
+                <i class="bi bi-people me-1"></i>
+                Grupo: <b>{{ g.nomeGrupo || '—' }}</b>
+              </span>
+              <span class="me-2">
+                <i class="bi bi-geo-alt me-1"></i>
+                {{ g.cidade || 'Cidade não informada' }}/{{ g.uf || 'UF' }}
+              </span>
+              <span>
+                <i class="bi bi-person-badge me-1"></i>
+                Operador: <b>{{ g.operador || '—' }}</b>
+              </span>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <ng-container *ngIf="kpiGrupo(g) as k">
+              <span class="badge rounded-pill text-bg-warning">
+                D-15: {{ k.d15 }}
+              </span>
+              <span class="badge rounded-pill text-bg-warning">
+                D-7: {{ k.d7 }}
+              </span>
+              <span class="badge rounded-pill text-bg-danger">
+                Hoje: {{ k.d0 }}
+              </span>
+              <span class="badge rounded-pill text-bg-danger">
+                Atraso: {{ k.atraso }}
+              </span>
+              <span class="badge rounded-pill text-bg-secondary">
+                Em aberto: {{ k.emAberto }}
+              </span>
+            </ng-container>
+
+            <button
+              class="btn btn-outline-secondary btn-sm d-flex align-items-center gap-1"
+              type="button"
+              (click)="toggle(g.id)"
+            >
+              <span>Detalhes</span>
+              <i
+                class="bi"
+                [ngClass]="{
+                  'bi-chevron-down': !expanded()[g.id],
+                  'bi-chevron-up': expanded()[g.id]
+                }"
+              ></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- DROPDOWN -->
+        <div class="card-body pt-0" *ngIf="expanded()[g.id]">
+          <!-- Resumo -->
+          <div class="border-bottom pb-3 mb-3">
+            <div class="row g-3 small">
+              <div class="col-12 col-md-4">
+                <div class="fw-semibold mb-1">Datas da Proposta</div>
+                <div>
+                  <span class="text-muted">Liberação:</span>
+                  <b>
+                    <ng-container *ngIf="g.dataLiberacao; else semLib">
+                      {{ g.dataLiberacao.toDate() | date : 'dd/MM/yyyy' }}
+                    </ng-container>
+                    <ng-template #semLib>—</ng-template>
+                  </b>
+                </div>
+                <div>
+                  <span class="text-muted">Vencimento Proposta:</span>
+                  <b>
+                    <ng-container
+                      *ngIf="g.dataVencimentoProposta; else semVenc"
+                    >
+                      {{
+                        g.dataVencimentoProposta.toDate()
+                          | date : 'dd/MM/yyyy'
+                      }}
+                    </ng-container>
+                    <ng-template #semVenc>—</ng-template>
+                  </b>
+                </div>
+                <div>
+                  <span class="text-muted">Conclusão Proposta:</span>
+                  <b>
+                    <ng-container
+                      *ngIf="g.dataConclusaoProposta; else semConc"
+                    >
+                      {{
+                        g.dataConclusaoProposta.toDate()
+                          | date : 'dd/MM/yyyy'
+                      }}
+                    </ng-container>
+                    <ng-template #semConc>—</ng-template>
+                  </b>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <div class="fw-semibold mb-1">Valores</div>
+                <div>
+                  <span class="text-muted">Parcela Individual (padrão):</span>
+                  <b *ngIf="g.valorParcelaIndividual != null; else noValInd">
+                    R$
+                    {{ g.valorParcelaIndividual | number : '1.2-2' }}
+                  </b>
+                  <ng-template #noValInd><b>—</b></ng-template>
+                </div>
+                <div>
+                  <span class="text-muted">Parcela Grupo:</span>
+                  <b *ngIf="g.valorParcelaGrupo != null; else noValGrp">
+                    R$
+                    {{ g.valorParcelaGrupo | number : '1.2-2' }}
+                  </b>
+                  <ng-template #noValGrp><b>—</b></ng-template>
+                </div>
+                <div>
+                  <span class="text-muted">Valor Total Proposta:</span>
+                  <b *ngIf="g.valorTotalProposta != null; else noValTot">
+                    R$
+                    {{ g.valorTotalProposta | number : '1.2-2' }}
+                  </b>
+                  <ng-template #noValTot><b>—</b></ng-template>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-4">
+                <div class="fw-semibold mb-1">Membros do Grupo</div>
+                <div>
+                  <span class="text-muted">Nº de Membros:</span>
+                  <b>
+                    {{
+                      g.numeroMembros != null
+                        ? g.numeroMembros
+                        : (g.integrantes?.length || '—')
+                    }}
+                  </b>
+                </div>
+                <div>
+                  <span class="text-muted">Lista (proposta):</span>
+                  <div
+                    class="border rounded-3 p-2 bg-light-subtle mt-1"
+                    style="max-height: 80px; overflow: auto"
+                  >
+                    <small>{{ g.nomesMembros || '—' }}</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Integrantes + Parcelas -->
+          <div class="row g-3">
+            <!-- Integrantes -->
+            <div class="col-12 col-lg-5">
+              <div class="border rounded-3 p-3 h-100">
+                <div
+                  class="d-flex align-items-center justify-content-between mb-2"
+                >
+                  <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-person-lines-fill me-2"></i>
+                    Integrantes do Grupo
+                  </h6>
+                  <small class="text-muted">
+                    {{ g.integrantes?.length || 0 }} membro(s)
+                  </small>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th class="text-end">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        *ngIf="!g.integrantes || g.integrantes.length === 0"
+                      >
+                        <td colspan="3" class="text-center text-muted py-3">
+                          Nenhum integrante cadastrado para este grupo.
+                        </td>
+                      </tr>
+
+                      <tr *ngFor="let i of g.integrantes">
+                        <td>
+                          <span class="fw-semibold">{{ i.nome }}</span>
+                        </td>
+                        <td>
+                          <span class="small">
+                            {{ i.telefone1 || '-' }}
+                          </span>
+                        </td>
+                        <td class="text-end">
+                          <ng-container
+                            *ngIf="i.valorIndividual != null; else semValorInd"
+                          >
+                            R$ {{ i.valorIndividual | number : '1.2-2' }}
+                          </ng-container>
+                          <ng-template #semValorInd>—</ng-template>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="small text-muted mt-2">
+                  Membros cadastrados na proposta são sincronizados com a
+                  subcoleção de integrantes deste contrato.
+                </div>
+              </div>
+            </div>
+
+            <!-- Parcelas do Contrato -->
+            <div class="col-12 col-lg-7">
+              <div class="border rounded-3 p-3 h-100">
+                <div
+                  class="d-flex align-items-center justify-content-between mb-2"
+                >
+                  <h6 class="mb-0 fw-semibold">
+                    <i class="bi bi-clipboard2-check me-2"></i>
+                    Parcelas do Contrato
+                  </h6>
+                  <small class="text-muted">
+                    {{ g.parcelas?.length || 0 }} parcela(s)
+                  </small>
+                </div>
+
+                <div class="table-responsive">
+                  <table class="table table-sm mb-0 align-middle">
+                    <thead class="table-light">
+                      <tr>
+                        <th>#</th>
+                        <th>Vencimento</th>
+                        <th class="text-end">Valor</th>
+                        <th>Status</th>
+                        <th style="width: 170px">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        *ngIf="!g.parcelas || g.parcelas.length === 0"
+                      >
+                        <td colspan="5" class="text-center text-muted py-3">
+                          Nenhuma parcela cadastrada.
+                        </td>
+                      </tr>
+
+                      <tr *ngFor="let p of g.parcelas">
+                        <td>{{ p.parcela }}</td>
+                        <td>
+                          {{ p.vencimento.toDate() | date : 'dd/MM/yyyy' }}
+                        </td>
+                        <td class="text-end">
+                          R$
+                          {{ p.valorParcela | number : '1.2-2' }}
+                        </td>
+                        <td>
+                          <span
+                            class="badge"
+                            [ngClass]="{
+                              'text-bg-success': p.pago,
+                              'text-bg-secondary': !p.pago
+                            }"
+                          >
+                            {{ p.pago ? 'Pago' : 'Não pago' }}
+                          </span>
+                        </td>
+                        <td class="d-flex gap-2">
+                          <button
+                            class="btn btn-outline-primary btn-sm"
+                            [disabled]="p.pago"
+                            (click)="
+                              openPayModal(
+                                g.id,
+                                (p.id || ('' + p.parcela)),
+                                'Parcela ' + p.parcela
+                              )
+                            "
+                          >
+                            Marcar pago
+                          </button>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div class="small text-muted mt-2">
+                  Os status de D-15, D-7, Hoje e Atraso são consolidados nos
+                  KPIs do cabeçalho do contrato.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /dropdown -->
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Criar Grupo de Cobrança -->
+  <div
+    class="modal fade show d-block"
+    tabindex="-1"
+    *ngIf="showCreateModal()"
+    style="background: rgba(0, 0, 0, 0.5)"
+  >
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-people-fill me-2"></i>Criar Grupo de Cobrança
+          </h5>
+          <button
+            type="button"
+            class="btn-close"
+            (click)="closeCreateModal()"
+          ></button>
+        </div>
+        <div class="modal-body">
+          <form class="row g-3" #fGrupo="ngForm" (ngSubmit)="salvarGrupo()">
+            <!-- 1: Contrato / Proposta / Unidade -->
+            <div class="col-12 col-md-4">
+              <label class="form-label">Número do Contrato *</label>
+              <input
+                type="text"
+                class="form-control"
+                name="numeroContrato"
+                [(ngModel)]="numeroContrato"
+                required
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Número da Proposta</label>
+              <input
+                type="text"
+                class="form-control"
+                name="numeroProposta"
+                [(ngModel)]="numeroProposta"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Unidade</label>
+              <input
+                type="text"
+                class="form-control"
+                name="unidade"
+                [(ngModel)]="unidade"
+              />
+            </div>
+
+            <!-- 2: Nome Grupo / Cidade / UF -->
+            <div class="col-12 col-md-6">
+              <label class="form-label">Nome do Grupo</label>
+              <input
+                type="text"
+                class="form-control"
+                name="nomeGrupo"
+                [(ngModel)]="nomeGrupo"
+              />
+            </div>
+            <div class="col-8 col-md-4">
+              <label class="form-label">Cidade</label>
+              <input
+                type="text"
+                class="form-control"
+                name="cidade"
+                [(ngModel)]="cidade"
+              />
+            </div>
+            <div class="col-4 col-md-2">
+              <label class="form-label">UF</label>
+              <select class="form-select" name="uf" [(ngModel)]="uf">
+                <option value="">–</option>
+                <option
+                  *ngFor="
+                    let s of [
+                      'AC',
+                      'AL',
+                      'AM',
+                      'AP',
+                      'BA',
+                      'CE',
+                      'DF',
+                      'ES',
+                      'GO',
+                      'MA',
+                      'MG',
+                      'MS',
+                      'MT',
+                      'PA',
+                      'PB',
+                      'PE',
+                      'PI',
+                      'PR',
+                      'RJ',
+                      'RN',
+                      'RO',
+                      'RR',
+                      'RS',
+                      'SC',
+                      'SE',
+                      'SP',
+                      'TO'
+                    ]
+                  "
+                  [value]="s"
+                >
+                  {{ s }}
+                </option>
+              </select>
+            </div>
+
+            <!-- 3: Datas -->
+            <div class="col-12 col-md-4">
+              <label class="form-label">Data de Liberação da Proposta</label>
+              <input
+                type="date"
+                class="form-control"
+                name="dataLiberacaoInput"
+                [(ngModel)]="dataLiberacaoInput"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Data do Vencimento</label>
+              <input
+                type="date"
+                class="form-control"
+                name="dataVencimentoInput"
+                [(ngModel)]="dataVencimentoInput"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Data da Conclusão da Proposta</label>
+              <input
+                type="date"
+                class="form-control"
+                name="dataConclusaoInput"
+                [(ngModel)]="dataConclusaoInput"
+              />
+            </div>
+
+            <!-- 4: Membros (nome + telefone + valor individual) -->
+            <div class="col-12">
+              <label
+                class="form-label d-flex justify-content-between align-items-center"
+              >
+                Membros do Grupo
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-primary"
+                  (click)="addIntegranteLinha()"
+                >
+                  <i class="bi bi-plus-lg me-1"></i>Adicionar membro
+                </button>
+              </label>
+
+              <div class="border rounded-3 p-2 bg-light-subtle">
+                <div
+                  class="row g-2 align-items-end mb-2"
+                  *ngFor="let m of integrantesForm; let idx = index"
+                >
+                  <div class="col-12 col-md-5">
+                    <label class="form-label small mb-1">
+                      Nome do Membro {{ idx + 1 }}
+                    </label>
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      [name]="'membroNome' + idx"
+                      [(ngModel)]="m.nome"
+                    />
+                  </div>
+
+                  <div class="col-6 col-md-3">
+                    <label class="form-label small mb-1">Telefone</label>
+                    <input
+                      type="text"
+                      class="form-control form-control-sm"
+                      placeholder="(xx) xxxxx-xxxx"
+                      [name]="'membroTelefone' + idx"
+                      [(ngModel)]="m.telefone1"
+                    />
+                  </div>
+
+                  <div class="col-6 col-md-3">
+                    <label class="form-label small mb-1">
+                      Valor Parcela Individual
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      class="form-control form-control-sm"
+                      [name]="'membroValor' + idx"
+                      [(ngModel)]="m.valorIndividual"
+                    />
+                  </div>
+
+                  <div class="col-12 col-md-1 d-flex justify-content-end">
+                    <button
+                      type="button"
+                      class="btn btn-sm btn-outline-danger mt-4"
+                      (click)="removeIntegranteLinha(idx)"
+                      [disabled]="integrantesForm.length === 1"
+                    >
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 5: Valores gerais -->
+            <div class="col-12 col-md-4">
+              <label class="form-label">Valor da Parcela Individual (padrão)</label>
+              <input
+                type="number"
+                step="0.01"
+                class="form-control"
+                name="valorParcelaIndividual"
+                [(ngModel)]="valorParcelaIndividual"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Valor da Parcela do Grupo</label>
+              <input
+                type="number"
+                step="0.01"
+                class="form-control"
+                name="valorParcelaGrupo"
+                [(ngModel)]="valorParcelaGrupo"
+              />
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Valor Total da Proposta</label>
+              <input
+                type="number"
+                step="0.01"
+                class="form-control"
+                name="valorTotalProposta"
+                [(ngModel)]="valorTotalProposta"
+              />
+            </div>
+
+            <!-- 6: Situação / Operador -->
+            <div class="col-12 col-md-4">
+              <label class="form-label">Situação</label>
+              <select class="form-select" name="situacao" [(ngModel)]="situacao">
+                <option value="">–</option>
+                <option value="Pago">Pago</option>
+                <option value="Não Pago">Não Pago</option>
+                <option value="Atrasado">Atrasado</option>
+                <option value="Quitado">Quitado</option>
+              </select>
+            </div>
+            <div class="col-12 col-md-8">
+              <label class="form-label">Operador</label>
+              <input
+                type="text"
+                class="form-control"
+                name="operador"
+                [(ngModel)]="operador"
+              />
+            </div>
+
+            <!-- Botões -->
+            <div class="col-12 d-flex justify-content-end gap-2 mt-3">
+              <button
+                type="button"
+                class="btn btn-light"
+                (click)="closeCreateModal()"
+              >
+                Cancelar
+              </button>
+              <button class="btn btn-success" [disabled]="!fGrupo.form.valid">
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: Confirmar Pagamento -->
+  <div
+    class="modal fade show d-block"
+    tabindex="-1"
+    *ngIf="showPayModal()"
+    style="background: rgba(0, 0, 0, 0.5)"
+  >
+    <div class="modal-dialog">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="bi bi-check2-square me-2"></i>Confirmar pagamento
+          </h5>
+          <button
+            type="button"
+            class="btn-close"
+            (click)="closePayModal()"
+          ></button>
+        </div>
+        <div class="modal-body">
+          Deseja marcar como paga <b>{{ payParcelaLabel() }}</b>?
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-light" (click)="closePayModal()">
+            Cancelar
+          </button>
+          <button class="btn btn-primary" (click)="confirmarPagamento()">
+            Confirmar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

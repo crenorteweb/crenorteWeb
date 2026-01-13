@@ -1,0 +1,40 @@
+<!-- HEADER FIXO -->
+<header class="app-header py-4 fixed-top bg-white border-bottom shadow-sm">
+  <div class="container-fluid py-2">
+    <div class="d-flex align-items-center justify-content-between px-2 flex-wrap">
+
+      <!-- Bloco ESQUERDA: avatar + nome + papel -->
+      <ng-container *ngIf="perfil$ | async as perfil; else entrar">
+        <div class="d-flex align-items-center gap-2 user-box">
+          <!-- Avatar -->
+          <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+            style="width: 36px; height: 36px; font-size: 14px;">
+            {{ perfil.nome.charAt(0) | uppercase }} </div>
+
+          <!-- Nome e papel -->
+          <div class="d-flex flex-column">
+            <span class="fw-semibold text-dark lh-1">{{ perfil.nome }}</span>
+            <small class="text-muted">{{ perfil.papel }}</small>
+          </div>
+        </div>
+
+        <!-- Bloco DIREITA: botão sair -->
+        <div>
+          <button class="btn btn-outline-danger btn-sm px-3" (click)="auth.logout()">
+            <i class="bi bi-box-arrow-right"></i> Sair
+          </button>
+        </div>
+      </ng-container>
+
+      <!-- Se não logado -->
+      <ng-template #entrar>
+        <div class="ms-auto">
+          <a class="btn btn-success btn-sm px-3" routerLink="/login">
+            <i class="bi bi-person-circle"></i> Entrar
+          </a>
+        </div>
+      </ng-template>
+
+    </div>
+  </div>
+</header>

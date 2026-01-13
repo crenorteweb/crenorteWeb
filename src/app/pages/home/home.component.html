@@ -1,0 +1,232 @@
+<app-header></app-header>
+
+<ng-container *ngIf="perfil$ | async as perfil; else loginCTA">
+  <div class="container-fluid bg-light min-vh-100 d-flex flex-column align-items-center justify-content-center py-5">
+
+    <!-- Logo e título -->
+    <div class="text-center mb-5 mt-5">
+      <img class="mt-5" src="../../../assets/img/logo2-crenorte.png" alt="Logo Crenorte" />
+      <h2 class="text-success fw-bold mt-2">Bem-vindo ao Sistema CRENORTE</h2>
+      <div class="badge crn-badge-live mt-2">Perfil: {{ perfil.papel | titlecase }}</div>
+    </div>
+
+    <!-- Módulos (cards) -->
+    <div class="row w-100 justify-content-center g-3 g-md-4 px-3">
+
+      <!-- ===================== VISÃO ASSESSOR ===================== -->
+      <ng-container *ngIf="hasAny(perfil.papel, ['assessor'])">
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/novo" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-person-plus"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Novo Pré-cadastro</div>
+            <small class="text-muted d-block">Registrar interessado rapidamente</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Minha Lista
+              (Pré-Cadastros)</div>
+            <small class="text-muted d-block">Seus pré-cadastros</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/agendamentos" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-calendar-plus"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Agendamentos</div>
+            <small class="text-muted d-block">Consultar meus agendamentos</small>
+          </a>
+        </div>
+
+      </ng-container>
+
+      <!-- ===================== VISÃO ANALISTA / SUPERVISOR ===================== -->
+      <ng-container *ngIf="hasAny(perfil.papel, ['analista', 'supervisor', 'coordenador'])">
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Minha Lista Pré-Cadastro
+            </div>
+            <small class="text-muted d-block">Seus pré-cadastros</small>
+          </a>
+        </div>
+
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/triagem-supervisao" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-diagram-2-fill"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Encaminhamento</div>
+            <small class="text-muted d-block">Vincular pré-cadastro</small>
+          </a>
+        </div>
+
+
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/organograma" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-bezier"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Organograma</div>
+            <small class="text-muted d-block">Time de Assessores</small>
+          </a>
+        </div>
+
+
+      </ng-container>
+
+      <!-- ===================== VISÃO ADMIN  ===================== -->
+      <ng-container *ngIf="hasAny(perfil.papel, ['admin'])">
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/novo" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-person-plus"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Novo Pré-cadastro</div>
+            <small class="text-muted d-block">Registrar interessado</small>
+          </a>
+        </div>
+        <!-- 
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/cadastro/novo" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-person-vcard"></i></div>
+            <div class="mt-2 fw-bold text-dark">Novo Cadastro</div>
+            <small class="text-muted d-block">Abrir ficha completa</small>
+          </a>
+        </div>
+
+      -->
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/grupos/novo" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-people"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Criar Grupo Solidário
+            </div>
+            <small class="text-muted d-block">Criar grupo solidário a partir de cadastros aprovados</small>
+          </a>
+        </div>
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Minha Lista (Pré-Cadastro)
+            </div>
+            <small class="text-muted d-block">Pré-cadastros do seu usuário</small>
+          </a>
+        </div>
+
+        <!-- 
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/listagem" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-card-checklist"></i></div>
+            <div class="mt-2 fw-bold text-dark">Listagem Cadastros</div>
+            <small class="text-muted d-block">Todos os Cadastros</small>
+          </a>
+        </div>
+      -->
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastros" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-card-text"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Relatório</span><br>Listagem Pré-Cadastros
+            </div>
+            <small class="text-muted d-block">Todos os Pré-Cadastros</small>
+          </a>
+        </div>
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/grupos" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-person-lines-fill"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Relatório</span> <br>Listagem Grupos</div>
+            <small class="text-muted d-block">Listagem de todos os Grupos</small>
+          </a>
+        </div>
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/listagem-agendamentos" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-card-text"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Relatório</span> <br>Listagem Agendamentos
+            </div>
+            <small class="text-muted d-block">Todos os Agendamentos</small>
+          </a>
+        </div>
+        <!--
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/relatorio" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-graph-up"></i></div>
+            <div class="mt-2 fw-bold text-dark">Relatório Pré-cadastro</div>
+            <small class="text-muted d-block">Indicadores e ranking por assessor</small>
+          </a>
+        </div> -->
+
+
+
+
+      </ng-container>
+
+      <!-- ===================== VISÃO Operacional ===================== -->
+      <ng-container *ngIf="hasAny(perfil?.papel, ['operacional', 'admin'])">
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/triagem" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-diagram-3-fill"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Central da Triagem</div>
+            <small class="text-muted d-block">Vincular por Analista</small>
+          </a>
+        </div>
+
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/aprovacao-pre-cadastro" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-check-square"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Aprovação</div>
+            <small class="text-muted d-block">Marcar Apto ou Inapto</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/cobranca" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-receipt-cutoff"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Central de Cobrança</div>
+            <small class="text-muted d-block">Módulo para gerenciamento de cobrança</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/organograma" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-bezier"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Organograma</div>
+            <small class="text-muted d-block">Organograma completo da Operação</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/colaboradores" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-people-fill"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Colaboradores</div>
+            <small class="text-muted d-block">Gerenciar e criar novos colaboradores</small>
+          </a>
+        </div>
+
+      </ng-container>
+
+    </div>
+  </div>
+</ng-container>
+
+<!-- CTA para login quando não autenticado -->
+<ng-template #loginCTA>
+  <div class="container-fluid bg-light min-vh-100 d-flex flex-column align-items-center justify-content-center">
+    <div class="text-center">
+      <img src="../../../assets/img/logo2-crenorte.png" alt="Logo Crenorte" />
+      <h2 class="text-success fw-bold mt-3">Bem-vindo ao Sistema CRENORTE</h2>
+      <p class="mt-2">Faça login para acessar o dashboard.</p>
+      <a class="btn btn-success" routerLink="/login">Entrar</a>
+    </div>
+  </div>
+</ng-template>

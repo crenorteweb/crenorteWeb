@@ -1,0 +1,1 @@
+import{Ua as n,ib as t,jb as s,xb as a}from"./chunk-2KT3GOAN.js";var c=class o{static \u0275fac=function(e){return new(e||o)};static \u0275cmp=n({type:o,selectors:[["app-acesso-negado"]],decls:2,vars:0,template:function(e,i){e&1&&(t(0,"p"),a(1,"acesso-negado works!"),s())},encapsulation:2})};export{c as AcessoNegadoComponent};

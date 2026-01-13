@@ -1,0 +1,329 @@
+/* ==========================================================
+   C R E N O R T E – Tema bancário (verde #006e37)
+   ========================================================== */
+
+:host {
+  --crn-green: #006e37;
+  --crn-green-ink: #064d2b;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --crn-ink-900: #0f1c16;
+  --crn-ink-700: #23423a;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 10px 26px rgba(0,0,0,.1);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.14);
+}
+
+/* (opcional) deixar o status um pouco mais estreito/largo */
+.crn-table thead th:nth-child(6),
+.crn-table tbody td:nth-child(6){ width: 140px; } /* já está 14% no seu CSS; aqui forçamos 140px */
+
+
+/* -------- Página / Header ---------- */
+.crn-page { background: #f7f9fb; }
+
+.crn-header h3 {
+  color: var(--crn-ink-900);
+  font-weight: 900;
+  letter-spacing: .2px;
+}
+.crn-badge-live{
+  background: #e6f4ec;
+  color: var(--crn-green);
+  border: 1px solid #cfe6d9;
+  border-radius: 999px;
+  font-weight: 800;
+  padding: .4rem .7rem;
+}
+
+/* -------- Cartão / Filtro ---------- */
+.crn-card {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  position: relative;
+}
+.crn-card::before {
+  content:"";
+  position:absolute; inset:0;
+  background: linear-gradient(90deg, var(--crn-green), var(--crn-green)) top left/100% 4px no-repeat;
+  border-radius: 16px;
+}
+
+/* Inputs */
+.crn-label { font-weight: 700; color: var(--crn-ink-700); }
+.crn-input {
+  border-radius: 12px;
+  border-color: var(--crn-border);
+  padding: .65rem .9rem .65rem 2.2rem;
+  transition: all .15s ease;
+}
+.crn-input:focus {
+  border-color: var(--crn-green);
+  box-shadow: 0 0 0 .18rem rgba(0,110,55,.18);
+}
+.crn-input-icon{
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  color:#9db6ac; pointer-events:none;
+}
+
+/* -------- KPIs ---------- */
+.crn-kpi{
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.crn-kpi__label{ color:#5a6c66; font-weight:700; font-size:.85rem; }
+.crn-kpi__value{
+  color: var(--crn-green);
+  font-size:1.6rem; font-weight:900; line-height:1.1;
+}
+.crn-kpi__hint{ color:#8aa098; font-size:.8rem; }
+
+/* -------- Tabela (md e acima) ---------- */
+.crn-table-wrap{
+  background:#fff; border:1px solid var(--crn-border);
+  border-radius:18px; box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.crn-table{
+  table-layout: fixed; width:100%; margin:0;
+}
+.crn-table thead{
+  background: #f2fbf7;
+  box-shadow: inset 0 -1px 0 var(--crn-border);
+  position: sticky; top: 0; z-index: 1;
+}
+.crn-table thead th{
+  border:none; padding:.85rem .9rem;
+  font-size:.78rem; letter-spacing:.08em;
+  text-transform:uppercase; font-weight:900; color:#2a3f36;
+}
+
+/* larguras */
+.crn-table thead th:nth-child(1),
+.crn-table tbody td:nth-child(1){ width:72px; text-align:center; }
+.crn-table thead th:nth-child(2),
+.crn-table tbody td:nth-child(2){ width:28%; }
+.crn-table thead th:nth-child(3),
+.crn-table tbody td:nth-child(3){ width:16%; }
+.crn-table thead th:nth-child(4),
+.crn-table tbody td:nth-child(4){ width:16%; }
+.crn-table thead th:nth-child(5),
+.crn-table tbody td:nth-child(5){ width:18%; }
+.crn-table thead th:nth-child(6),
+.crn-table tbody td:nth-child(6){ width:14%; }
+.crn-table thead th:nth-child(7),
+.crn-table tbody td:nth-child(7){ width:120px; }
+
+/* corpo */
+.crn-table tbody td{
+  border-color: var(--crn-border) !important;
+  padding:.85rem .9rem; color:#14221c; font-weight:500;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* hover bancário – sutil */
+.crn-table tbody tr{
+  position:relative; transition: background .12s ease;
+}
+.crn-table tbody tr:hover{
+  background: var(--crn-green-soft);
+}
+.crn-table tbody tr:hover::before{
+  content:""; position:absolute; left:0; top:0; bottom:0;
+  width:3px; background: var(--crn-green);
+}
+
+/* Miniatura */
+.crn-thumb{
+  width:48px; height:48px; object-fit:cover;
+  border-radius:10px; border:3px solid transparent;
+  background:
+    linear-gradient(#fff,#fff) padding-box,
+    linear-gradient(135deg, var(--crn-green), var(--crn-green)) border-box;
+  box-shadow:0 4px 10px rgba(0,0,0,.08);
+  cursor:pointer; transition: transform .1s ease, box-shadow .1s ease;
+}
+.crn-thumb:hover{ transform: translateY(-1px) scale(1.02); box-shadow: var(--shadow-md); }
+
+/* chips / textos */
+.crn-chip-muted{
+  background:#eef6f2; color:var(--crn-green);
+  border: 1px dashed #cfe6d9;
+  border-radius:999px; font-weight:800; padding:.32rem .6rem;
+}
+.crn-name{ font-weight:900; color:#0e2a1f; }
+.crn-cpf{
+  display:inline-block; background:#f5f7f6;
+  border:1px solid var(--crn-border);
+  padding:.28rem .55rem; border-radius:10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color:#213a31;
+}
+.crn-money{ color: var(--crn-green); font-weight:900; }
+
+
+/* Paginação */
+.pagination .page-link{
+  color: var(--crn-green);
+  border:1px solid var(--crn-border);
+  border-radius:999px !important; background:#fff;
+}
+.pagination .page-item.active .page-link{
+  color:#fff; background: var(--crn-green); border-color: var(--crn-green);
+  box-shadow: 0 8px 18px rgba(0,110,55,.2);
+}
+
+/* Alertas */
+.crn-alert-info{
+  background:#fff; border:1px solid var(--crn-border);
+  color:#335a4b; border-radius:12px;
+}
+.crn-alert-warn{
+  background:#fff8f2; border:1px solid #ffe1c8; color:#7a4a00; border-radius:12px;
+}
+
+/* Modal */
+.crn-modal{
+  border-radius:18px; border:1px solid var(--crn-border);
+  box-shadow: var(--shadow-lg);
+}
+.crn-modal .modal-header{
+  background: linear-gradient(180deg, #f2fbf7, #fff);
+  border-bottom-color: var(--crn-border);
+}
+.crn-modal .modal-footer{ border-top-color: var(--crn-border); }
+
+/* Interações */
+.cursor-pointer{ cursor:pointer; }
+.cursor-pointer:hover{ color: var(--crn-green); }
+
+/* ==========================================================
+   ADIÇÕES PARA RESPONSIVIDADE (lista mobile + ajustes)
+   ========================================================== */
+
+/* Fallback geral quando existir .table-responsive (mantém rolagem suave) */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Evita corte feio em células de tabelas genéricas */
+.table td, .table th {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.table .text-truncate { max-width: 320px; }
+
+/* ---- Mobile Card List (exibida apenas em sm) ---- */
+/* Evitar qualquer sangramento do conteúdo do card */
+.mobile-card {
+  overflow: hidden;
+}
+
+/* Permite que os filhos encolham e o ellipsis funcione */
+.mobile-card * {
+  min-width: 0;
+}
+
+/* Cabeçalho do card: quebra elegante */
+.mobile-card .header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;           /* <- badge cai pra linha de baixo se faltar espaço */
+}
+
+/* Título com ellipsis e prioridade maior que o badge */
+.mobile-card .title-truncate {
+  flex: 1 1 auto;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+/* Badge do valor: nunca ultrapassa, quebra de linha permitida */
+.mobile-card .value-badge {
+  flex: 0 0 auto;
+  white-space: nowrap;       /* mantém “R$ 6.000,00” numa linha quando houver espaço */
+  max-width: 100%;
+  margin-left: auto;         /* encosta na direita quando couber */
+}
+
+/* Área da linha principal do card (foto + conteúdo) bem alinhada */
+.mobile-card > .d-flex {
+  align-items: center;
+}
+
+/* Garantir que botão não estoure a largura */
+.mobile-card .btn {
+  width: 100%;
+}
+
+/* Se a tela for muito estreita, permita o badge reduzir um pouco o font-size */
+@media (max-width: 360px) {
+  .mobile-card .value-badge {
+    font-size: 0.875rem;
+  }
+}
+.mobile-card .no-photo {
+  width: 56px;
+  height: 56px;
+  background: #f3f4f6;
+  color: #9aa0a6;
+  font-weight: 700;
+}
+
+/* Badges no mobile (valor) */
+.mobile-card .badge.bg-light {
+  border: 1px solid var(--crn-border);
+}
+
+/* Modal: imagem responsiva */
+.modal .ratio img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+/* ---- Fine-tuning responsivo ---- */
+@media (max-width: 991.98px) {
+  /* Ajuste de densidade em tablets */
+  .crn-kpi { padding: 12px; }
+  .crn-kpi__value { font-size: 1.4rem; }
+}
+/* mobile: título pode quebrar em várias linhas sem empurrar botões */
+@media (max-width: 767.98px) {
+  .mobile-card .title-wrap {
+    margin-right: 0;          /* garante largura total */
+    line-height: 1.25;
+    /* opcional: limitar a 2 linhas
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    */
+  }
+  .mobile-card .action-row {
+    margin-top: .5rem;        /* afasta das infos */
+  }
+  .mobile-card .no-photo {
+    width: 56px; height: 56px;
+    background: #f8f9fa; color: #adb5bd;
+    font-weight: 700;
+  }
+}
+
+
+@media (max-width: 360px) {
+  .mobile-card h6 { max-width: 160px; }
+  .pagination .page-link { padding: .3rem .5rem; }
+}

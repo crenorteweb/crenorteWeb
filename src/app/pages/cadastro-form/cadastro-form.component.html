@@ -1,0 +1,718 @@
+<div class="container-fluid py-4">
+  <form (ngSubmit)="salvar()" #form="ngForm" class="container py-4 card-crenorte shadow-lg rounded">
+
+    <!-- HEADER -->
+    <div class="form-header d-flex justify-content-between align-items-center mb-3">
+      <div class="title-box px-2">
+        <h2 class="form-title mb-0">Cadastro de Cliente</h2>
+        <small class="subtitle">Microcrédito Produtivo Orientado</small>
+      </div>
+      <div class="logo-box">
+        <img src="../../../assets/img/logo2-crenorte.png" alt="Logo CRENORTE" class="logo-img" style="max-height:90px;">
+      </div>
+    </div>
+
+    <!-- IDENTIFICAÇÃO E PERFIL -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Identificação e Perfil</legend>
+
+      <!-- Linha 1: Nome, CPF, RG -->
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Nome Completo</label>
+          <input class="form-control" name="nomeCompleto" [(ngModel)]="cliente.nomeCompleto" required />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">CPF</label>
+          <input class="form-control" name="cpf" [(ngModel)]="cliente.cpf" mask="000.000.000-00" (blur)="onBlurCPF()"
+            required #cpfCtrl="ngModel" />
+          <div *ngIf="cpfCtrl.invalid && cpfCtrl.touched" class="text-danger small">CPF é obrigatório.</div>
+          <div *ngIf="cpfCtrl.valid && cpfValido === false" class="text-danger small">CPF inválido. Verifique.</div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">RG</label>
+          <input class="form-control" name="rg" [(ngModel)]="cliente.rg" />
+        </div>
+      </div>
+
+      <!-- Linha 2: Data de Nascimento, Gênero, Estado Civil -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label">Data de Nascimento</label>
+          <div class="d-flex gap-2">
+            <select class="form-select" [(ngModel)]="diaSelecionado" (change)="atualizarDataNascimento()"
+              name="diaNascimento">
+              <option [ngValue]="undefined" disabled>Dia</option>
+              <option *ngFor="let dia of dias" [value]="dia">{{ dia }}</option>
+            </select>
+            <select class="form-select" [(ngModel)]="mesSelecionado" (change)="atualizarDataNascimento()"
+              name="mesNascimento">
+              <option [ngValue]="undefined" disabled>Mês</option>
+              <option *ngFor="let mes of meses; let i = index" [value]="i+1">{{ mes }}</option>
+            </select>
+            <select class="form-select" [(ngModel)]="anoSelecionado" (change)="atualizarDataNascimento()"
+              name="anoNascimento">
+              <option [ngValue]="undefined" disabled>Ano</option>
+              <option *ngFor="let ano of anos" [value]="ano">{{ ano }}</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Gênero</label>
+          <select class="form-select" [ngModel]="selecionouOutroGenero ? 'Outro' : cliente.genero"
+            (ngModelChange)="aoTrocarGenero($event)" name="generoSelect">
+            <option [ngValue]="undefined" disabled>Selecione uma opção</option>
+            <option value="Masculino">Masculino</option>
+            <option value="Feminino">Feminino</option>
+            <option value="Outro">Outro</option>
+          </select>
+          <div class="mt-2" *ngIf="selecionouOutroGenero">
+            <input type="text" class="form-control" placeholder="Descreva seu gênero" [(ngModel)]="cliente.genero"
+              name="generoOutro" />
+          </div>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Estado Civil</label>
+          <select class="form-select" name="estadoCivil" [(ngModel)]="cliente.estadoCivil" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Solteiro(a)">Solteiro(a)</option>
+            <option value="Casado(a)">Casado(a)</option>
+            <option value="Divorciado(a)">Divorciado(a)</option>
+            <option value="Separado(a)">Separado(a)</option>
+            <option value="Viúvo(a)">Viúvo(a)</option>
+            <option value="União Estável">União Estável</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Linha 3: Cor/Raça, Escolaridade, Religião -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label">Cor/Raça</label>
+          <select class="form-select" name="corRaca" [(ngModel)]="cliente.corRaca" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Branca">Branca</option>
+            <option value="Preta">Preta</option>
+            <option value="Parda">Parda</option>
+            <option value="Amarela">Amarela</option>
+            <option value="Indígena">Indígena</option>
+            <option value="Prefere não declarar">Prefere não declarar</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Escolaridade</label>
+          <select class="form-select" name="escolaridade" [(ngModel)]="cliente.escolaridade" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Sem escolaridade">Sem escolaridade</option>
+            <option value="Ensino Fundamental Incompleto">Ensino Fundamental Incompleto</option>
+            <option value="Ensino Fundamental Completo">Ensino Fundamental Completo</option>
+            <option value="Ensino Médio Incompleto">Ensino Médio Incompleto</option>
+            <option value="Ensino Médio Completo">Ensino Médio Completo</option>
+            <option value="Ensino Técnico">Ensino Técnico</option>
+            <option value="Ensino Superior Incompleto">Ensino Superior Incompleto</option>
+            <option value="Ensino Superior Completo">Ensino Superior Completo</option>
+            <option value="Pós-graduação">Pós-graduação</option>
+            <option value="Mestrado">Mestrado</option>
+            <option value="Doutorado">Doutorado</option>
+          </select>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Religião</label>
+          <select class="form-select" name="religiao" [(ngModel)]="cliente.religiao" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Católica Apostólica Romana">Católica Apostólica Romana</option>
+            <option value="Evangélico(a)">Evangélico(a)</option>
+            <option value="Espírita (Kardecista)">Espírita (Kardecista)</option>
+            <option value="Umbanda">Umbanda</option>
+            <option value="Candomblé">Candomblé</option>
+            <option value="Outras de matriz africana">Outras de matriz africana</option>
+            <option value="Judaica">Judaica</option>
+            <option value="Budista">Budista</option>
+            <option value="Islâmica/Muçulmana">Islâmica/Muçulmana</option>
+            <option value="Hinduísta">Hinduísta</option>
+            <option value="Outras religiões">Outras religiões</option>
+            <option value="Sem religião">Sem religião</option>
+            <option value="Ateu(a)">Ateu(a)</option>
+            <option value="Agnóstico(a)">Agnóstico(a)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Linha 4: Nacionalidade (base) + País (condicional) -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label class="form-label">Nacionalidade</label>
+          <select class="form-select" name="nacionalidadeBase" [(ngModel)]="nacionalidadeBase"
+            (ngModelChange)="onNacionalidadeBaseChange($event)" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Brasileiro Nato">Brasileiro(a)</option>
+            <option value="Brasileiro Naturalizado">Brasileiro(a) Naturalizado(a)</option>
+            <option value="Estrangeiro">Estrangeiro(a)</option>
+            <option value="Prefere não declarar">Prefere não declarar</option>
+          </select>
+        </div>
+
+        <div class="col-md-6" *ngIf="nacionalidadeBase === 'Estrangeiro'">
+          <label class="form-label">País de Origem</label>
+          <select class="form-select" name="nacionalidade" [(ngModel)]="cliente.nacionalidade" required>
+            <option [ngValue]="undefined" disabled>Selecione o país</option>
+            <option *ngFor="let p of listaPaises" [value]="p">{{ p }}</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Linha 5: Contato, E-mail -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-4">
+          <label class="form-label">Telefone (Whatsapp)</label>
+          <input class="form-control" name="contato" [(ngModel)]="cliente.contato" mask="(00) 00000-0000"
+            [dropSpecialCharacters]="true" required />
+        </div>
+
+        <div class="col-md-8">
+          <label class="form-label">E-mail</label>
+          <input type="email" class="form-control" name="email" [(ngModel)]="cliente.email" />
+        </div>
+      </div>
+
+      <!-- Linha 6: Endereço, CEP -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-8">
+          <label class="form-label">Endereço</label>
+          <input class="form-control" name="endereco" [(ngModel)]="cliente.endereco" />
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">CEP</label>
+          <input class="form-control" name="cep" [(ngModel)]="cliente.cep" />
+        </div>
+      </div>
+
+      <!-- Linha 7: Bairro, Estado, Cidade, Tipo de Residência -->
+      <div class="row g-3 mt-1">
+        <div class="col-md-3">
+          <label class="form-label">Bairro</label>
+          <input class="form-control" name="bairro" [(ngModel)]="cliente.bairro" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Estado</label>
+          <select class="form-select" name="estado" [(ngModel)]="cliente.estado" (change)="atualizarMunicipios()"
+            required>
+            <option [ngValue]="undefined" disabled>Selecione o estado</option>
+            <option *ngFor="let uf of estadosNorte" [value]="uf.sigla">{{ uf.nome }}</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cidade</label>
+          <select class="form-select" name="cidade" [(ngModel)]="cliente.cidade" [disabled]="!municipios.length"
+            required>
+            <option [ngValue]="undefined" disabled>Selecione a cidade</option>
+            <option *ngFor="let cidade of municipios" [value]="cidade">{{ cidade }}</option>
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Tipo de Residência</label>
+          <select class="form-select" name="tipoResidencia" [(ngModel)]="cliente.tipoResidencia" required>
+            <option [ngValue]="undefined" disabled>Selecione...</option>
+            <option value="Propria Quitada">Própria Quitada</option>
+            <option value="Propria Financiada">Própria Financiada</option>
+            <option value="Alugada">Alugada</option>
+            <option value="Cedido Familiar">Cedido por Familiar</option>
+            <option value="Cedido Empregador">Cedido por Empregador</option>
+            <option value="Funcional">Funcional / Militar</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- EMPREENDIMENTO -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Empreendimento</legend>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label d-block">Você já tem um empreendimento?</label>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" [(ngModel)]="cliente.jaEmpreende" name="jaEmpreende"
+              [value]="true" />
+            <label class="form-check-label">Sim</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" [(ngModel)]="cliente.jaEmpreende" name="jaEmpreende"
+              [value]="false" />
+            <label class="form-check-label">Não</label>
+          </div>
+        </div>
+
+        <div class="col-md-6" *ngIf="cliente.jaEmpreende === true">
+          <label class="form-label">Faturamento mensal aproximado</label>
+          <input type="text" class="form-control" name="faturamentoMensal" [(ngModel)]="faturamentoInput"
+            mask="separator.0" prefix="R$ " thousandSeparator="." [dropSpecialCharacters]="true"
+            (ngModelChange)="onFaturamentoChange($event)" />
+
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1" *ngIf="cliente.jaEmpreende === true">
+        <div class="col-md-6">
+          <label class="form-label">Tempo de empreendimento</label>
+          <select class="form-select" [(ngModel)]="cliente.tempoEmpreendimento" name="tempoEmpreendimento">
+            <option [ngValue]="undefined" disabled>Selecione uma opção</option>
+            <option value="1 a 6 meses">1 a 6 meses</option>
+            <option value="+ de 6 meses">+ de 6 meses</option>
+            <option value="+ de 1 ano">+ de 1 ano</option>
+            <option value="+ de 2 anos">+ de 2 anos</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-12">
+          <label class="form-label">Qual tipo de empreendimento você tem ou quer iniciar?</label>
+          <select class="form-select" [ngModel]="selecionouOutroTipoNegocio ? 'Outro' : cliente.tipoNegocio"
+            (ngModelChange)="aoTrocarTipoNegocio($event)" name="tipoNegocioSelect">
+            <option [ngValue]="undefined" disabled>Selecione uma atividade</option>
+
+            <!-- (lista conforme suas opções originais) -->
+            <option value="Mercearia">Mercearia / Mini mercado</option>
+            <option value="Vendedor ambulante">Vendedor ambulante</option>
+            <option value="Comércio de roupas">Comércio de roupas / confecções</option>
+            <option value="Cosméticos e perfumes">Cosméticos e perfumes</option>
+            <option value="Bijuterias e acessórios">Bijuterias e acessórios</option>
+            <option value="Loja de variedades">Armarinho / Loja de variedades</option>
+            <option value="Alimentos e bebidas">Comércio de alimentos e bebidas</option>
+            <option value="Materiais de construção">Materiais de construção (pequeno porte)</option>
+            <option value="Papelaria e utilidades">Papelaria / Utilidades</option>
+            <option value="Lanchonete">Lanchonete</option>
+            <option value="Restaurante caseiro">Restaurante caseiro</option>
+            <option value="Venda de salgados e doces">Venda de salgados e doces</option>
+            <option value="Churrasquinho de rua">Churrasquinho de rua</option>
+            <option value="Padaria artesanal">Padaria artesanal</option>
+            <option value="Açaí e sorvetes">Sorveteria / Açaí</option>
+            <option value="Marmitas">Marmitas / Refeições para entrega</option>
+            <option value="Salão de beleza">Salão de beleza / Cabeleireiro</option>
+            <option value="Barbearia">Barbearia</option>
+            <option value="Manicure e pedicure">Manicure e pedicure</option>
+            <option value="Estética e design de sobrancelhas">Estética / Sobrancelhas / Maquiagem</option>
+            <option value="Costura e conserto de roupas">Costura e conserto de roupas</option>
+            <option value="Bordado e customização">Bordado / Customização</option>
+            <option value="Serviços de limpeza">Serviços de limpeza</option>
+            <option value="Lavanderia">Lavanderia</option>
+            <option value="Reparos domésticos">Reparos domésticos (eletricista, encanador, etc.)</option>
+            <option value="Pintura">Pintura residencial</option>
+            <option value="Serralheria">Serralheria / Marcenaria</option>
+            <option value="Oficina de bicicletas">Oficina de bicicletas</option>
+            <option value="Oficina de motos">Oficina de motos</option>
+            <option value="Assistência de celulares">Assistência técnica de celulares</option>
+            <option value="Serviços de informática">Serviços de informática</option>
+            <option value="Mototaxi">Mototáxi / Transporte alternativo</option>
+            <option value="Fretes e entregas">Fretes / Entregas</option>
+            <option value="Hortifruti">Hortifruti / Agricultura familiar</option>
+            <option value="Criação de aves">Criação de aves</option>
+            <option value="Criação de peixes">Criação de peixes (piscicultura)</option>
+            <option value="Criação de suínos">Criação de suínos</option>
+            <option value="Plantas ornamentais">Cultivo de plantas ornamentais</option>
+            <option value="Artesanato em madeira">Artesanato em madeira</option>
+            <option value="Artesanato em cerâmica">Artesanato em cerâmica</option>
+            <option value="Artesanato com fibras">Artesanato com fibras naturais</option>
+            <option value="Confecção">Confecção / Pequena produção têxtil</option>
+            <option value="Fotografia e filmagem">Fotografia e filmagem</option>
+            <option value="Produção cultural">Produção cultural (música, dança, etc.)</option>
+            <option value="Outro">Outro</option>
+          </select>
+
+          <div class="mt-2" *ngIf="selecionouOutroTipoNegocio">
+            <input type="text" class="form-control" placeholder="Descreva seu tipo de negócio"
+              [(ngModel)]="cliente.tipoNegocio" name="tipoNegocioOutro" />
+          </div>
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-12">
+          <label class="form-label">Onde funciona ou funcionará o seu empreendimento?</label>
+          <select class="form-select" [ngModel]="selecionouOutroOndeVende ? 'Outro' : cliente.ondeVende"
+            (ngModelChange)="aoTrocarOndeVende($event)" name="ondeVendeSelect">
+            <option [ngValue]="undefined" disabled>Selecione uma opção</option>
+            <option value="Residência">Residência</option>
+            <option value="Internet/Redes Sociais">Internet/Redes Sociais</option>
+            <option value="Feira/Mercado">Feira/Mercado</option>
+            <option value="Logradouro Público/Rua/Praça">Logradouro Público/Rua/Praça</option>
+            <option value="Outro">Outro</option>
+          </select>
+
+          <div class="mt-2" *ngIf="selecionouOutroOndeVende">
+            <input type="text" class="form-control" placeholder="Descreva onde você vende"
+              [(ngModel)]="cliente.ondeVende" name="ondeVendeOutro" />
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- RENDA E ORGANIZAÇÃO -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Renda e Organização</legend>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label>Tem outra fonte de renda além do seu negócio?</label><br />
+          <div class="form-check form-check-inline">
+            <input type="radio" class="form-check-input" [(ngModel)]="cliente.outraRenda" name="outraRenda"
+              [value]="true" />
+            <label class="form-check-label">Sim</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input type="radio" class="form-check-input" [(ngModel)]="cliente.outraRenda" name="outraRenda"
+              [value]="false" />
+            <label class="form-check-label">Não</label>
+          </div>
+        </div>
+
+        <div class="col-md-6" *ngIf="cliente.outraRenda === true">
+          <label class="form-label">Renda mensal (aproximada)</label>
+          <input type="text" class="form-control" [(ngModel)]="cliente.rendaMensal" name="rendaMensal"
+            mask="separator.2" prefix="R$ " thousandSeparator="." decimalMarker="," />
+        </div>
+      </div>
+
+      <div class="row g-3 mt-1">
+        <div class="col-md-6">
+          <label class="form-label">Ocupação atual</label>
+          <input class="form-control" name="ocupacaoAtual" [(ngModel)]="cliente.ocupacaoAtual" />
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- FLUXO DE CAIXA (ABERTURA DO MODAL) -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Fluxo de Caixa <span style="color:rgb(101, 101, 101);">
+          (Empreendimento/Pessoal)</span></legend>
+      <div class="d-flex">
+        <button type="button" class="btn btn-outline-success btn-sm" (click)="openFluxoModal()">
+          Inserir / Editar fluxo de caixa
+        </button>
+
+      </div>
+    </fieldset>
+
+    <!-- FINANCIAMENTO -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Financiamento</legend>
+
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Valor Solicitado (R$)</label>
+          <input type="text" class="form-control" [(ngModel)]="cliente.valorSolicitado" name="valorSolicitado"
+            mask="separator.2" prefix="R$ " thousandSeparator="." decimalMarker=","
+            (ngModelChange)="onValorChange($event)" />
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label">Parcelas</label>
+          <select class="form-select" [(ngModel)]="cliente.parcelas" name="parcelas"
+            (ngModelChange)="onParcelasChange($event)">
+            <option [ngValue]="undefined" disabled>Selecione</option>
+            <option *ngFor="let p of parcelasComValor" [ngValue]="p.n">{{ p.label }}</option>
+          </select>
+
+          <small class="text-muted d-block mt-1" *ngIf="resumoParcela">
+            {{ resumoParcela }}
+          </small>
+
+          <span class="badge bg-info-subtle text-dark border mt-2 d-inline-block">
+            Sugerida: {{ formatBRL((computeParcelaSugerida().valor || 0)) }}
+          </span>
+
+          <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+            <span class="badge border" [ngClass]="getParcelaEscolhidaClasse()">
+              Parcela escolhida: {{ formatBRL(getParcelaEscolhidaNumber() || 0) }}
+            </span>
+            <small [ngClass]="getComparacaoParcelaClasse()" class="ms-1">
+              {{ getComparacaoParcelaTexto() }}
+            </small>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Fluxo de Caixa -->
+      <div class="modal fade" id="fluxoCaixaModal" tabindex="-1" aria-labelledby="fluxoCaixaModalLabel"
+        aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 id="fluxoCaixaModalLabel" class="modal-title">Fluxo de Caixa</h5>
+              <button type="button" class="btn-close" (click)="closeFluxoModal()" aria-label="Close"></button>
+            </div>
+
+            <div class="modal-body">
+              <!-- Receita -->
+              <div class="mb-3">
+                <label class="form-label fw-semibold">Faturamento Mensal (R$)</label>
+                <!-- Cadastro: Faturamento mensal aproximado -->
+                <input type="text" class="form-control" mask="separator.0" prefix="R$ " thousandSeparator="."
+                  [dropSpecialCharacters]="true" [(ngModel)]="faturamentoInput" [ngModelOptions]="{ standalone: true }"
+                  (ngModelChange)="onFaturamentoChange($event); recalcular()" />
+
+              </div>
+
+              <!-- Custos Fixos -->
+              <h6 class="mt-4">Custos Fixos</h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Aluguel</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.fixos.aluguelMasked" [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('fixos.aluguel', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Salários</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.fixos.salariosMasked" [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('fixos.salarios', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Energia elétrica</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.fixos.energiaEletricaMasked"
+                    [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('fixos.energiaEletrica', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Água</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.fixos.aguaMasked" [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('fixos.agua', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Telefone/Internet</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.fixos.telefoneInternetMasked"
+                    [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('fixos.telefoneInternet', $event)" />
+                </div>
+
+                <!-- Outros variáveis dentro do FIXO (mantendo sua estrutura original) -->
+                <div class="col-md-6">
+                  <div class="d-flex align-items-center justify-content-between">
+                    <h6 class="mb-0">Outros (variáveis)</h6>
+                    <button class="btn btn-sm btn-outline-primary" type="button" (click)="addOutro()">Adicionar</button>
+                  </div>
+
+                  <div class="table-responsive mt-2" *ngIf="fluxoForm.variaveis.outros.length > 0">
+                    <table class="table table-sm align-middle">
+                      <tbody>
+                        <tr *ngFor="let o of fluxoForm.variaveis.outros; let i = index">
+                          <td>
+                            <input class="form-control" [(ngModel)]="o.nome" [ngModelOptions]="{standalone:true}"
+                              placeholder="Ex.: Embalagens, Taxas…" />
+                          </td>
+                          <td>
+                            <input class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                              decimalMarker="," [(ngModel)]="o.valorMasked" [ngModelOptions]="{standalone:true}"
+                              (ngModelChange)="syncOutroValor(i, $event)" />
+                          </td>
+                          <td class="text-end">
+                            <button class="btn btn-sm btn-outline-danger" type="button"
+                              (click)="removeOutro(i)">Excluir</button>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Custos Variáveis -->
+              <h6 class="mt-4">Custos Variáveis</h6>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Matéria-prima</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.variaveis.materiaPrimaMasked"
+                    [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('variaveis.materiaPrima', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Insumos</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.variaveis.insumosMasked"
+                    [ngModelOptions]="{standalone:true}" (ngModelChange)="syncNumber('variaveis.insumos', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Frete</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.variaveis.freteMasked" [ngModelOptions]="{standalone:true}"
+                    (ngModelChange)="syncNumber('variaveis.frete', $event)" />
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Transporte</label>
+                  <input type="text" class="form-control" mask="separator.2" prefix="R$ " thousandSeparator="."
+                    decimalMarker="," [(ngModel)]="fluxoForm.variaveis.transporteMasked"
+                    [ngModelOptions]="{standalone:true}" (ngModelChange)="syncNumber('variaveis.transporte', $event)" />
+                </div>
+              </div>
+
+              <!-- Totais -->
+              <div class="border rounded p-3 mt-3 bg-light">
+                <div class="d-flex flex-wrap gap-3">
+                  <span class="badge bg-success-subtle text-success border">Receita: {{ formatBRN(totalReceita())
+                    }}</span>
+                  <span class="badge bg-warning-subtle text-warning border">Custos: {{ formatBRN(totalCustos())
+                    }}</span>
+                  <span class="badge bg-info-subtle text-info border">Lucro: {{ formatBRN(totalLucro()) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn btn-outline-secondary" type="button" (click)="closeFluxoModal()">Cancelar</button>
+              <button class="btn btn-success" type="button" (click)="saveFluxo()">Salvar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </fieldset>
+
+    <!-- BOTÃO QUE ABRE O MODAL DE ANEXOS -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Anexos & Assinatura</legend>
+      <div class="d-flex">
+        <button type="button" class="btn btn-outline-success btn-sm" data-bs-toggle="modal"
+          data-bs-target="#anexosModal">
+          Inserir anexos
+        </button>
+      </div>
+    </fieldset>
+
+    <!-- MODAL DE ANEXOS -->
+    <div class="modal fade" id="anexosModal" tabindex="-1" aria-labelledby="anexosModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 id="anexosModalLabel" class="modal-title">Anexos & Assinatura</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+
+          <div class="modal-body">
+            <p class="text-muted mb-3">
+              Envie fotos nítidas. Aceitamos imagens (JPG/PNG/HEIC). Mostramos apenas uma miniatura por grupo para
+              manter a tela limpa.
+            </p>
+
+            <!-- GRADE DE CATEGORIAS DE ANEXOS -->
+            <div class="row g-3">
+              <div class="col-md-6 col-lg-4" *ngFor="let c of categoriasDocs">
+                <div class="border rounded p-2 h-100">
+                  <label class="form-label fw-semibold d-block mb-1">{{ c.label }}</label>
+                  <input class="form-control form-control-sm" type="file" [attr.multiple]="c.multiple ? '' : null"
+                    accept="image/*" (change)="onFilesChange(c.key, $event)" />
+
+                  <div class="d-flex align-items-center gap-2 mt-2" *ngIf="previewMap[c.key]?.length">
+                    <img [src]="previewMap[c.key][0]" alt="preview"
+                      style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #e3e3e3;">
+                    <small class="text-muted">
+                      {{ previewMap[c.key].length }} arquivo{{ previewMap[c.key].length > 1 ? 's' : '' }}
+                      <span *ngIf="previewMap[c.key].length > 1">(+{{ previewMap[c.key].length - 1 }})</span>
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <hr class="my-3" />
+
+            <!-- ASSINATURA -->
+            <div class="row g-3 align-items-center">
+              <div class="col-lg-6">
+                <label class="form-label fw-semibold d-block mb-1">Assinatura Digital</label>
+                <div class="border rounded p-2 bg-white">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted">Assine no quadro abaixo (use mouse ou toque).</small>
+                    <div class="d-flex gap-2">
+                      <button type="button" class="btn btn-outline-secondary btn-sm"
+                        (click)="limparAssinatura()">Limpar</button>
+                      <button type="button" class="btn btn-outline-success btn-sm"
+                        (click)="salvarAssinatura()">Salvar</button>
+                    </div>
+                  </div>
+                  <div class="assinatura-wrapper">
+                    <canvas #signatureCanvas width="540" height="160" class="w-100"
+                      style="touch-action:none; display:block; background:#fff; border-radius:8px; border:1px dashed #cfd4da;"></canvas>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-lg-6" *ngIf="signaturePreview">
+                <label class="form-label fw-semibold d-block mb-1">Pré-visualização</label>
+                <div class="border rounded p-2">
+                  <img [src]="signaturePreview" alt="Assinatura" style="max-width:100%; height:auto;">
+                </div>
+              </div>
+            </div>
+
+            <!-- status do upload -->
+            <div class="mt-3" *ngIf="uploadStatus.msg">
+              <small [class.text-success]="uploadStatus.ok" [class.text-danger]="!uploadStatus.ok">
+                {{ uploadStatus.msg }}
+              </small>
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- DATA / CONSENTIMENTO -->
+    <fieldset class="border p-3 mb-4 rounded">
+      <legend class="w-auto px-2 fw-bold text-success">Data do cadastro</legend>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Dia</label>
+          <select class="form-select" [(ngModel)]="diaPre" (ngModelChange)="atualizarDataPreenchimento()"
+            name="diaPreenchimento">
+            <option [ngValue]="undefined">Dia</option>
+            <option *ngFor="let d of dias" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Mês</label>
+          <select class="form-select" [(ngModel)]="mesPre" (ngModelChange)="atualizarDataPreenchimento()"
+            name="mesPreenchimento">
+            <option [ngValue]="undefined">Mês</option>
+            <option *ngFor="let m of meses; let i = index" [value]="i+1">{{ m }}</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Ano</label>
+          <select class="form-select" [(ngModel)]="anoPre" (ngModelChange)="atualizarDataPreenchimento()"
+            name="anoPreenchimento">
+            <option [ngValue]="undefined">Ano</option>
+            <option *ngFor="let a of anos" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-check mt-3 mb-4">
+        <input type="checkbox" class="form-check-input" [(ngModel)]="cliente.autorizacaoUsoDados"
+          name="autorizacaoUsoDados" />
+        <label class="form-check-label">Autorizo o uso dos meus dados para fins de contato comercial</label>
+      </div>
+
+      <div class="d-flex justify-content-start gap-2">
+        <button type="submit" class="btn btn-success">Salvar</button>
+      </div>
+    </fieldset>
+
+  </form>
+</div>

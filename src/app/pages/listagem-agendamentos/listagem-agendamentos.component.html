@@ -1,0 +1,283 @@
+<app-header></app-header>
+<br />
+<div class="container py-5 mt-5">
+  <!-- Título -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-4">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-calendar2-check me-2"></i>Todos os Agendamentos
+    </h3>
+  </div>
+
+  <!-- KPIs -->
+  <div class="crn-kpi row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Total estimado</div>
+        <div class="crn-kpi__value">{{ totalEstimado }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Registros carregados</div>
+        <div class="crn-kpi__value">{{ agendsAll.length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Após filtros</div>
+        <div class="crn-kpi__value">{{ agendsFiltrados.length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Busca por nome</div>
+        <div class="crn-kpi__value">{{ filtro.nome ? 'Ativo' : '—' }}</div>
+        <div class="crn-kpi__hint">{{ filtro.nome || 'sem filtro' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado -->
+  <div *ngIf="carregando" class="alert alert-info py-2">Carregando agendamentos...</div>
+  <div *ngIf="!carregando && erroCarregar" class="alert alert-primary-subtle text-primary-emphasis border">
+    {{ erroCarregar }}
+  </div>
+
+  <!-- Filtros -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Buscar por nome do cliente</label>
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Digite o nome"
+                   [(ngModel)]="filtro.nome" (ngModelChange)="onFiltroNomeChange($event)" />
+            <button class="btn btn-success" (click)="aplicarFiltrosLocais(true)">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Data de</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataDe" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataAte" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Status</label>
+          <select class="form-select" [(ngModel)]="filtro.status" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let s of statusDisponiveis" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Assessor</label>
+          <select class="form-select" [(ngModel)]="filtro.assessor" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let a of assessoresDisponiveis" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Bairro</label>
+          <select class="form-select" [(ngModel)]="filtro.bairro" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let b of bairrosDisponiveis" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tabela (md+) -->
+  <div class="table-responsive shadow-sm rounded-4 border d-none d-md-block">
+    <table class="table table-hover align-middle mb-0">
+      <thead class="sticky-top" style="z-index:1; background:#eaf6ef">
+        <tr class="text-success">
+          <th style="width:22%; cursor:pointer" (click)="ordenarPor('clienteNome')">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Cliente</span>
+              <i *ngIf="sortField==='clienteNome' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='clienteNome' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+
+          <th style="width:200px; cursor:pointer" (click)="ordenarPor('assessorNome')">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Assessor</span>
+              <i *ngIf="sortField==='assessorNome' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='assessorNome' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+
+
+          <th style="width:140px; cursor:pointer" (click)="ordenarPor('dataHora')">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Data</span>
+              <i *ngIf="sortField==='dataHora' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='dataHora' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+
+          <th style="width:100px">Hora</th>
+
+          <th style="width:160px; cursor:pointer" (click)="ordenarPor('clienteBairro')">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Bairro</span>
+              <i *ngIf="sortField==='clienteBairro' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='clienteBairro' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+
+          <th style="width:140px; cursor:pointer" (click)="ordenarPor('status')">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Status</span>
+              <i *ngIf="sortField==='status' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='status' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+
+          <th style="width:150px">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let a of agendsPaginados; trackBy: trackById">
+          <td class="fw-semibold text-success-emphasis text-truncate" style="max-width: 400px;">
+            {{ displayName(a.clienteNome) || '—' }}
+          </td>
+          <td class="text-truncate" style="max-width: 220px;">{{ getAssessorNome(a) }}</td>
+          <td>{{ toBRDate(getDataHoraDate(a)) }}</td>
+          <td>{{ toBRTimeFromDate(getDataHoraDate(a)) }}</td>
+          <td class="text-truncate" style="max-width: 180px;">{{ getBairro(a) }}</td>
+          <td class="text-truncate" style="max-width: 140px;">
+            <span class="badge"
+              [class.text-bg-success]="a.status === 'agendado'"
+              [class.text-bg-secondary]="a.status !== 'agendado'">
+              {{ a.status || '—' }}
+            </span>
+          </td>
+          <td class="text-nowrap">
+            <div class="btn-group">
+              <button
+                class="btn btn-sm btn-outline-success"
+                (click)="abrirModalEditar(a)"
+                data-bs-toggle="modal"
+                data-bs-target="#modalEditarAgendamento">
+                <i class="fas fa-edit"></i>
+              </button>
+              <button class="btn btn-sm btn-outline-danger" (click)="removerAgendamento(a)">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </td>
+        </tr>
+
+        <tr *ngIf="!carregando && agendsPaginados.length === 0">
+          <td colspan="8" class="text-center text-muted py-4">Nenhum agendamento encontrado</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Lista Mobile -->
+  <div class="d-block d-md-none">
+    <div *ngFor="let a of agendsPaginados; trackBy: trackById" class="mobile-card shadow-sm border rounded-4 p-3 mb-2">
+      <div class="d-flex flex-column gap-1">
+        <div class="header-row mb-1">
+          <h6 class="mb-0 fw-bold text-success-emphasis title-truncate">
+            {{ displayName(a.clienteNome) || '—' }}
+          </h6>
+        </div>
+
+        <div class="small text-muted mt-1 lh-sm">
+          <div class="text-truncate" *ngIf="getAssessorNome(a) !== '—'">
+            <i class="fa-solid fa-user-tie me-1"></i> {{ getAssessorNome(a) }}
+          </div>
+          <div class="text-truncate" *ngIf="a.clienteTelefone">
+            <i class="fa-solid fa-phone me-1"></i> {{ maskPhone(a.clienteTelefone) }}
+          </div>
+          <div class="text-truncate">
+            <i class="fa-regular fa-calendar me-1"></i>
+            <strong>{{ toBRDate(getDataHoraDate(a)) }}</strong>
+            <span> — {{ toBRTimeFromDate(getDataHoraDate(a)) }}</span>
+          </div>
+          <div class="text-truncate">
+            <i class="fa-solid fa-location-dot me-1"></i>
+            <strong>Bairro:</strong> {{ getBairro(a) }}
+          </div>
+          <div class="text-truncate">
+            <i class="fa-solid fa-hashtag me-1"></i>
+            <strong>Status:</strong> {{ a.status || '—' }}
+          </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-2 action-row">
+          <button
+            class="btn btn-outline-success btn-sm"
+            (click)="abrirModalEditar(a)"
+            data-bs-toggle="modal"
+            data-bs-target="#modalEditarAgendamento">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="btn btn-outline-danger btn-sm" (click)="removerAgendamento(a)">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!carregando && agendsPaginados.length === 0" class="text-center text-muted py-4">
+      Nenhum agendamento encontrado
+    </div>
+  </div>
+
+  <!-- Paginação -->
+  <nav class="mt-4" *ngIf="!carregando && totalPaginas > 1">
+    <ul class="pagination justify-content-center flex-wrap gap-1">
+      <li class="page-item" [class.disabled]="paginaAtual === 1">
+        <button class="page-link" (click)="irParaPagina(paginaAtual - 1)">Anterior</button>
+      </li>
+      <li class="page-item" *ngFor="let p of pages()" [class.active]="paginaAtual === p">
+        <button class="page-link" (click)="irParaPagina(p)">{{ p }}</button>
+      </li>
+      <li class="page-item" [class.disabled]="paginaAtual === totalPaginas">
+        <button class="page-link" (click)="irParaPagina(paginaAtual + 1)">Próxima</button>
+      </li>
+    </ul>
+  </nav>
+</div>
+
+<!-- MODAL: editar apenas data/hora -->
+<div class="modal fade" id="modalEditarAgendamento" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" (ngSubmit)="salvarDataHora()">
+      <div class="modal-header">
+        <h5 class="modal-title">Editar data e hora</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Data</label>
+          <input type="date" class="form-control" [(ngModel)]="formData" name="data" required />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Hora</label>
+          <input type="time" class="form-control" [(ngModel)]="formHora" name="hora" required />
+        </div>
+        <div class="small text-muted">
+          Cliente: <strong>{{ displayName(selected?.clienteNome) }}</strong><br />
+          Assessor: <strong>{{ getAssessorNome(selected!) }}</strong>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-success">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>

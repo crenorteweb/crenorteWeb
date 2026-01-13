@@ -1,0 +1,40 @@
+:host {
+  --crn-green: #006e37;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+}
+
+.crn-card {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  position: relative;
+}
+.crn-card::before {
+  content: "";
+  position: absolute; inset: 0;
+  background: linear-gradient(90deg, var(--crn-green), var(--crn-green)) top left/100% 4px no-repeat;
+  border-radius: 16px;
+}
+
+.crn-label { font-weight: 700; color: #23423a; }
+.crn-input {
+  border-radius: 12px;
+  border-color: var(--crn-border);
+  padding: .65rem .9rem .65rem 2.2rem;
+  transition: all .15s ease;
+}
+.crn-input:focus {
+  border-color: var(--crn-green);
+  box-shadow: 0 0 0 .18rem rgba(0,110,55,.18);
+}
+.crn-input-icon{
+  position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  color:#9db6ac; pointer-events:none;
+}
+
+.mobile-card { overflow: hidden; }
+.mobile-card * { min-width: 0; }

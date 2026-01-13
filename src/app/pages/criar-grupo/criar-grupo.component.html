@@ -1,0 +1,384 @@
+<!-- src/app/pages/grupos/criar-grupo.component.html -->
+<app-header></app-header>
+<br />
+
+<div class="container py-5 mt-5">
+  <!-- Alerta de sucesso (auto-hide + dismiss) -->
+  <div *ngIf="successMsg" class="alert alert-success alert-dismissible fade show rounded-4 shadow-sm" role="alert">
+    <i class="fa-solid fa-circle-check me-2"></i>
+    {{ successMsg }}
+    <button type="button" class="btn-close" aria-label="Close" (click)="successMsg=null"></button>
+  </div>
+
+  <!-- Título -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-4">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-people me-2"></i>Grupos Solidários — Criar
+    </h3>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" (click)="buscar()" [disabled]="carregando">
+        <i class="fa-solid fa-rotate-right me-1"></i> Recarregar
+      </button>
+      <!-- Agora abrimos o modal para testar os status antes de criar -->
+      <button class="btn btn-success" (click)="abrirModalCriacao()">
+        <i class="fa-solid fa-flask me-1"></i> Testar status / Criar
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="crn-kpi row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Aptos carregados</div>
+        <div class="crn-kpi__value">{{ aptos().length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Após filtros</div>
+        <div class="crn-kpi__value">{{ aptosFiltrados().length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Selecionados</div>
+        <div class="crn-kpi__value">{{ countSelecionados }}</div>
+        <div class="crn-kpi__hint">{{ capacidadeMin }}–{{ capacidadeMax }} por grupo</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Cidade / UF</div>
+        <div class="crn-kpi__value">{{ cidade || '—' }}</div>
+        <div class="crn-kpi__hint">{{ (uf || '—') | uppercase }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado -->
+  <div *ngIf="carregando && aptos().length===0" class="alert alert-info py-2">Carregando aptos…</div>
+
+  <!-- ===================== Configurações do Grupo ===================== -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-body">
+      <div class="row g-3">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Nome do grupo</label>
+          <input class="form-control" [(ngModel)]="nome" placeholder="Ex.: Grupo do Ver-o-Peso" />
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label">UF</label>
+          <input class="form-control" [(ngModel)]="uf" maxlength="2" placeholder="PA" />
+        </div>
+        <div class="col-6 col-md-4">
+          <label class="form-label">Cidade</label>
+          <input class="form-control" [(ngModel)]="cidade" placeholder="Belém" />
+        </div>
+        <div class="col-6 col-md-1">
+          <label class="form-label">Mín.</label>
+          <input type="number" class="form-control" [(ngModel)]="capacidadeMin" min="1" max="10" />
+        </div>
+        <div class="col-6 col-md-1">
+          <label class="form-label">Máx.</label>
+          <input type="number" class="form-control" [(ngModel)]="capacidadeMax" min="1" max="10" />
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label">Coordenador (auto: 1º selecionado)</label>
+          <input class="form-control" [(ngModel)]="coordenadorNome" placeholder="Nome do coordenador" [readonly]="true" />
+          <small class="text-muted">Definido automaticamente pelo 1º selecionado (puxa cidade/UF).</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Filtros (estilo da listagem) ===================== -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <!-- Nome -->
+        <div class="col-md-4">
+          <label class="form-label">Buscar por nome</label>
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Digite o nome" [(ngModel)]="filtro.nome"
+              (ngModelChange)="onFiltroNomeChange($event)" />
+            <button class="btn btn-success" (click)="aplicarFiltrosLocais(true)">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Criado em -->
+        <div class="col-md-3">
+          <label class="form-label">Criado de</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataDe" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataAte" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+
+        <!-- Agendado -->
+        <div class="col-md-2">
+          <label class="form-label">Agendados</label>
+          <select class="form-select" [(ngModel)]="filtro.agendado" (change)="aplicarFiltrosLocais(true)">
+            <option value="todos">Todos</option>
+            <option value="sim">Somente agendados</option>
+            <option value="nao">Somente não agendados</option>
+          </select>
+        </div>
+
+        <!-- Assessor -->
+        <div class="col-md-4">
+          <label class="form-label">Assessor responsável</label>
+          <select class="form-select" [(ngModel)]="filtro.assessor" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option value="(sem assessor)">Sem assessor</option>
+            <option *ngFor="let a of assessoresDisponiveis" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+
+        <!-- Bairro -->
+        <div class="col-md-3">
+          <label class="form-label">Bairro</label>
+          <select class="form-select" [(ngModel)]="filtro.bairro" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let b of bairrosDisponiveis" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+
+        <!-- Cidade -->
+        <div class="col-md-3">
+          <label class="form-label">Cidade</label>
+          <select class="form-select" [(ngModel)]="filtro.cidade" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let c of cidadesDisponiveis" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <!-- UF -->
+        <div class="col-md-2">
+          <label class="form-label">UF</label>
+          <select class="form-select" [(ngModel)]="filtro.uf" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let u of ufsDisponiveis" [value]="u">{{ u }}</option>
+          </select>
+        </div>
+
+        <!-- Origem -->
+        <div class="col-md-3">
+          <label class="form-label">Origem</label>
+          <select class="form-select" [(ngModel)]="filtro.origem" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let o of origensDisponiveis" [value]="o">{{ o }}</option>
+          </select>
+        </div>
+
+        <!-- Período do agendamento -->
+        <div class="col-md-3">
+          <label class="form-label">Agendamento de</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.agDataDe" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.agDataAte"
+            (change)="aplicarFiltrosLocais(true)" />
+        </div>
+
+        <!-- Status do agendamento -->
+        <div class="col-md-3">
+          <label class="form-label">Status do agendamento</label>
+          <select class="form-select" [(ngModel)]="filtro.agStatus" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let s of agStatusDisponiveis" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===================== Cards (idênticos à listagem) ===================== -->
+  <div *ngIf="carregando" class="text-center text-muted small mt-2">Carregando…</div>
+
+  <div *ngIf="!carregando && aptosFiltrados().length > 0" class="row g-3 row-cols-1 row-cols-sm-2 row-cols-lg-3">
+    <div class="col" *ngFor="let c of aptosFiltrados(); trackBy: trackById">
+      <div class="crn-card card h-100 shadow-sm rounded-4 crn-selectable-card"
+        [class.is-selected]="selecionados.has(c.id)" (click)="toggle(c.id)">
+        <div class="card-body d-flex flex-column gap-2">
+          <div class="d-flex align-items-start justify-content-between gap-2">
+            <h6 class="mb-0 fw-bold text-success-emphasis text-truncate" [title]="displayName(c.nomeCompleto)">
+              {{ displayName(c.nomeCompleto) || '—' }}
+            </h6>
+            <span class="badge" [ngClass]="{
+                    'text-bg-success': getAprovacaoStatus(c)==='Apto',
+                    'text-bg-danger':  getAprovacaoStatus(c)==='Inapto',
+                    'text-bg-secondary': getAprovacaoStatus(c)==='Pendente' || getAprovacaoStatus(c)==='—'
+                  }">
+              {{ getAprovacaoStatus(c) }}
+            </span>
+          </div>
+
+          <div class="small text-muted">
+            <div class="text-truncate"><i class="fa-regular fa-calendar me-1"></i>{{ toBRDate(c.createdAt) }}</div>
+            <div class="text-truncate" *ngIf="getAssessorNome(c) !== '(sem assessor)'">
+              <i class="fa-solid fa-user-tie me-1"></i>{{ getAssessorNome(c) }}
+            </div>
+            <div class="text-truncate" *ngIf="c.telefone">
+              <i class="fa-solid fa-phone me-1"></i>{{ maskPhone(c.telefone) }}
+            </div>
+            <div class="text-truncate">
+              <i class="fa-solid fa-location-dot me-1"></i>{{ getBairro(c) }} — {{ getCidade(c) }} / {{ getUF(c) }}
+            </div>
+            <div class="text-truncate"><i class="fa-solid fa-hashtag me-1"></i>{{ getOrigem(c) }}</div>
+            <div class="text-truncate">
+              <i class="fa-regular fa-clock me-1"></i>
+              <strong>{{ isAgendado(c) ? 'Agendado:' : 'Sem agendamento' }}</strong>
+              <span *ngIf="isAgendado(c)"> — {{ getAgendamentoResumo(c) }}</span>
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-end gap-2 mt-2">
+            <button class="btn btn-outline-success btn-sm" (click)="$event.stopPropagation(); toggle(c.id)">
+              <i class="fa-regular" [ngClass]="selecionados.has(c.id) ? 'fa-square-check' : 'fa-square'"></i>
+            </button>
+          </div>
+
+          <!-- badge de coordenador no card -->
+          <div class="mt-1" *ngIf="coordenadorUid === c.id">
+            <span class="badge bg-warning text-dark">Coordenador</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Vazio -->
+  <div *ngIf="!carregando && aptosFiltrados().length === 0" class="text-center text-muted py-4">
+    Nenhum pré-cadastro encontrado
+  </div>
+
+  <!-- Rodapé ações -->
+  <div class="d-flex align-items-center justify-content-between gap-3 mt-3">
+    <div class="text-muted">
+      Selecionados: <strong>{{ countSelecionados }}</strong>
+      <span class="ms-2 small" [ngClass]="{'text-danger': countSelecionados < capacidadeMin && countSelecionados>0}">
+        {{ countSelecionados < capacidadeMin && countSelecionados>0 ? '(incompleto)' : '' }}
+      </span>
+    </div>
+
+    <button class="btn btn-success" (click)="abrirModalCriacao()">
+      <i class="fa-solid fa-users-line me-1"></i> Testar status / Criar
+    </button>
+  </div>
+
+  <!-- Link do grupo criado -->
+  <div *ngIf="grupoCriadoUrl" class="alert alert-success mt-3 rounded-4">
+    <div class="d-flex flex-wrap align-items-center justify-content-between w-100">
+      <div>
+        <strong>Grupo criado!</strong>
+        <span class="ms-1 small text-muted">Se criou com menos que o mínimo, ele está <b>Incompleto</b>.</span>
+        <br />
+        Link de convite:
+        <a [href]="grupoCriadoUrl" target="_blank" rel="noopener">{{ grupoCriadoUrl }}</a>
+        <div class="small text-muted">Envie o link para os demais participantes completarem o pré-cadastro já dentro do
+          grupo.</div>
+      </div>
+      <button class="btn btn-outline-success mt-2 mt-md-0" type="button" (click)="copyLink()"
+        [disabled]="!grupoCriadoUrl">
+        <i class="fa-regular fa-copy me-1"></i> Copiar link
+      </button>
+      <div *ngIf="toastMsg" class="toast-inline alert alert-success py-1 px-2 mt-2">
+        {{ toastMsg }}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== MODAL: Pré-visualização do Grupo ===================== -->
+<div class="overlay" *ngIf="showCreateModal">
+  <div class="overlay__backdrop" (click)="fecharModalCriacao()"></div>
+  <div class="overlay__panel" tabindex="0">
+    <div class="d-flex align-items-center justify-content-between border-bottom mb-2">
+      <div class="py-2">
+        <div class="fw-semibold">Pré-visualização do Grupo</div>
+        <small class="text-muted d-block">Confira integrantes, coordenador e situação antes de confirmar.</small>
+      </div>
+      <button class="btn-close" aria-label="Fechar" (click)="fecharModalCriacao()"></button>
+    </div>
+
+    <div *ngIf="preview as p">
+      <div class="mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+          <div>
+            <div><strong>Nome:</strong> {{ p.nome }}</div>
+            <div><strong>Coordenador:</strong> {{ p.coordenadorNome }}</div>
+            <div><strong>Cidade/UF:</strong> {{ p.cidade }} / {{ p.uf }}</div>
+            <div><strong>Capacidade:</strong> {{ p.totalSelecionados }} / {{ p.capacidadeMax }}</div>
+          </div>
+          <div>
+            <span class="badge"
+                  [ngClass]="{
+                    'bg-success': p.situacao==='aprovado',
+                    'bg-warning text-dark': p.situacao==='incompleto',
+                    'bg-danger': p.situacao==='inapto'
+                  }">
+              {{ p.situacao | uppercase }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-responsive" style="max-height: 320px; overflow:auto;">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th>Integrante</th>
+              <th>Cidade/UF</th>
+              <th>Aprovação</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let m of p.membros; trackBy: trackById">
+              <td>
+                {{ m.nome }}
+                <span *ngIf="coordenadorUid===m.id" class="badge bg-warning text-dark ms-2">Coordenador</span>
+              </td>
+              <td>{{ m.cidade }} / {{ m.uf }}</td>
+              <td>
+                <span class="badge"
+                      [ngClass]="{
+                        'bg-success': m.aprovacao==='Apto',
+                        'bg-danger': m.aprovacao==='Inapto',
+                        'bg-secondary': m.aprovacao==='—',
+                        'bg-warning text-dark': m.aprovacao==='Pendente'
+                      }">
+                  {{ m.aprovacao }}
+                </span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button class="btn btn-outline-secondary" (click)="fecharModalCriacao()">Fechar</button>
+        <button class="btn btn-primary"
+                [disabled]="!p || p.totalSelecionados===0"
+                (click)="confirmarCriacaoDoModal()">
+          Confirmar criação
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- estilos do overlay (pode mover para .css do componente se preferir) -->
+<style>
+  .overlay { position: fixed; inset: 0; z-index: 1050; }
+  .overlay__backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.5); }
+  .overlay__panel {
+    position: relative; z-index: 1; width: min(960px, 94vw);
+    margin: 5vh auto; background: #fff; border-radius: 12px; padding: 16px 18px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.25);
+  }
+</style>

@@ -1,0 +1,274 @@
+:root{
+  --crn-green:#008d45;
+  --crn-green-light:#18a85b;
+  --crn-dark:#1c1f21;
+  --crn-soft:#f6f8f7;
+}
+
+/* textos e cores base */
+.text-crn{color:var(--crn-green);}
+.text-crn-dark{color:var(--crn-dark);}
+
+/* detalhe do header */
+.crn-kicker{
+  width:8px;height:40px;border-radius:999px;background:linear-gradient(180deg,var(--crn-green),var(--crn-green-light));
+  box-shadow:0 8px 20px rgba(0,141,69,.25);
+}
+
+.badge-soft{
+  display:inline-block;padding:.2rem .5rem;border-radius:.5rem;
+  background:#eef7f2;color:var(--crn-green);font-weight:600;font-size:.8rem;
+}
+
+/* avatar */
+.avatar-inicial{
+  width:40px;height:40px;border-radius:50%;
+  display:grid;place-items:center;font-weight:700;
+  background:var(--crn-soft);color:var(--crn-green);
+}
+.avatar-inicial.avatar-lg{width:48px;height:48px;font-size:1rem;}
+.truncate-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+
+/* card */
+.crn-card{
+  border:1px solid rgba(0,0,0,.06);
+  border-radius:1rem;
+  background:#fff;
+  box-shadow:0 2px 10px rgba(16,24,40,.06);
+  padding:1rem;
+  position:relative;
+}
+.crn-card__header{
+  border-bottom:1px solid rgba(0,0,0,.05);
+  padding-bottom:.75rem;margin-bottom:.75rem;
+  background:linear-gradient(180deg,#f9fafb,#fff);
+  border-radius:.75rem .75rem 0 0;
+}
+.crn-card__body .crn-field{
+  display:flex;gap:.75rem;align-items:flex-start;
+  padding:.35rem 0;border-bottom:1px dashed rgba(0,0,0,.06);
+}
+.crn-card__body .crn-field:last-child{border-bottom:0;}
+.crn-label{min-width:110px;font-weight:600;color:#6b7280;}
+.crn-value{flex:1 1 auto;}
+
+/* ===== UF (bandeiras via CSS) ===== */
+.flag-pa{ background-image: url("https://upload.wikimedia.org/wikipedia/commons/0/02/Bandeira_do_Par%C3%A1.svg"); }
+.flag-am{ background-image: url("https://upload.wikimedia.org/wikipedia/commons/6/6b/Bandeira_do_Amazonas.svg"); }
+.flag-ap{ background-image: url("https://upload.wikimedia.org/wikipedia/commons/0/0c/Bandeira_do_Amap%C3%A1.svg"); }
+/* fallback Brasil */
+.flag-br{ background-image: url("https://upload.wikimedia.org/wikipedia/commons/0/05/Flag_of_Brazil.svg"); }
+
+.uf-flag{
+  width:20px; height:14px;
+  display:inline-block;
+  background-size:cover;
+  background-position:center;
+  border-radius:2px;
+  border:1px solid rgba(0,0,0,.08);
+  box-shadow:0 1px 2px rgba(0,0,0,.06);
+  vertical-align:middle;
+}
+.uf-text{ font-weight:600; letter-spacing:.2px; }
+
+/* ===== Rodapé chique + botão abrir modal ===== */
+.crn-card__footer-actions{
+  margin-top:.5rem;
+  padding:.75rem;
+  border-top:1px solid rgba(0,0,0,.06);
+  background:linear-gradient(180deg,#fafbfc,#fff);
+  border-radius:0 0 1rem 1rem;
+}
+
+/* Checkbox controlador do modal (invisível) */
+.crn-actions-toggle{
+  position:absolute !important;
+  opacity:0 !important;
+  pointer-events:none !important;
+}
+
+/* Botão (label) de abrir ações */
+.crn-actions-open{
+  display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+  width:100%;
+  height:42px;
+  border-radius:12px;
+  font-weight:800;
+  font-size:.95rem;
+  border:1px solid var(--crn-green);
+  background-color: #008d45;
+  color:#fff;
+  text-decoration:none;
+  letter-spacing:.2px;
+  cursor:pointer;
+  transition:transform .12s ease, box-shadow .12s ease, background-color .12s ease, border-color .12s ease;
+}
+.crn-actions-open:hover,
+.crn-actions-open:focus-visible{
+  transform:translateY(-1px);
+  background-color: #ffffff;
+  color: #008d45;
+  border: 1px solid #008d45;
+}
+.crn-actions-open:active{
+  transform:translateY(0);
+}
+
+/* ===== Modal controlado pelo checkbox ===== */
+.crn-modal-toggle-target{
+  position:fixed; inset:0; z-index:2000;
+  display:none;
+  align-items:center; justify-content:center;
+}
+
+/* quando o checkbox (irmão anterior) está marcado, exibe o modal */
+.crn-actions-toggle:checked ~ .crn-modal-toggle-target{
+  display:flex;
+}
+
+.crn-modal__backdrop{
+  position:absolute; inset:0;
+  background:rgba(0,0,0,.45);
+  backdrop-filter:saturate(1.2) blur(2px);
+}
+
+/* Caixa do modal */
+.crn-modal__dialog{
+  position:relative; z-index:1; width:min(720px,calc(100% - 2rem));
+  background:#fff; border-radius:1rem; overflow:hidden;
+  box-shadow:0 24px 48px rgba(16,24,40,.22);
+  display:flex; flex-direction:column; max-height:85vh;
+}
+
+/* Cabeçalho/Rodapé/Corpo do modal */
+.crn-modal__header, .crn-modal__footer{
+  padding:.9rem 1rem; background:#f9fafb;
+  border-bottom:1px solid rgba(0,0,0,.06);
+}
+.crn-modal__footer{
+  border-top:1px solid rgba(0,0,0,.06); border-bottom:0;
+  display:flex; gap:.5rem; justify-content:flex-end;
+}
+.crn-modal__body{ padding:1rem; overflow:auto; }
+
+.btn-close{ border:none; background:none; cursor:pointer; }
+
+/* Grid interno dos botões */
+.actions-grid{
+  display:grid;
+  grid-template-columns: 1fr;
+  gap:.5rem;
+}
+@media (min-width:520px){
+  .actions-grid{ grid-template-columns: 1fr 1fr; }
+}
+
+/* Título de grupo */
+.group-title{
+  font-size:.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.08em;
+  color:#64748b; margin:.4rem .2rem;
+}
+
+/* Estilo dos botões internos */
+.actions-grid .btn{
+  height:38px;
+  border-radius:12px;
+  font-weight:600;
+  letter-spacing:.2px;
+  display:inline-flex; align-items:center; justify-content:center; gap:.45rem;
+  border-width:1px;
+}
+
+/* ===== Modais "padrão" da página (editar/agendar) ===== */
+.crn-modal{position:fixed;inset:0;z-index:1050;display:flex;align-items:center;justify-content:center;}
+.crn-modal__backdrop{position:absolute;inset:0;background:rgba(0,0,0,.45);backdrop-filter:saturate(1.2) blur(2px);}
+.crn-modal__dialog{
+  position:relative;z-index:1;width:min(720px,calc(100% - 2rem));
+  background:#fff;border-radius:1rem;overflow:hidden;
+  box-shadow:0 24px 48px rgba(16,24,40,.22);
+  display:flex;flex-direction:column;max-height:85vh;
+}
+.crn-modal__header,.crn-modal__footer{padding:.9rem 1rem;background:#f9fafb;border-bottom:1px solid rgba(0,0,0,.06);}
+.crn-modal__footer{border-top:1px solid rgba(0,0,0,.06);border-bottom:0;display:flex;gap:.5rem;justify-content:flex-end;}
+.crn-modal__body{padding:1rem;overflow:auto;}
+
+/* Erros (ex.: após submit) */
+.is-invalid{border-color:#dc3545 !important;}
+.invalid-feedback{display:none;}
+.is-invalid ~ .invalid-feedback{display:block;}
+
+/* Destaque vindo de Agendamentos */
+.crn-card--highlight {
+  outline: 2px solid #006e37;
+  box-shadow: 0 0 0 3px rgba(0,110,55,.15);
+  border-radius: 12px;
+}
+@keyframes crnFlash {
+  0% { background-color: #eaf6f0; }
+  100% { background-color: #ffffff; }
+}
+.crn-card--flash { animation: crnFlash 1.4s ease-in-out 1; }
+
+/* ===================================================================================== */
+/* =====================  MODAL CUSTOM DOS GRUPOS (OVERLAY NOVO)  ===================== */
+/* ===================================================================================== */
+
+.crn-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  z-index: 2000; /* acima dos cards e da tela */
+}
+
+.crn-modal-xl {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  max-width: 1100px;
+  width: 100%;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.25);
+}
+
+.crn-modal-header,
+.crn-modal-footer {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: #f9fafb;
+}
+
+.crn-modal-footer {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 0;
+  justify-content: flex-end;
+}
+
+.crn-modal-body {
+  padding: 1rem 1.25rem 1.25rem;
+  overflow: auto;
+}
+
+/* Responsivo no mobile: modal ocupa praticamente a tela toda */
+@media (max-width: 576px) {
+  .crn-modal-xl {
+    max-width: 100%;
+    max-height: 100vh;
+    border-radius: 0;
+  }
+
+  .crn-modal-header,
+  .crn-modal-body,
+  .crn-modal-footer {
+    padding: 0.75rem;
+  }
+}

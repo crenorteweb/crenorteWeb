@@ -1,0 +1,30 @@
+/* Tabs no verde CRENORTE */
+.crenorte-tabs .nav-link { border: 1px solid transparent; color:#146c43; font-weight:600; }
+.crenorte-tabs .nav-link:hover { color:#0a5c36; }
+.crenorte-tabs .nav-link.active{ color:#fff; background:#198754; border-color:#198754; }
+.crenorte-tabs { gap:.25rem; }
+.crenorte-tabs .nav-link { border-radius:.5rem .5rem 0 0; }
+
+/* Badges de status */
+.badge.bg-success { background:#198754 !important; }
+.badge.bg-warning { background:#ffe69c !important; }
+.badge.bg-warning.text-dark { color:#47370a !important; }
+
+/* Modal overlay */
+.overlay{ position: fixed; inset:0; z-index:3000; display:grid; place-items:center; }
+.overlay__backdrop{ position:absolute; inset:0; background:rgba(0,0,0,.45); }
+.overlay__panel{
+  position:relative; z-index:1; width:min(760px,92vw); max-height:90vh; overflow:auto;
+  background:#fff; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.25); padding:1.25rem;
+}
+.overlay__panel.overlay__panel--lg{ width:min(1100px,96vw); }
+.overlay__panel .list-group-item{ padding:1rem .85rem; }
+.overlay__panel .form-control{ padding:.65rem .85rem; }
+
+/* Chips */
+.chip-status{ border:1px solid #cfd4da; background:#f1f3f5; color:#495057; }
+.chip-status.is-apto{ background:#e8f6ef; border-color:#18a85b; color:#0f5132; }
+.chip-status.is-inapto{ background:#fdecec; border-color:#dc3545; color:#842029; }
+
+/* Cards */
+.triagem-card { padding: 1rem; }

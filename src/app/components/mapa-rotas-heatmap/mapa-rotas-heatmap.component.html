@@ -1,0 +1,253 @@
+<div class="crneorte-light crn-dashboard container-fluid px-3 px-md-4 py-3">
+
+  <!-- Topbar -->
+  <header class="crn-topbar d-flex align-items-center gap-3 mb-3">
+    <div class="crn-brand d-flex align-items-center gap-3">
+  <img
+    class="crn-logo-img"
+    src="../../../assets/img/logo2-crenorte.png"
+    alt="CRENORTE"
+    height="90"
+  />
+  <div class="crn-subtitle text-nowrap">Mapa de Rotas • Setorização</div>
+</div>
+
+
+    <div class="ms-auto d-flex align-items-center flex-wrap gap-2">
+      <button class="btn btn-primary" (click)="abrirSeletorArquivo()">
+        <i class="fas fa-file-import me-2"></i> Importar CSV
+      </button>
+
+      <input
+        #fileInput
+        id="fileInput"
+        type="file"
+        class="d-none"
+        accept=".csv"
+        (change)="onFileChange($event)"
+      />
+
+      <button
+        class="btn btn-outline-success"
+        (click)="salvarImportados()"
+        [disabled]="!linhasImportadas.length"
+        title="Salvar setorização (pré-visualizada) no Firestore"
+      >
+        <i class="fas fa-cloud-upload-alt me-2"></i> Salvar Importadas
+      </button>
+
+      <button class="btn btn-outline-secondary" (click)="baixarModeloCSV()">
+        <i class="fas fa-download me-2"></i> Modelo CSV
+      </button>
+
+      <button class="btn btn-outline-dark" (click)="carregarRotas()" title="Recarregar Firestore">
+        <i class="fas fa-rotate me-2"></i> Recarregar
+      </button>
+
+      <span class="crn-status-chip" *ngIf="importMsg">{{ importMsg }}</span>
+    </div>
+  </header>
+
+  <!-- KPIs -->
+  <section class="crn-kpis row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="crn-card kpi">
+        <div class="label">Rotas no Firestore</div>
+        <div class="value">{{ rotasFirestore.length }}</div>
+        <div class="hint">Exibidas no mapa por padrão</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="crn-card kpi">
+        <div class="label">Pré-visualização importada</div>
+        <div class="value">{{ linhasImportadas.length }}</div>
+        <div class="hint">Mostra no mapa até salvar</div>
+      </div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="crn-card kpi">
+        <div class="label">Modo de exibição</div>
+        <div class="value">
+          {{ modoSetorizacao ? 'Setorização por bairro' : 'Pontos' }}
+        </div>
+        <div class="hint">Heatmap disponível no modo Pontos</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grid principal -->
+  <section class="crn-grid">
+    <!-- Painel lateral -->
+    <aside class="crn-side">
+      <div class="crn-card mb-3">
+        <div class="crn-card-head">
+          <div class="title"><i class="fas fa-eye me-2"></i>Exibição</div>
+        </div>
+        <div class="crn-card-body">
+          <!-- >> Seletor de basemap DENTRO de "Exibição" -->
+          <div class="mb-3">
+            <label class="form-label small fw-600">Estilo do mapa</label>
+            <select class="form-select form-select-sm" [(ngModel)]="basemap" (change)="trocarBasemap()">
+              <option value="osm">OpenStreetMap (água azul)</option>
+              <option value="voyager">Carto Voyager (contrastado)</option>
+              <option value="streets">Esri Streets (água destacada)</option>
+              <option value="imagery">Esri Satélite (Imagery)</option>
+            </select>
+          </div>
+
+          <div class="form-check form-switch crn-switch">
+            <input class="form-check-input" type="checkbox" id="toggleSetor"
+                   [(ngModel)]="modoSetorizacao" (change)="updateCamadas()">
+            <label class="form-check-label" for="toggleSetor">Setorização por bairro</label>
+          </div>
+
+          <div class="form-check form-switch crn-switch" *ngIf="!modoSetorizacao">
+            <input class="form-check-input" type="checkbox" id="toggleHeat"
+                   [(ngModel)]="mostrarHeatmap" (change)="updateCamadas()">
+            <label class="form-check-label" for="toggleHeat">Heatmap</label>
+          </div>
+
+          <hr class="crn-sep">
+
+          <div class="d-grid gap-2">
+            <button class="btn btn-outline-dark" (click)="centralizarNoPara()">
+              <i class="fas fa-crosshairs me-2"></i> Centralizar no Pará
+            </button>
+          </div>
+
+          <hr class="crn-sep">
+
+          <div class="form-check form-switch crn-switch">
+            <input class="form-check-input" type="checkbox" id="toggleFonte"
+                   [(ngModel)]="usarImportadasNoMapa" (change)="aplicarFonteNoMapa()">
+            <label class="form-check-label" for="toggleFonte">
+              Priorizar pré-visualização importada no mapa
+            </label>
+          </div>
+          <div class="small text-muted">
+            Desligado = mapa usa as rotas do Firestore.
+          </div>
+        </div>
+      </div>
+
+      <div class="crn-card">
+        <div class="crn-card-head">
+          <div class="title"><i class="fas fa-circle-info me-2"></i>Guia rápido</div>
+        </div>
+        <div class="crn-card-body small">
+          <ul class="crn-list">
+            <li>Importe o CSV (formato matriz) para pré-visualizar.</li>
+            <li>Salve para persistir no Firestore.</li>
+            <li>O mapa carrega do Firestore automaticamente no início.</li>
+            <li>Edite/Exclua rotas na lista abaixo.</li>
+          </ul>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Conteúdo principal -->
+    <main class="crn-main">
+      <!-- Mapa -->
+      <div class="crn-card crn-map mb-3">
+        <div class="crn-card-head">
+          <div class="title d-flex align-items-center gap-2">
+            <i class="fas fa-map me-1"></i> Mapa de cobertura
+          </div>
+          <div class="actions d-flex align-items-center gap-2">
+            <span class="crn-chip">
+              Fonte: {{ usarImportadasNoMapa ? 'Pré-visualização' : 'Firestore' }}
+            </span>
+            <button class="btn btn-sm btn-outline-dark" (click)="centralizarNoPara()">
+              <i class="fas fa-compress-arrows-alt me-1"></i> Enquadrar
+            </button>
+          </div>
+        </div>
+        <div class="crn-card-body p-0">
+          <div id="mapid" class="crn-mapbox"></div>
+        </div>
+      </div>
+
+      <!-- Lista de Rotas (Firestore) -->
+      <div class="crn-card">
+        <div class="crn-card-head">
+          <div class="title"><i class="fas fa-list me-2"></i>Lista de Rotas (Firestore)</div>
+          <div class="actions">
+            <button class="btn btn-sm btn-outline-dark" (click)="carregarRotas()">
+              <i class="fas fa-rotate me-1"></i> Recarregar
+            </button>
+          </div>
+        </div>
+        <div class="crn-card-body">
+          <div *ngIf="!rotasFirestore.length" class="text-muted">
+            Nenhuma rota encontrada no Firestore. Importe e salve para começar.
+          </div>
+
+          <div class="table-responsive" *ngIf="rotasFirestore.length">
+            <table class="table table-sm align-middle crn-table">
+              <thead>
+                <tr>
+                  <th style="min-width:160px">Bairro</th>
+                  <th>Município</th>
+                  <th>Meta</th>
+                  <th style="min-width:220px">Colaboradores</th>
+                  <th>Lat</th>
+                  <th>Lng</th>
+                  <th>Status</th>
+                  <th class="text-end" style="min-width:180px">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of rotasFirestore; trackBy: trackById">
+                  <!-- Exibição -->
+                  <ng-container *ngIf="editingId !== r.id; else editRow">
+                    <td class="fw-600">{{ r.bairro }}</td>
+                    <td>{{ r.municipio }}</td>
+                    <td><span class="crn-badge">{{ r.peso ?? 1 }}</span></td>
+                    <td class="text-truncate" style="max-width:260px">{{ r.assessor }}</td>
+                    <td class="text-muted">{{ r.latitude }}</td>
+                    <td class="text-muted">{{ r.longitude }}</td>
+                    <td>{{ r.status }}</td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-dark me-2" (click)="iniciarEdicao(r)">
+                        <i class="fas fa-pen"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="excluirRota(r)">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </td>
+                  </ng-container>
+
+                  <!-- Edição -->
+                  <ng-template #editRow>
+                    <td><input class="form-control form-control-sm" [(ngModel)]="editForm.bairro"></td>
+                    <td><input class="form-control form-control-sm" [(ngModel)]="editForm.municipio"></td>
+                    <td><input type="number" class="form-control form-control-sm" [(ngModel)]="editForm.peso"></td>
+                    <td><input class="form-control form-control-sm" [(ngModel)]="editForm.assessor"></td>
+                    <td><input type="number" class="form-control form-control-sm" [(ngModel)]="editForm.latitude"></td>
+                    <td><input type="number" class="form-control form-control-sm" [(ngModel)]="editForm.longitude"></td>
+                    <td>
+                      <select class="form-select form-select-sm" [(ngModel)]="editForm.status">
+                        <option value="planejada">planejada</option>
+                        <option value="pendente">pendente</option>
+                        <option value="concluida">concluida</option>
+                      </select>
+                    </td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-success me-2" (click)="salvarEdicao()">
+                        <i class="fas fa-check"></i>
+                      </button>
+                      <button class="btn btn-sm btn-outline-secondary" (click)="cancelarEdicao()">
+                        <i class="fas fa-xmark"></i>
+                      </button>
+                    </td>
+                  </ng-template>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </section>
+</div>

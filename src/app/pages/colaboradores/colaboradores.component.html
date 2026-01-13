@@ -1,0 +1,339 @@
+<div class="container py-4 colaboradores-page">
+  <div class="hdr d-flex align-items-end justify-content-between mb-4">
+    <div>
+      <h3 class="title mb-1">Gerenciar Colaboradores</h3>
+      <p class="subtitle mb-0">Crie usuários com CPF, Rota e responsáveis (Supervisor/Analista) para assessores. Edite e
+        exclua quando necessário.</p>
+    </div>
+    <div class="badge-pill" [class.badge-loading]="loading() || savingEdit()">
+      <span *ngIf="!(loading() || savingEdit())">Pronto</span>
+      <span *ngIf="loading() || savingEdit()">Processando...</span>
+    </div>
+  </div>
+
+  <div class="row g-4 card-grid">
+    <!-- CARD 1: LISTAGEM -->
+    <div class="col-12  order-2 order-lg-1">
+      <div class="card shadow-soft h-100">
+        <div class="card-header flex-wrap gap-2 d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">Colaboradores</h5>
+          <div class="w-100 w-sm-auto">
+            <input class="form-control form-control-sm w-100"
+              placeholder="Buscar por nome, e-mail, CPF, rota, supervisor ou analista" [(ngModel)]="busca"
+              (ngModelChange)="aplicarBusca()" />
+          </div>
+        </div>
+
+        <div class="card-body">
+          <div *ngIf="loadingList()" class="alert alert-light mb-0">Carregando lista…</div>
+
+          <div *ngIf="!loadingList() && filtrados().length === 0" class="alert alert-light mb-0">
+            Nenhum colaborador encontrado.
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle mb-0 table-stack" *ngIf="!loadingList() && filtrados().length">
+              <thead class="table-light">
+                <tr>
+                  <th>Colaborador</th>
+                  <th>CPF</th>
+                  <th>Telefone</th>
+                  <th>Papel</th>
+                  <th>Unidade</th>
+                  <th>Status</th>
+                  <th class="text-end">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let c of filtrados()">
+                  <td data-label="Colaborador">
+                    <div class="d-flex align-items-center gap-2">
+                      <img *ngIf="c.photoURL" [src]="c.photoURL" [alt]="c.nome" class="avatar-img avatar-sm">
+                      <div *ngIf="!c.photoURL" class="avatar-inicial avatar-sm">
+                        {{ c.nome && c.nome.length ? c.nome[0] : '?' }}
+                      </div>
+                      <div class="minw-0">
+                        <div class="fw-semibold text-truncate">{{ c.nome }}</div>
+                        <small class="text-muted d-block text-truncate">{{ c.email }}</small>
+                      </div>
+                    </div>
+                  </td>
+
+                  <td data-label="CPF">
+                    <small>{{ c.cpf | cpfMask }}</small>
+                  </td>
+
+                  <td data-label="Telefone">
+                    <small class="text-muted">{{ (c.telefone || '') }}</small>
+                  </td>
+
+                  <td data-label="Papel">
+                    <span class="badge-soft">{{ c.papel }}</span>
+                  </td>
+
+                  <td data-label="Rota">
+                    <small class="text-muted">{{ c.rota || '—' }}</small>
+                  </td>
+
+                  <td data-label="Status">
+                    <span class="status-dot" [class.on]="c.status==='ativo'"></span>
+                    <small class="text-muted">{{ c.status }}</small>
+                  </td>
+
+                  <td data-label="Ações" class="text-end td-actions">
+                    <div class="btn-actions">
+                      <button class="btn btn-sm btn-outline-secondary" (click)="abrirEdicao(c)">Editar</button>
+                      <button class="btn btn-sm btn-outline-danger" (click)="excluir(c)"
+                        [disabled]="savingEdit()">Excluir</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Avisos -->
+          <div class="mt-3">
+            <div class="alert alert-danger py-2 px-3 mb-2" *ngIf="erro()">{{ erro() }}</div>
+            <div class="alert alert-success py-2 px-3" *ngIf="ok()">{{ ok() }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CARD 2: CADASTRO -->
+    <div class="col-12 order-1 order-lg-2">
+      <div class="card shadow-soft h-100">
+        <form [formGroup]="form" (ngSubmit)="criar()" class="card-body">
+          <h5 class="mb-3">Novo colaborador</h5>
+
+          <!-- Foto + preview -->
+          <div class="row mb-4 align-items-center">
+            <div class="col-auto">
+              <div class="avatar-wrap">
+                <img *ngIf="fotoPreview(); else noFoto" [src]="fotoPreview()!" alt="Foto do colaborador"
+                  class="avatar-img">
+                <ng-template #noFoto>
+                  <div class="avatar-skeleton">Foto</div>
+                </ng-template>
+              </div>
+            </div>
+            <div class="col">
+              <label class="form-label mb-1">Foto de perfil (opcional)</label>
+              <input type="file" accept="image/*" class="form-control form-control-sm w-auto"
+                (change)="onFotoChange($event)">
+              <small class="text-muted d-block mt-1">Imagem exibida após o login do colaborador.</small>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12">
+              <label class="form-label">Nome</label>
+              <input class="form-control" formControlName="nome" placeholder="Ex.: Maria Souza">
+              <div class="invalid-msg" *ngIf="form.get('nome')?.touched && form.get('nome')?.invalid">
+                Informe o nome completo.
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">E-mail</label>
+              <input class="form-control" formControlName="email" type="email" placeholder="email@empresa.com">
+              <div class="invalid-msg" *ngIf="form.get('email')?.touched && form.get('email')?.invalid">
+                E-mail inválido.
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Senha (inicial)</label>
+              <input class="form-control" formControlName="senha" type="password" autocomplete="new-password"
+                placeholder="Mín. 6 caracteres">
+              <div class="invalid-msg" *ngIf="form.get('senha')?.touched && form.get('senha')?.invalid">
+                Mínimo de 6 caracteres.
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">CPF</label>
+              <input class="form-control" formControlName="cpf" placeholder="Somente números (11 dígitos)">
+              <div class="invalid-msg" *ngIf="cpfErro()">{{ cpfErro() }}</div>
+            </div>
+
+            <!-- Dentro do form de CADASTRO, após CPF, por exemplo: -->
+            <div class="col-md-6">
+              <label class="form-label">Telefone (somente números)</label>
+              <input class="form-control" formControlName="telefone" placeholder="Ex.: 91987654321">
+              <div class="invalid-msg" *ngIf="form.get('telefone')?.touched && form.get('telefone')?.invalid">
+                Informe 10 ou 11 dígitos.
+              </div>
+            </div>
+
+
+            <div class="col-md-6">
+              <label class="form-label">Papel</label>
+              <select class="form-select" formControlName="papel">
+                <option value="admin">Administrador</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="coordenador">Coordenador</option>
+                <option value="assessor">Assessor</option>
+                <option value="analista">Analista</option>
+                <option value="operacional">Operacional</option>
+                <option value="rh">RH</option>
+                <option value="financeiro">Financeiro</option>
+                <option value="qualidade">Controle de Qualidade</option>
+              </select>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Status</label>
+              <select class="form-select" formControlName="status">
+                <option value="ativo">Ativo</option>
+                <option value="inativo">Inativo</option>
+              </select>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Unidade (região/rota do colaborador)</label>
+              <input class="form-control" formControlName="rota" placeholder="Ex.: Belém • Jurunas / Guamá">
+              <small class="text-muted">Usaremos essa Unidade para vincular pré-cadastros.</small>
+            </div>
+
+            <!-- Responsáveis (apenas para assessor) -->
+            <div class="col-12" *ngIf="form.get('papel')?.value === 'assessor'">
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label">Supervisor responsável</label>
+                  <select class="form-select" formControlName="supervisorId">
+                    <option [ngValue]="null">Selecione…</option>
+                    <option *ngFor="let s of supervisorsAtivos()" [ngValue]="s.id">
+                      {{ s.nome }}
+                    </option>
+                  </select>
+                  <small class="text-muted">Obrigatório para assessores.</small>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label">Analista responsável</label>
+                  <select class="form-select" formControlName="analistaId">
+                    <option [ngValue]="null">Selecione…</option>
+                    <option *ngFor="let a of analistasAtivos()" [ngValue]="a.id">
+                      {{ a.nome }}
+                    </option>
+                  </select>
+                  <small class="text-muted">Obrigatório para assessores.</small>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <div class="mt-4 d-flex gap-2">
+            <button class="btn btn-principal px-4" [disabled]="form.invalid || loading()">Criar colaborador</button>
+            <button type="button" class="btn btn-outline-secondary" [disabled]="loading()"
+              (click)="form.reset({ papel: 'assessor', status: 'ativo', rota: '', supervisorId: null, analistaId: null }); fotoPreview.set(null)">
+              Limpar
+            </button>
+          </div>
+
+          <div class="mt-3">
+            <div class="alert alert-danger py-2 px-3 mb-2" *ngIf="erro()">{{ erro() }}</div>
+            <div class="alert alert-success py-2 px-3" *ngIf="ok()">{{ ok() }}</div>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL DE EDIÇÃO -->
+  <div #editModal class="modal fade" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <form [formGroup]="editForm" (ngSubmit)="salvarEdicao()">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar colaborador</h5>
+            <button type="button" class="btn-close" (click)="fecharEdicao()" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">Nome</label>
+                <input class="form-control" formControlName="nome">
+              </div>
+              <div class="col-12">
+                <label class="form-label">E-mail</label>
+                <input class="form-control" formControlName="email">
+                <small class="text-muted">O e-mail não pode ser alterado aqui.</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">CPF</label>
+                <input class="form-control" formControlName="cpf">
+              </div>
+              <!-- No MODAL de EDIÇÃO, após CPF: -->
+              <div class="col-md-6">
+                <label class="form-label">Telefone</label>
+                <input class="form-control" formControlName="telefone" placeholder="Ex.: 91987654321">
+                <div class="invalid-msg" *ngIf="editForm.get('telefone')?.touched && editForm.get('telefone')?.invalid">
+                  Informe 10 ou 11 dígitos.
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Papel</label>
+                <select class="form-select" formControlName="papel">
+                  <option value="admin">Administrador</option>
+                  <option value="supervisor">Supervisor</option>
+                  <option value="coordenador">Coordenador</option>
+                  <option value="assessor">Assessor</option>
+                  <option value="analista">Analista</option>
+                  <option value="operacional">Operacional</option>
+                  <option value="rh">RH</option>
+                  <option value="financeiro">Financeiro</option>
+                  <option value="qualidade">Controle de Qualidade</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Status</label>
+                <select class="form-select" formControlName="status">
+                  <option value="ativo">Ativo</option>
+                  <option value="inativo">Inativo</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Rota</label>
+                <input class="form-control" formControlName="rota" placeholder="Ex.: Ananindeua • Coqueiro">
+              </div>
+
+              <!-- Responsáveis (apenas para assessor) -->
+              <div class="col-12" *ngIf="editForm.get('papel')?.value === 'assessor'">
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label">Supervisor responsável</label>
+                    <select class="form-select" formControlName="supervisorId">
+                      <option [ngValue]="null">Selecione…</option>
+                      <option *ngFor="let s of supervisorsAtivos()" [ngValue]="s.id">
+                        {{ s.nome }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <div class="col-md-6">
+                    <label class="form-label">Analista responsável</label>
+                    <select class="form-select" formControlName="analistaId">
+                      <option [ngValue]="null">Selecione…</option>
+                      <option *ngFor="let a of analistasAtivos()" [ngValue]="a.id">
+                        {{ a.nome }}
+                      </option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer d-flex justify-content-between">
+            <button type="button" class="btn btn-outline-secondary" (click)="fecharEdicao()">Cancelar</button>
+            <button class="btn btn-principal" [disabled]="savingEdit()">Salvar alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

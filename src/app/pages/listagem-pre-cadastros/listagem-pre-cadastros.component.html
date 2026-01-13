@@ -1,0 +1,438 @@
+<app-header></app-header>
+<br />
+<div class="container py-5 mt-5">
+  <!-- Título -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 py-4">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-card-list me-2"></i>Pré-cadastros
+    </h3>
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary" (click)="recarregarTudo()">
+        <i class="fa-solid fa-rotate-right me-1"></i> Recarregar
+      </button>
+      <button class="btn btn-success" (click)="abrirRelatorioModal()">
+        <i class="fa-solid fa-clipboard-list me-1"></i> Relatório (visualizar)
+      </button>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="crn-kpi row g-3 mb-3">
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Total estimado</div>
+        <div class="crn-kpi__value">{{ totalEstimado }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Carregados</div>
+        <div class="crn-kpi__value">{{ presAll.length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Após filtros</div>
+        <div class="crn-kpi__value">{{ presFiltrados.length || 0 }}</div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="crn-kpi__card">
+        <div class="crn-kpi__label">Busca por nome</div>
+        <div class="crn-kpi__value">{{ filtro.nome ? 'Ativo' : '—' }}</div>
+        <div class="crn-kpi__hint">{{ filtro.nome || 'sem filtro' }}</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado -->
+  <div *ngIf="carregando && presAll.length===0" class="alert alert-info py-2">Carregando pré-cadastros...</div>
+  <div *ngIf="!carregando && erroCarregar" class="alert alert-primary-subtle text-primary-emphasis border">
+    {{ erroCarregar }}
+  </div>
+
+  <!-- ===================== Filtros ===================== -->
+  <div class="card mb-3 border-0 shadow-sm">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <!-- Nome -->
+        <div class="col-md-4">
+          <label class="form-label">Buscar por nome</label>
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Digite o nome" [(ngModel)]="filtro.nome"
+              (ngModelChange)="onFiltroNomeChange($event)" />
+            <button class="btn btn-success" (click)="aplicarFiltrosLocais(true)">
+              <i class="fas fa-search"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Criado em -->
+        <div class="col-md-3">
+          <label class="form-label">Criado de</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataDe" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.dataAte" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+
+        <!-- Agendado -->
+        <div class="col-md-2">
+          <label class="form-label">Agendados</label>
+          <select class="form-select" [(ngModel)]="filtro.agendado" (change)="aplicarFiltrosLocais(true)">
+            <option value="todos">Todos</option>
+            <option value="sim">Somente agendados</option>
+            <option value="nao">Somente não agendados</option>
+          </select>
+        </div>
+
+        <!-- Assessor -->
+        <div class="col-md-4">
+          <label class="form-label">Assessor responsável</label>
+          <select class="form-select" [(ngModel)]="filtro.assessor" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option value="(sem assessor)">Sem assessor</option>
+            <option *ngFor="let a of assessoresDisponiveis" [value]="a">{{ a }}</option>
+          </select>
+        </div>
+
+        <!-- Distribuído para -->
+        <div class="col-md-4">
+          <label class="form-label">Distribuído para</label>
+          <select class="form-select" [(ngModel)]="filtro.distribuidoPara" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let d of distribuicoesDisponiveis" [value]="d">{{ d }}</option>
+          </select>
+        </div>
+
+        <!-- Bairro -->
+        <div class="col-md-3">
+          <label class="form-label">Bairro</label>
+          <select class="form-select" [(ngModel)]="filtro.bairro" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let b of bairrosDisponiveis" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+
+        <!-- Cidade -->
+        <div class="col-md-3">
+          <label class="form-label">Cidade</label>
+          <select class="form-select" [(ngModel)]="filtro.cidade" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let c of cidadesDisponiveis" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+
+        <!-- UF -->
+        <div class="col-md-2">
+          <label class="form-label">UF</label>
+          <select class="form-select" [(ngModel)]="filtro.uf" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let u of ufsDisponiveis" [value]="u">{{ u }}</option>
+          </select>
+        </div>
+
+        <!-- Origem -->
+        <div class="col-md-3">
+          <label class="form-label">Origem</label>
+          <select class="form-select" [(ngModel)]="filtro.origem" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todas</option>
+            <option *ngFor="let o of origensDisponiveis" [value]="o">{{ o }}</option>
+          </select>
+        </div>
+
+        <!-- Período do agendamento -->
+        <div class="col-md-3">
+          <label class="form-label">Agendamento de</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.agDataDe" (change)="aplicarFiltrosLocais(true)" />
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control" [(ngModel)]="filtro.agDataAte"
+            (change)="aplicarFiltrosLocais(true)" />
+        </div>
+
+        <!-- Status do agendamento -->
+        <div class="col-md-3">
+          <label class="form-label">Status do agendamento</label>
+          <select class="form-select" [(ngModel)]="filtro.agStatus" (change)="aplicarFiltrosLocais(true)">
+            <option value="">Todos</option>
+            <option *ngFor="let s of agStatusDisponiveis" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+
+        <!-- Status de aprovação -->
+        <div class="col-md-3">
+          <label class="form-label">Status de aprovação</label>
+          <select class="form-select" [(ngModel)]="filtro.aprovStatus" (change)="onAprovacaoChange()">
+            <option value="">Todos</option>
+            <option *ngFor="let s of aprovStatusDisponiveis" [value]="s">{{ s }}</option>
+          </select>
+        </div>
+        <!-- 🔽 NOVO: motivos da reprovação (só aparece quando filtro = INAPTO) -->
+        <div class="col-12" *ngIf="aprovFiltroEhInapto">
+          <label class="form-label d-block">Motivo da reprovação (observação)</label>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="chkSerasa" [(ngModel)]="filtro.aprovInaptoObs.serasa"
+              (change)="aplicarFiltrosLocais(true)">
+            <label class="form-check-label" for="chkSerasa">SERASA</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="chkCadin" [(ngModel)]="filtro.aprovInaptoObs.cadin"
+              (change)="aplicarFiltrosLocais(true)">
+            <label class="form-check-label" for="chkCadin">CADIN</label>
+          </div>
+          <div class="form-check form-check-inline">
+            <input class="form-check-input" type="checkbox" id="chkScr" [(ngModel)]="filtro.aprovInaptoObs.scr"
+              (change)="aplicarFiltrosLocais(true)">
+            <label class="form-check-label" for="chkScr">SCR</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===================== Cards responsivos ===================== -->
+    <div>
+      <div class="row g-3 row-cols-1 row-cols-sm-2 row-cols-lg-3">
+        <div class="col" *ngFor="let c of presFiltrados; trackBy: trackById">
+          <div class="crn-card card h-100 shadow-sm rounded-4">
+            <div class="card-body d-flex flex-column gap-2">
+              <div class="d-flex align-items-start justify-content-between gap-2">
+                <h6 class="mb-0 fw-bold text-success-emphasis text-truncate" [title]="displayName(c.nomeCompleto)">
+                  {{ displayName(c.nomeCompleto) || '—' }}
+                </h6>
+                <span class="badge" [ngClass]="{
+                      'text-bg-success': getAprovacaoStatus(c)==='Apto',
+                      'text-bg-danger':  getAprovacaoStatus(c)==='Inapto',
+                      'text-bg-secondary': getAprovacaoStatus(c)==='Pendente' || getAprovacaoStatus(c)==='—'
+                    }">
+                  {{ getAprovacaoStatus(c) }}
+                </span>
+              </div>
+
+              <div class="small text-muted">
+                <div class="text-truncate"><i class="fa-regular fa-calendar me-1"></i>{{ toBRDate(c.createdAt) }}</div>
+                <div class="text-truncate" *ngIf="getPhone(c)">
+                  <i class="fa-solid fa-phone me-1"></i>{{ maskPhone(getPhone(c)) }}
+                </div>
+                <div class="text-truncate">
+                  <i class="fa-solid fa-location-dot me-1"></i>{{ getBairro(c) }} — {{ getCidade(c) }} / {{ getUF(c) }}
+                </div>
+
+                <div class="text-truncate" *ngIf="getAssessorNome(c) !== '(sem assessor)'">
+                  <i class="fa-solid fa-user-tie me-1"></i>
+                  <strong>Criado por:</strong> {{ getAssessorNome(c) }}
+
+                </div>
+                <!-- Distribuído para -->
+                <div class="text-truncate">
+                  <i class="fa-solid fa-share-nodes me-1"></i>
+                  <ng-container *ngIf="isDistribuido(c); else naoDist">
+                    <strong>Distribuído para:</strong> {{ getDistribuidosParaTexto(c) }}
+                  </ng-container>
+                  <ng-template #naoDist> Ainda não foi distribuído </ng-template>
+                </div>
+
+                <div class="text-truncate">
+                  <i class="fa-regular fa-clock me-1"></i>
+                  <strong>{{ isAgendado(c) ? 'Agendado:' : 'Sem agendamento' }}</strong>
+                  <span *ngIf="isAgendado(c)"> — {{ getAgendamentoResumo(c) }}</span>
+                </div>
+                <div class="text-truncate"><i class="fa-solid fa-hashtag me-1"></i>{{ getOrigem(c) }}</div>
+
+                <div class="text-truncate" *ngIf="getAprovacaoStatus(c)==='Inapto' && getAprovMotivosTexto(c)">
+                  <i class="fa-solid fa-circle-exclamation me-1"></i>
+                  <strong>Motivo:</strong> {{ getAprovMotivosTexto(c) }}
+                </div>
+              </div>
+
+              <div class="d-flex justify-content-end gap-2 mt-2">
+                <button class="btn btn-outline-success btn-sm" (click)="abrirEdicao(c)">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="btn btn-outline-danger btn-sm" (click)="removerPreCadastro(c)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Vazio / carregando -->
+      <div *ngIf="carregando" class="text-center text-muted small mt-2">Carregando…</div>
+      <div *ngIf="!carregando && presFiltrados.length===0" class="text-center text-muted py-4">
+        Nenhum pré-cadastro encontrado
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL DE RELATÓRIO ======================= -->
+  <div class="modal fade show" tabindex="-1" role="dialog" *ngIf="relatorioAberto"
+    style="display:block; background: rgba(0,0,0,.35);">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable" role="document">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Relatório de Pré-cadastros – CRENORTE
+            <small class="text-muted d-block fs-6">Gerado em {{ relatorioGeradoEm }}</small>
+          </h5>
+          <button type="button" class="btn-close" aria-label="Close" (click)="fecharRelatorioModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- KPIs -->
+          <div class="row g-3 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 p-3">
+                <div class="text-muted">Carregados</div>
+                <div class="fs-4 fw-bold">{{ kpiCarregados }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 p-3">
+                <div class="text-muted">Após filtros</div>
+                <div class="fs-4 fw-bold">{{ kpiFiltrados }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 p-3">
+                <div class="text-muted">Agendados</div>
+                <div class="fs-4 fw-bold">{{ kpiAgendados }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="border rounded-3 p-3">
+                <div class="text-muted">Sem agendamento</div>
+                <div class="fs-4 fw-bold">{{ kpiSemAgendamento }}</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Resumo filtros -->
+          <div class="small text-muted mb-3">Filtros aplicados: {{ resumoFiltros }}</div>
+
+          <!-- Tabela do relatório -->
+          <div class="table-responsive border rounded-3">
+            <table class="table table-sm table-hover align-middle mb-0">
+              <thead class="table-success">
+                <tr>
+                  <th>Nome</th>
+                  <th>Telefone</th>
+                  <th>Criado em</th>
+                  <th>Aprovação</th>
+                  <th>Motivo (obs.)</th> <!-- 🔽 NOVO -->
+                  <th>Bairro</th>
+                  <th>Cidade</th>
+                  <th>UF</th>
+                  <th>Origem</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let d of relDetalhes">
+                  <td class="text-truncate" style="max-width:260px">{{ d.nome }}</td>
+                  <td>{{ d.telefone }}</td>
+                  <td>{{ d.criado }}</td>
+                  <td>{{ d.aprovStatus }}</td>
+                  <td class="text-truncate" style="max-width:200px">{{ d.aprovObs }}</td> <!-- 🔽 NOVO -->
+                  <td class="text-truncate" style="max-width:160px">{{ d.bairro }}</td>
+                  <td class="text-truncate" style="max-width:160px">{{ d.cidade }}</td>
+                  <td>{{ d.uf }}</td>
+                  <td>{{ d.origem }}</td>
+                </tr>
+                <tr *ngIf="relDetalhes.length===0">
+                  <td colspan="12" class="text-center text-muted py-4">Nenhum registro para exibir</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" (click)="fecharRelatorioModal()">Fechar</button>
+          <button class="btn btn-success" (click)="gerarRelatorioPDF()">
+            <i class="fa-solid fa-file-pdf me-1"></i> Baixar PDF
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================= MODAL DE EDIÇÃO ======================= -->
+  <div class="modal fade show" tabindex="-1" role="dialog" *ngIf="editOpen"
+    style="display:block; background: rgba(0,0,0,.35);">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable" role="document">
+      <div class="modal-content rounded-4">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Editar Pré-cadastro
+            <small *ngIf="editItem" class="text-muted d-block fs-6">
+              {{ displayName(editItem.nomeCompleto || '') }}
+            </small>
+
+          </h5>
+          <button type="button" class="btn-close" aria-label="Close" (click)="fecharEdicao()"></button>
+        </div>
+
+        <div class="modal-body">
+          <form (ngSubmit)="salvarEdicao()">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label">Nome completo</label>
+                <input class="form-control" [(ngModel)]="editModel.nomeCompleto" name="ed_nome" required />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">CPF</label>
+                <input class="form-control" [(ngModel)]="editModel.cpf" name="ed_cpf" />
+              </div>
+
+              <div class="col-md-4">
+                <label class="form-label">Telefone</label>
+                <input class="form-control" [(ngModel)]="editModel.telefone" name="ed_tel" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">E-mail</label>
+                <input type="email" class="form-control" [(ngModel)]="editModel.email" name="ed_mail" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Origem</label>
+                <input class="form-control" [(ngModel)]="editModel.origem" name="ed_origem" />
+              </div>
+
+              <div class="col-md-8">
+                <label class="form-label">Endereço</label>
+                <input class="form-control" [(ngModel)]="editModel.endereco" name="ed_endereco" />
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Bairro</label>
+                <input class="form-control" [(ngModel)]="editModel.bairro" name="ed_bairro" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Cidade</label>
+                <input class="form-control" [(ngModel)]="editModel.cidade" name="ed_cidade" />
+              </div>
+              <div class="col-md-2">
+                <label class="form-label">UF</label>
+                <select class="form-select" [(ngModel)]="editModel.uf" name="ed_uf">
+                  <option [ngValue]="''">—</option>
+                  <option *ngFor="let u of ufsBrasil" [ngValue]="u">{{ u }}</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-2 mt-4">
+              <button type="button" class="btn btn-light" (click)="fecharEdicao()"
+                [disabled]="editSaving">Cancelar</button>
+              <button type="submit" class="btn btn-success" [disabled]="editSaving">
+                <span *ngIf="!editSaving">Salvar alterações</span>
+                <span *ngIf="editSaving" class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                <span *ngIf="editSaving" class="ms-2">Salvando…</span>
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>

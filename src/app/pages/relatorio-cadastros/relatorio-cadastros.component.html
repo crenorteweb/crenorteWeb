@@ -1,0 +1,162 @@
+<div class="container py-4">
+  <div class="form-header d-flex justify-content-between align-items-center mb-3">
+    <div class="title-box px-2">
+      <h2 class="form-title mb-0">Relatório de Cadastros</h2>
+      <small class="subtitle">Microcrédito Produtivo Orientado</small>
+    </div>
+
+  </div>
+
+  <div *ngIf="loading()" class="alert alert-light">Carregando…</div>
+  <div *ngIf="!loading() && erro()" class="alert alert-warning">{{ erro() }}</div>
+
+  <!-- Visão Assessor -->
+  <div *ngIf="!loading() && (papel==='assessor')">
+    <div class="card card-crenorte shadow-sm mb-3">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="h5 mb-0">Meus Cadastros</div>
+          <small class="text-muted">Total: {{ meus().length }}</small>
+        </div>
+        <div class="d-flex gap-2">
+          <a routerLink="/listagem" class="btn btn-outline-primary btn-sm">
+            Ver lista
+          </a>
+          <button class="btn btn-outline-success btn-sm"
+                  (click)="abrirCadastros(auth.currentUser?.uid || '', 'Meus cadastros')">
+            Ver meus cadastros
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-crenorte shadow-sm">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Nome</th>
+              <th>Data</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of meus()">
+              <td>{{ r.nomeExibicao || '—' }}</td>
+              <td>{{ r.data | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-success btn-sm"
+                        (click)="abrirCadastros(auth.currentUser?.uid || '', 'Meus cadastros')">
+                  Visualizar cadastros
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!meus().length">
+              <td colspan="3" class="text-center text-muted py-4">Sem registros.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visão Admin/Supervisor -->
+  <div *ngIf="!loading() && (papel==='admin' || papel==='supervisor')">
+    <div class="card card-crenorte shadow-sm">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Assessor</th>
+              <th>Total</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of porAssessor()">
+              <td class="fw-semibold">{{ a.assessor }}</td>
+              <td>{{ a.total }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-success btn-sm" (click)="abrirCadastros(a.uid, a.assessor)">
+                  Ver cadastros
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!porAssessor().length">
+              <td colspan="3" class="text-center text-muted py-4">Sem registros.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acesso negado -->
+  <div *ngIf="!loading() && !(papel==='assessor' || papel==='admin' || papel==='supervisor')"
+       class="alert alert-warning mt-3">
+    Seu perfil não tem acesso a este relatório.
+  </div>
+
+  <!-- Modal Cadastros (cards) -->
+  <div #cadastrosModal class="modal fade" tabindex="-1" aria-labelledby="cadastrosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 id="cadastrosModalLabel" class="modal-title">
+            Cadastros — {{ selectedAssessorNome }}
+          </h5>
+          <button type="button" class="btn-close" (click)="fecharCadastros()" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <ng-container *ngIf="selectedCadastros?.length; else semItens">
+            <div class="row g-3">
+              <div class="col-12 col-sm-6 col-lg-4" *ngFor="let c of selectedCadastros">
+                <div class="pc-card h-100 d-flex flex-column">
+                  <div class="pc-card__header">
+                    <div class="pc-card__title text-truncate" [title]="c.nomeExibicao">{{ c.nomeExibicao || '—' }}</div>
+                    <small class="text-muted">
+                      {{ c.data ? (c.data | date:'dd/MM/yyyy HH:mm') : '-' }}
+                    </small>
+                  </div>
+
+                  <div class="pc-card__body">
+                    <div class="pc-field" *ngIf="c['telefone'] || c['contato']">
+                      <span class="pc-label">Telefone</span>
+                      <span class="pc-value">{{ c['telefone'] || c['contato'] }}</span>
+                    </div>
+                    <div class="pc-field" *ngIf="c['email']">
+                      <span class="pc-label">E-mail</span>
+                      <span class="pc-value text-truncate">{{ c['email'] }}</span>
+                    </div>
+                    <div class="pc-field" *ngIf="c['endereco'] || c['enderecoCompleto']">
+                      <span class="pc-label">Endereço</span>
+                      <span class="pc-value text-truncate">{{ c['endereco'] || c['enderecoCompleto'] }}</span>
+                    </div>
+                  </div>
+
+                  <div class="pc-card__footer mt-auto d-flex gap-2">
+                    <button type="button" class="btn btn-outline-success btn-sm ms-auto" (click)="editarCadastro(c)">
+                      Editar
+                    </button>
+                    <button type="button" class="btn btn-outline-danger btn-sm" (click)="excluirCadastro(c)">
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-template #semItens>
+            <div class="text-muted">Sem cadastros para exibir.</div>
+          </ng-template>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" (click)="fecharCadastros()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

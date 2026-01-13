@@ -1,0 +1,53 @@
+/* src/app/pages/grupos/criar-grupo.component.css */
+
+/* Tema base (mesmo da listagem) */
+:host {
+  --crn-green: #006e37;
+  --crn-green-ink: #064d2b;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --crn-ink-900: #0f1c16;
+  --crn-ink-700: #23423a;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 10px 26px rgba(0,0,0,.1);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.14);
+}
+
+/* KPIs */
+.crn-kpi {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.crn-kpi__card {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 14px;
+  padding: 12px;
+}
+.crn-kpi__label { color:#5a6c66; font-weight:700; font-size:.85rem; }
+.crn-kpi__value { color: var(--crn-green); font-size:1.6rem; font-weight:900; line-height:1.1; }
+.crn-kpi__hint  { color:#8aa098; font-size:.8rem; }
+
+/* Cards */
+.crn-card { border:1px solid var(--crn-border); transition: transform .08s ease, box-shadow .2s ease; }
+.crn-card:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,.08); }
+
+/* Seleção de card */
+.crn-selectable-card { cursor: pointer; }
+.crn-selectable-card.is-selected {
+  border-color: var(--crn-green) !important;
+  box-shadow: 0 10px 26px rgba(0,110,55,.16);
+}
+.crn-selectable-card .badge { font-weight: 600; }
+
+/* Auxiliares */
+.btn-success { box-shadow: 0 6px 14px rgba(0,110,55,.18); }
+.alert-success { border:1px solid var(--crn-border); }
+
+/* Mobile */
+@media (max-width: 360px){
+  .pagination .page-link { padding: .3rem .5rem; }
+}

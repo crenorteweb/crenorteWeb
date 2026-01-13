@@ -1,0 +1,1 @@
+import{Ua as t,ib as i,jb as o,xb as a}from"./chunk-2KT3GOAN.js";var l=class n{static \u0275fac=function(e){return new(e||n)};static \u0275cmp=t({type:n,selectors:[["app-painel-clientes"]],decls:2,vars:0,template:function(e,p){e&1&&(i(0,"p"),a(1,"painel-clientes works!"),o())},encapsulation:2})};export{l as PainelClientesComponent};

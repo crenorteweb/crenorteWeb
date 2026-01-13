@@ -1,0 +1,90 @@
+/* --------- Cabeçalho com logo e título --------- */
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.form-title { margin: 0; font-size: 1.8rem; font-weight: 800; color: #006e37; }
+.subtitle   { font-size: 1rem; color: #555; }
+.logo-box   { flex-shrink: 0; }
+.logo-img   { height: 70px; width: auto; display: block; }
+
+@media (max-width: 576px) {
+  .logo-img   { height: 50px; }
+  .form-title { font-size: 1.25rem; }
+  .subtitle   { font-size: .9rem; }
+}
+
+/* --------- Tema / Card --------- */
+.precadastro {
+  --crn-green: #20a060;
+  --crn-green-2: #1a8a53;
+  --radius: 14px;
+  --shadow: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-hover: 0 10px 26px rgba(0,0,0,.09);
+}
+.card-crenorte,
+.precadastro .card.shadow-soft {
+  border: 0;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  background: #fff;
+}
+.precadastro .card.shadow-soft:hover { box-shadow: var(--shadow-hover); }
+
+/* --------- Inputs confortáveis --------- */
+.precadastro .form-control,
+.precadastro .form-select {
+  height: 48px;
+  border-radius: 12px;
+  border-color: #e6e6e6;
+  background: #fff;
+  transition: all .18s ease;
+}
+.precadastro .form-control:focus,
+.precadastro .form-select:focus {
+  border-color: var(--crn-green);
+  box-shadow: 0 0 0 .2rem rgba(32,160,96,.12);
+}
+.precadastro .form-label { font-weight: 600; color: #3f3f3f; }
+.precadastro ::placeholder { color: #b8b8b8; }
+
+/* --------- Botões --------- */
+.btn-crn-success {
+  background: var(--crn-green);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: .75rem 1.2rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.btn-crn-success:hover { background: var(--crn-green-2); transform: translateY(-1px); }
+.btn-crn-success:disabled { opacity: .85; transform: none; }
+
+/* --------- Ações sempre à mão no tablet --------- */
+@media (min-width: 768px) and (max-width: 1199.98px) {
+  .sticky-actions-md {
+    position: sticky;
+    bottom: .5rem;
+    padding-top: .5rem;
+    background: linear-gradient(to bottom, rgba(255,255,255,0), #fff 55%);
+  }
+  .precadastro .card-body { padding: 1.5rem 1.75rem; }
+  .precadastro .row.g-md-4 { --bs-gutter-x: 1.25rem; --bs-gutter-y: 1.25rem; }
+}
+
+/* --------- Estrelas do modal --------- */
+.stars { display:flex; gap:.25rem; user-select:none; }
+.stars button{
+  border:none; background:transparent; font-size:28px; line-height:1;
+  color:#c8c8c8; cursor:pointer; padding:0 2px;
+  transition: transform .08s ease, color .15s ease;
+}
+.stars button.active{ color:#f7b500; }
+.stars button:hover{ transform: translateY(-1px) scale(1.05); }
+
+.modal .btn { border-radius: 10px; }
+.modal .form-control { border-radius: 10px; }

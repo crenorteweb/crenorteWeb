@@ -1,0 +1,256 @@
+<div class="container py-4">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-check2-square me-2"></i> Aprovação de Cadastros
+    </h3>
+
+    <div class="btn-group">
+      <button *ngFor="let t of tabs" class="btn"
+              [ngClass]="tabAtual===t.key ? 'btn-success' : 'btn-outline-success'"
+              (click)="trocarTab(t.key)">
+        {{ t.label }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label">Buscar (nome/CPF/cidade)</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="fa fa-search"></i></span>
+            <input class="form-control" placeholder="Digite para filtrar" [(ngModel)]="busca"
+                   (ngModelChange)="aplicarFiltro(true)" />
+          </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label">Nome</label>
+          <input class="form-control" placeholder="Filtrar por nome"
+                 [(ngModel)]="filtro.nome" (ngModelChange)="aplicarFiltro(true)" />
+        </div>
+
+        <div class="col-6 col-md-2">
+          <label class="form-label">De</label>
+          <input type="date" class="form-control"
+                 [(ngModel)]="filtro.dataDe" (ngModelChange)="aplicarFiltro(true)" />
+        </div>
+
+        <div class="col-6 col-md-2">
+          <label class="form-label">Até</label>
+          <input type="date" class="form-control"
+                 [(ngModel)]="filtro.dataAte" (ngModelChange)="aplicarFiltro(true)" />
+        </div>
+
+        <div class="col-12 col-md-auto">
+          <button class="btn btn-outline-success" (click)="carregar()">
+            <i class="fa fa-rotate"></i> Recarregar
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado -->
+  <div *ngIf="carregando" class="alert alert-info py-2">Carregando…</div>
+  <div *ngIf="!carregando && erro" class="alert alert-primary-subtle text-primary-emphasis border">
+    {{ erro }}
+  </div>
+
+  <!-- Tabela desktop -->
+  <div class="table-responsive shadow-sm rounded-4 border d-none d-md-block">
+    <table class="table table-hover align-middle mb-0 crn-table">
+      <thead style="background:#eaf6ef">
+        <tr class="text-success">
+          <th (click)="ordenarPor('nomeCompleto')" class="th-sort">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Nome</span>
+              <i *ngIf="sortField==='nomeCompleto' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='nomeCompleto' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+          <th>CPF</th>
+          <th>Cidade</th>
+          <th (click)="ordenarPor('dataPreenchimento')" class="th-sort" style="width:160px">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Preenchido em</span>
+              <i *ngIf="sortField==='dataPreenchimento' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='dataPreenchimento' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+          <th>Status</th>
+          <th style="width:160px">Ações</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let c of itensFiltrados; trackBy: trackById"
+            class="cursor-pointer"
+            (click)="openModal(c)">
+          <td class="fw-semibold text-success-emphasis text-truncate" style="max-width: 280px;">
+            {{ displayName(c.nomeCompleto) }}
+          </td>
+          <td style="font-family: ui-monospace, SFMono-Regular, Menlo, monospace;">
+            {{ maskCPF(c.cpf) }}
+          </td>
+          <td class="text-truncate" style="max-width: 160px;">{{ c.cidade || '—' }}</td>
+          <td>{{ toBRDate(c.dataPreenchimento) }}</td>
+          <td>
+            <span class="badge {{ statusClass(c.status) }}">{{ statusLabel(c.status) }}</span>
+          </td>
+          <td class="text-nowrap" (click)="$event.stopPropagation()">
+            <div class="btn-group">
+              <button class="btn btn-sm btn-outline-success" (click)="openModal(c)">
+                <i class="fa fa-eye"></i> Ver
+              </button>
+            </div>
+          </td>
+        </tr>
+        <tr *ngIf="!carregando && itensFiltrados.length === 0">
+          <td colspan="6" class="text-center text-muted py-4">Nada por aqui</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Lista Mobile -->
+  <div class="d-md-none">
+    <div *ngFor="let c of itensFiltrados; trackBy: trackById"
+         class="mobile-card shadow-sm border rounded-4 p-3 mb-2 cursor-pointer"
+         (click)="openModal(c)">
+      <div class="d-flex justify-content-between align-items-start gap-2 header-row">
+        <h6 class="mb-1 fw-bold text-success-emphasis title-truncate">
+          {{ displayName(c.nomeCompleto) }}
+        </h6>
+        <span class="badge {{ statusClass(c.status) }}">{{ statusLabel(c.status) }}</span>
+      </div>
+      <div class="small text-muted mt-1 lh-sm">
+        <div><i class="fa-solid fa-id-card-clip me-1"></i> {{ maskCPF(c.cpf) }}</div>
+        <div *ngIf="c.cidade"><i class="fa-solid fa-location-dot me-1"></i> {{ c.cidade }}</div>
+        <div *ngIf="c.dataPreenchimento"><i class="fa-regular fa-calendar me-1"></i> {{ toBRDate(c.dataPreenchimento) }}</div>
+      </div>
+      <div class="mt-2" (click)="$event.stopPropagation()">
+        <button class="btn btn-outline-success w-100" (click)="openModal(c)">
+          <i class="fa fa-eye"></i> Ver detalhes
+        </button>
+      </div>
+    </div>
+
+    <div *ngIf="!carregando && itensFiltrados.length === 0" class="text-center text-muted py-4">
+      Nada por aqui
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" [class.show]="modalOpen" [ngStyle]="{ display: modalOpen ? 'block' : 'none' }"
+    aria-modal="true" role="dialog">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content crn-modal">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            <i class="fa fa-user-check text-success me-2"></i>
+            {{ displayName(current?.nomeCompleto) || 'Detalhes do Cadastro' }}
+          </h5>
+          <button type="button" class="btn-close" (click)="closeModal()"></button>
+        </div>
+
+        <div class="modal-body">
+          <div *ngIf="current as c">
+            <!-- Campos principais resumidos (topo) -->
+            <div class="row g-3 mb-3">
+              <div class="col-md-6">
+                <div class="fw-bold">CPF</div>
+                <div class="text-muted">{{ maskCPF(c.cpf) }}</div>
+              </div>
+              <div class="col-md-6">
+                <div class="fw-bold">Preenchido em</div>
+                <div class="text-muted">{{ toBRDate(c.dataPreenchimento) }}</div>
+              </div>
+            </div>
+
+            <!-- TODOS os detalhes do cadastro -->
+            <h6 class="fw-bold text-success mb-2">Dados do cadastro</h6>
+            <div class="row g-3">
+              <div class="col-md-6" *ngFor="let f of detalheCampos(c)">
+                <div class="fw-bold">{{ f.label }}</div>
+                <div class="text-muted">
+                  <ng-container [ngSwitch]="f.kind">
+                    <span *ngSwitchCase="'cpf'">{{ maskCPF(f.value) }}</span>
+                    <span *ngSwitchCase="'money'">{{ formatMoney(f.value) }}</span>
+                    <span *ngSwitchCase="'date'">{{ toBRDate(f.value) }}</span>
+                    <span *ngSwitchCase="'bool'">{{ f.value ? 'Sim' : 'Não' }}</span>
+                    <span *ngSwitchDefault>{{ f.value }}</span>
+                  </ng-container>
+                </div>
+              </div>
+            </div>
+
+            <!-- Valor solicitado (grande) se existir -->
+            <div class="mt-3" *ngIf="c.valorSolicitado">
+              <div class="fw-bold">Valor solicitado</div>
+              <div class="text-success fw-bold fs-5">
+                {{ valorSolicitadoFmt(c) }}
+              </div>
+            </div>
+
+            <!-- Anexos (AJUSTADO PARA EVITAR O ERRO) -->
+            <div class="mt-4" *ngIf="c.anexos as anexosObj">
+              <h6 class="fw-bold text-success mb-2">Anexos</h6>
+              <div class="row g-3">
+                <div class="col-6 col-md-4" *ngFor="let a of anexosObj | keyvalue">
+                  <div class="small fw-semibold mb-1">{{ a.key }}</div>
+
+                  <ng-container *ngIf="a.value?.length; else semArq">
+                    <div class="ratio ratio-4x3 border rounded-3 overflow-hidden bg-white">
+                      <!-- non-null assertion após o *ngIf -->
+                      <img [src]="a.value![0]" alt="{{a.key}}" style="object-fit:contain;">
+                    </div>
+                    <div class="small mt-1">
+                      <a *ngFor="let u of a.value!"
+                         [href]="u" target="_blank" rel="noopener"
+                         class="me-2 d-inline-block">Abrir</a>
+                    </div>
+                  </ng-container>
+
+                  <ng-template #semArq>
+                    <div class="text-muted small">Sem arquivos</div>
+                  </ng-template>
+                </div>
+              </div>
+            </div>
+
+            <!-- JSON completo (debug opcional) -->
+            <details class="mt-3">
+              <summary class="small text-muted">JSON completo (debug)</summary>
+              <pre class="small text-muted mt-2">{{ c | json }}</pre>
+            </details>
+          </div>
+        </div>
+
+        <div class="modal-footer d-flex justify-content-between">
+          <div>
+            <span class="badge {{ statusClass(current?.status) }}">{{ statusLabel(current?.status) }}</span>
+          </div>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" (click)="manterAnalise()">
+              <i class="fa fa-hourglass-half"></i> Manter em Análise
+            </button>
+            <button class="btn btn-danger" (click)="reprovar()">
+              <i class="fa fa-xmark"></i> Reprovar
+            </button>
+            <button class="btn btn-success" (click)="aprovar()">
+              <i class="fa fa-check"></i> Aprovar
+            </button>
+            <button *ngIf="current?.status==='aprovado'" class="btn btn-outline-primary" (click)="criarGrupo()">
+              <i class="fa fa-users"></i> Criar Grupo
+            </button>
+
+            <button class="btn btn-outline-success" (click)="closeModal()">Fechar</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop fade show" *ngIf="modalOpen"></div>
+</div>

@@ -1,0 +1,1 @@
+import{Ua as t,ib as n,jb as p,xb as a}from"./chunk-2KT3GOAN.js";var s=class o{static \u0275fac=function(e){return new(e||o)};static \u0275cmp=t({type:o,selectors:[["app-painel-produtos"]],decls:2,vars:0,template:function(e,r){e&1&&(n(0,"p"),a(1,"painel-produtos works!"),p())},encapsulation:2})};export{s as PainelProdutosComponent};

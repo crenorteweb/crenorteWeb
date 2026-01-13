@@ -1,0 +1,444 @@
+<app-header></app-header>
+<br><br><br><br><br>
+
+<div class="org container-fluid py-4">
+  <!-- Toolbar -->
+  <header class="org__toolbar d-flex flex-wrap align-items-center justify-content-between mb-3">
+    <div class="d-flex flex-column mb-2 mb-md-0">
+      <h1 class="h3 mb-1">Organograma da Equipe</h1>
+      <p class="text-muted mb-0 small">
+        Visualize a relação entre supervisores, analistas e assessores do seu time e acompanhe a produção por assessor.
+      </p>
+    </div>
+
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <div class="input-group input-group-sm org__search">
+        <span class="input-group-text">
+          <i class="bi bi-search"></i>
+        </span>
+        <input type="search" class="form-control" placeholder="Buscar assessor por nome ou e-mail..."
+          [(ngModel)]="busca" (ngModelChange)="onBuscaChange()" />
+      </div>
+    </div>
+  </header>
+
+  <!-- Estados -->
+  <div *ngIf="loading()" class="alert alert-info py-2 org__state">
+    Carregando informações da equipe…
+  </div>
+  <div *ngIf="!loading() && erro()" class="alert alert-danger py-2 org__state">
+    {{ erro() }}
+  </div>
+
+  <!-- Resumo (só quando tem dados) -->
+  <div class="org__summary row g-3 mb-4" *ngIf="!loading() && !erro()">
+    <div class="col-12 col-md-4">
+      <div class="summary-card summary-card--sup">
+        <div class="summary-label">Supervisores</div>
+        <div class="summary-value">{{ resumoSupervisores() }}</div>
+        <div class="summary-helper">no seu organograma</div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="summary-card summary-card--ana">
+        <div class="summary-label">Analistas</div>
+        <div class="summary-value">{{ resumoAnalistas() }}</div>
+        <div class="summary-helper">com assessores vinculados</div>
+      </div>
+    </div>
+
+    <div class="col-12 col-md-4">
+      <div class="summary-card summary-card--ass">
+        <div class="summary-label">Assessores</div>
+        <div class="summary-value">{{ resumoAssessores() }}</div>
+        <div class="summary-helper">neste time</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grupos por supervisor -->
+  <section *ngIf="!loading() && !erro()" class="groups">
+    <article class="group-card card shadow-sm mb-4" *ngFor="let g of porSupervisor()">
+      <div class="group-card__header card-header bg-white border-0 d-flex align-items-center justify-content-between">
+        <div class="node node--sup node-supervisor d-flex align-items-center gap-3">
+          <div class="avatar" [class.has-photo]="!!g.supervisor.photoURL" aria-hidden="true">
+            <img *ngIf="g.supervisor.photoURL as foto" [src]="foto" alt="" />
+            <ng-container *ngIf="!g.supervisor.photoURL">
+              <i class="bi bi-person-fill"></i>
+            </ng-container>
+          </div>
+          <div class="meta">
+            <div class="title fw-semibold fs-5">
+              {{ nomeCurto(g.supervisor.nome) }}
+            </div>
+            <div class="sub text-muted small">
+              Supervisor • {{ g.supervisor.cargo || '—' }}
+            </div>
+          </div>
+        </div>
+
+        <span class="badge badge-supervisor group-card__badge" title="Total de assessores deste supervisor">
+          {{ totalAssessoresDoGrupo(g) }} assessor(es)
+        </span>
+      </div>
+
+      <div class="group-card__body card-body pt-3">
+        <div class="buckets d-flex flex-wrap gap-3">
+          <!-- Buckets por analista -->
+          <div class="bucket border rounded-3 p-3 flex-grow-1" *ngFor="let b of g.buckets">
+            <!-- NOME DO TIME (TOPO DO BUCKET) -->
+            <div class="bucket__title d-flex align-items-center justify-content-between mb-3">
+              <ng-container *ngIf="editEquipeId !== b.equipeId; else editNome">
+                <div class="teamname__label fw-semibold d-flex align-items-center gap-2"
+                  [class.is-empty]="!b.equipeNome">
+                  <i class="bi bi-buildings-fill teamname__icon"></i>
+                  <span>{{ b.equipeNome || 'Nome do time' }}</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-primary bucket__edit-btn"
+                  (click)="startEditEquipe(b, g.supervisor.id)">
+                  <i class="bi bi-pencil-square me-1"></i> Editar
+                </button>
+              </ng-container>
+              <ng-template #editNome>
+                <div class="d-flex w-100 gap-2 align-items-center">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text">
+                      <i class="bi bi-buildings-fill"></i>
+                    </span>
+                    <input class="form-control teamname__input" [(ngModel)]="editEquipeNome" maxlength="48"
+                      placeholder="Nome do time" />
+                  </div>
+                  <div class="teamname__actions d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-success" (click)="salvarEquipeNome(b, g.supervisor.id)">
+                      <i class="bi bi-check2"></i>
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" (click)="cancelEditEquipe()">
+                      <i class="bi bi-x"></i>
+                    </button>
+                  </div>
+                </div>
+              </ng-template>
+            </div>
+
+            <!-- Cabeçalho do analista -->
+            <div class="bucket__head mb-3">
+              <div class="node node--ana node-analista d-flex align-items-center gap-3">
+                <div class="avatar" [class.has-photo]="!!b.analista?.photoURL">
+                  <img *ngIf="b.analista?.photoURL as foto" [src]="foto" alt="" />
+                  <ng-container *ngIf="!b.analista?.photoURL">
+                    <i class="bi bi-person-fill"></i>
+                  </ng-container>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold fs-6">
+                    {{ nomeCurto(b.analista?.nome || 'Analista') }}
+                  </div>
+                  <div class="sub text-muted small">Analista</div>
+                </div>
+                <span class="badge badge-analista ms-auto" title="Assessores deste analista">
+                  {{ b.assessores.length }} assessor(es)
+                </span>
+              </div>
+            </div>
+
+            <div class="bucket__branch my-2 border-top" aria-hidden="true"></div>
+
+            <div class="assessor-grid d-flex flex-wrap gap-2">
+              <div
+                class="node node--ass node-assessor card border-0 shadow-sm px-3 py-3 d-flex align-items-center gap-3"
+                *ngFor="let a of b.assessores" role="button" tabindex="0" (click)="abrirResumoAssessor(a)"
+                (keyup.enter)="abrirResumoAssessor(a)">
+                <div class="avatar" [class.has-photo]="!!a.photoURL">
+                  <img *ngIf="a.photoURL as foto" [src]="foto" alt="" />
+                  <ng-container *ngIf="!a.photoURL">
+                    <i class="bi bi-person-fill"></i>
+                  </ng-container>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold">
+                    {{ nomeCurto(a.nome) }}
+                  </div>
+                  <div class="sub text-muted small">
+                    Assessor
+                  </div>
+                </div>
+                <span class="badge badge-assessor">
+                  Ver produção
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Assessores desse supervisor sem analista -->
+          <div class="bucket bucket--muted border rounded-3 p-3 flex-grow-1 bg-light" *ngIf="g.semAnalista.length">
+            <div class="bucket__title bucket__title--muted mb-3">
+              <div class="teamname__label is-empty fw-semibold text-muted d-flex align-items-center gap-2">
+                <i class="bi bi-buildings-fill teamname__icon"></i>
+                <span>Sem analista</span>
+              </div>
+            </div>
+
+            <div class="bucket__head mb-3">
+              <div class="node node--ana node--neutral d-flex align-items-center gap-3">
+                <div class="avatar">
+                  <span>∅</span>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold fs-6">Sem analista</div>
+                  <div class="sub text-muted small">—</div>
+                </div>
+                <span class="badge badge-analista">
+                  {{ g.semAnalista.length }}
+                </span>
+              </div>
+            </div>
+
+            <div class="bucket__branch my-2 border-top" aria-hidden="true"></div>
+
+            <div class="assessor-grid d-flex flex-wrap gap-2">
+              <div
+                class="node node--ass node-assessor card border-0 shadow-sm px-3 py-3 d-flex align-items-center gap-3"
+                *ngFor="let a of g.semAnalista" role="button" tabindex="0" (click)="abrirResumoAssessor(a)"
+                (keyup.enter)="abrirResumoAssessor(a)">
+                <div class="avatar" [class.has-photo]="!!a.photoURL">
+                  <img *ngIf="a.photoURL as foto" [src]="foto" alt="" />
+                  <ng-container *ngIf="!a.photoURL">
+                    <i class="bi bi-person-fill"></i>
+                  </ng-container>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold">
+                    {{ nomeCurto(a.nome) }}
+                  </div>
+                  <div class="sub text-muted small">
+                    {{ a.email || 'Sem e-mail' }}
+                  </div>
+                </div>
+                <span class="badge badge-assessor ms-auto d-none d-lg-inline">
+                  Ver produção
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /buckets -->
+      </div>
+    </article>
+
+    <!-- GLOBAL: assessores sem supervisor (agrupados por analista) -->
+    <article class="group-card group-card--muted card shadow-sm" *ngIf="semSupervisor().length">
+      <div class="group-card__header card-header bg-light d-flex align-items-center justify-content-between">
+        <div class="node node--sup node--neutral d-flex align-items-center gap-3">
+          <div class="avatar">
+            <span>∅</span>
+          </div>
+          <div class="meta">
+            <div class="title fw-semibold fs-5">
+              Assessores sem supervisor
+            </div>
+            <div class="sub text-muted small">Agrupados por analista</div>
+          </div>
+        </div>
+        <span class="badge badge-supervisor group-card__badge">
+          {{ totalAssessoresSemSup() }} assessor(es)
+        </span>
+      </div>
+
+      <div class="group-card__body card-body">
+        <div class="buckets d-flex flex-wrap gap-3">
+          <div class="bucket border rounded-3 p-3 flex-grow-1" *ngFor="let b of semSupervisor()">
+            <div class="bucket__title mb-3">
+              <div class="teamname__label fw-semibold d-flex align-items-center gap-2">
+                <i class="bi bi-buildings-fill teamname__icon"></i>
+                <span>
+                  {{ b.analista?.nome ? 'Time do ' + nomeCurto(b.analista?.nome) : 'Sem analista' }}
+                </span>
+              </div>
+            </div>
+
+            <div class="bucket__head mb-3">
+              <div class="node node--ana node-analista d-flex align-items-center gap-3">
+                <div class="avatar" [class.has-photo]="!!b.analista?.photoURL">
+                  <img *ngIf="b.analista?.photoURL as foto" [src]="foto" alt="" />
+                  <ng-container *ngIf="!b.analista?.photoURL">
+                    <i class="bi bi-person-fill"></i>
+                  </ng-container>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold fs-6">
+                    {{ b.analista ? nomeCurto(b.analista.nome) : 'Sem analista' }}
+                  </div>
+                  <div class="sub text-muted small">
+                    {{ b.analista ? 'Analista' : '—' }}
+                  </div>
+                </div>
+                <span class="badge badge-analista">
+                  {{ b.assessores.length }} assessor(es)
+                </span>
+              </div>
+            </div>
+
+            <div class="bucket__branch my-2 border-top" aria-hidden="true"></div>
+
+            <div class="assessor-grid d-flex flex-wrap gap-2">
+              <div
+                class="node node--ass node-assessor card border-0 shadow-sm px-3 py-3 d-flex align-items-center gap-3"
+                *ngFor="let a of b.assessores" role="button" tabindex="0" (click)="abrirResumoAssessor(a)"
+                (keyup.enter)="abrirResumoAssessor(a)">
+                <div class="avatar" [class.has-photo]="!!a.photoURL">
+                  <img *ngIf="a.photoURL as foto" [src]="foto" alt="" />
+                  <ng-container *ngIf="!a.photoURL">
+                    <i class="bi bi-person-fill"></i>
+                  </ng-container>
+                </div>
+                <div class="meta">
+                  <div class="title fw-semibold">
+                    {{ nomeCurto(a.nome) }}
+                  </div>
+                  <div class="sub text-muted small">
+                    {{ a.email || 'Sem e-mail' }}
+                  </div>
+                </div>
+                <span class="badge badge-assessor ms-auto d-none d-lg-inline">
+                  Ver produção
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- /buckets -->
+      </div>
+    </article>
+  </section>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL RESUMO DE PRODUÇÃO DO ASSESSOR                      -->
+<!-- ========================================================= -->
+<div class="org-modal-backdrop" *ngIf="showResumoModal">
+  <div class="org-modal" role="dialog" aria-modal="true">
+    <!-- Cabeçalho -->
+    <div class="org-modal__header">
+      <div class="d-flex align-items-center gap-3">
+        <div class="avatar avatar--lg node-assessor">
+          <ng-container *ngIf="resumoAssessor?.photoURL; else iconUser">
+            <img [src]="resumoAssessor?.photoURL" alt="" />
+          </ng-container>
+          <ng-template #iconUser>
+            <i class="bi bi-person-fill"></i>
+          </ng-template>
+        </div>
+        <div>
+          <h5 class="mb-1">
+            Resumo de produção — {{ nomeCurto(resumoAssessor?.nome || '') }}
+          </h5>
+          <div class="text-muted small">
+            {{ resumoAssessor?.email || 'Sem e-mail cadastrado' }}
+          </div>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-sm btn-outline-secondary org-modal__close" (click)="fecharResumoModal()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Corpo -->
+    <div class="org-modal__body">
+      <!-- MODO CARDS (visão geral) -->
+      <div *ngIf="viewResumoMode === 'cards'">
+        <div class="resumo-grid mb-2">
+          <button type="button" class="resumo-card resumo-card--enc"
+            (click)="abrirDetalheCategoria('encaminhadosPorMim')">
+            <div class="resumo-label">Encaminhados por mim</div>
+            <div class="resumo-valor">
+              {{ resumoStats?.encaminhadosPorMim || 0 }}
+            </div>
+            <div class="resumo-helper">
+              Pré-cadastros que eu direcionei
+            </div>
+          </button>
+
+          <button type="button" class="resumo-card resumo-card--total" (click)="abrirDetalheCategoria('total')">
+            <div class="resumo-label">Pré-cadastros totais</div>
+            <div class="resumo-valor">
+              {{ resumoStats?.total || 0 }}
+            </div>
+            <div class="resumo-helper">
+              Tudo que está na carteira do assessor
+            </div>
+          </button>
+
+          <button type="button" class="resumo-card resumo-card--formal" (click)="abrirDetalheCategoria('formalizados')">
+            <div class="resumo-label">Formalizados</div>
+            <div class="resumo-valor">
+              {{ resumoStats?.formalizados || 0 }}
+            </div>
+            <div class="resumo-helper">
+              Pré-cadastros que viraram contrato
+            </div>
+          </button>
+
+          <button type="button" class="resumo-card resumo-card--des" (click)="abrirDetalheCategoria('desistencias')">
+            <div class="resumo-label">Desistências</div>
+            <div class="resumo-valor">
+              {{ resumoStats?.desistencias || 0 }}
+            </div>
+            <div class="resumo-helper">
+              Clientes que não seguiram adiante
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- MODO LISTA (detalhe da categoria) -->
+      <div *ngIf="viewResumoMode === 'lista'">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div>
+            <strong>{{ categoriaLabelSelecionada }}</strong>
+            <div class="text-muted small">
+              {{ listaSelecionada.length || 0 }} registro(s)
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline-secondary" (click)="voltarParaResumoCards()">
+            ← Voltar
+          </button>
+        </div>
+
+        <div class="resumo-lista border rounded" style="max-height: 320px; overflow-y: auto;">
+          <div class="resumo-item d-flex align-items-start gap-3 px-3 py-3 border-bottom"
+            *ngFor="let p of listaSelecionada">
+            <div class="resumo-avatar">
+              <i class="bi bi-person-circle"></i>
+            </div>
+            <div class="flex-grow-1">
+              <div class="fw-semibold">
+                {{ p.nomeCompleto || p.nome || 'Sem nome' }}
+              </div>
+              <div class="text-muted small">
+                <span *ngIf="p.cpf">
+                  CPF: {{ cpfMask(p.cpf) }}
+                </span>
+                <span *ngIf="p.cidade || p.uf">
+                  • {{ p.cidade || '—' }}<span *ngIf="p.uf">/{{ p.uf }}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div class="px-3 py-3 text-muted text-center" *ngIf="!listaSelecionada || !listaSelecionada.length">
+            Nenhum pré-cadastro nesta condição.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="org-modal__footer">
+      <button type="button" class="btn btn-sm btn-secondary" (click)="fecharResumoModal()">
+        Fechar
+      </button>
+    </div>
+  </div>
+</div>

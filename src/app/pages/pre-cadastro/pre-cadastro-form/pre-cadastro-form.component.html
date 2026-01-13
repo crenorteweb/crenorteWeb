@@ -1,0 +1,381 @@
+<app-header></app-header>
+<br />
+<br />
+<br />
+<br />
+
+<div class="container-fluid py-5">
+  <form #f="ngForm" (ngSubmit)="salvar(f)" class="py-5 container card-crenorte shadow-lg rounded precadastro">
+    <!-- HEADER -->
+    <div class="form-header d-flex justify-content-between align-items-center">
+      <div class="title-box px-2 py-4">
+        <h2 class="form-title mb-0">{{ editMode ? 'Editar Pré-cadastro' : 'Novo Pré-cadastro' }}</h2>
+        <small class="subtitle">Microcrédito Produtivo Orientado</small>
+      </div>
+      <div class="logo-box">
+        <img src="../../../assets/img/logo2-crenorte.png" alt="Logo CRENORTE" class="logo-img" />
+      </div>
+    </div>
+
+    <!-- ALERTA DE SUCESSO/ERRO -->
+    <div *ngIf="msg()" class="alert alert-dismissible fade show mt-3" role="alert" [ngClass]="{
+        'alert-success': msgType() === 'success',
+        'alert-danger': msgType() === 'danger',
+        'alert-info': msgType() === 'info'
+      }">
+      {{ msg() }}
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+
+    <div class="card shadow-soft">
+      <div class="card-body">
+        <div class="row g-3 g-md-4">
+          <div class="col-12 col-md-6">
+            <label class="form-label">Nome Completo</label>
+            <input class="form-control" name="nomeCompleto" [(ngModel)]="model.nomeCompleto" required
+              autocomplete="name" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">CPF</label>
+            <input class="form-control" name="cpf" [(ngModel)]="model.cpf" required placeholder="000.000.000-00"
+              inputmode="numeric" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Telefone (WhatsApp)</label>
+            <input class="form-control" name="telefone" [(ngModel)]="model.telefone" required
+              placeholder="(91) 9XXXX-XXXX" inputmode="tel" autocomplete="tel" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">E-mail</label>
+            <input type="email" class="form-control" name="email" [(ngModel)]="model.email" required
+              autocomplete="email" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Endereço</label>
+            <input class="form-control" name="endereco" [(ngModel)]="model.endereco" required
+              autocomplete="street-address" />
+          </div>
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Bairro</label>
+            <input class="form-control" name="bairro" [(ngModel)]="model.bairro" required />
+          </div>
+
+          <!-- NOVOS CAMPOS -->
+          <div class="col-12 col-md-4">
+            <label class="form-label">Cidade</label>
+            <input class="form-control" name="cidade" [(ngModel)]="model.cidade" placeholder="Ex.: Belém" />
+          </div>
+
+          <div class="col-12 col-md-2">
+            <label class="form-label">UF</label>
+            <select class="form-select" name="uf" [(ngModel)]="model.uf">
+              <option [ngValue]="''">—</option>
+              <option *ngFor="let u of ufsBrasil" [ngValue]="u">{{ u }}</option>
+            </select>
+          </div>
+          <!-- /NOVOS CAMPOS -->
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Origem</label>
+            <input class="form-control" name="origem" [(ngModel)]="model.origem" required />
+          </div>
+        </div>
+
+        <!-- ===== FLUXO DE CAIXA (ABERTURA DO MODAL) ===== -->
+        <br />
+        <fieldset class="crn-fieldset mb-4">
+          <h2 class="form-title mb-3 mt-3">
+            Fluxo de Caixa <small class="text-muted">(Empreendimento/Pessoal)</small>
+          </h2>
+          <button type="button" class="btn btn-outline-success btn-md" (click)="openFluxoModal()">
+            Inserir / Editar fluxo de caixa
+          </button>
+        </fieldset>
+
+        <!-- ===== FINANCIAMENTO ===== -->
+        <!-- ===== FINANCIAMENTO ===== -->
+        <fieldset class="crn-fieldset mb-4">
+          <h2 class="form-title mb-3 mt-3">Financiamento</h2>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Valor Solicitado</label>
+              <div class="input-group">
+                <span class="input-group-text">R$</span>
+                <input type="text" class="form-control" placeholder="Digite o valor (ex.: 5.000,00)"
+                  [(ngModel)]="valorSolicitadoMasked" name="valorSolicitado"
+                  (ngModelChange)="onValorMaskedChange($event)" mask="separator.2" thousandSeparator="."
+                  decimalMarker="," [dropSpecialCharacters]="true" />
+              </div>
+              <small class="text-muted d-block mt-1">
+                A simulação da parcela aparece depois que você digitar o valor solicitado.
+              </small>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Parcelas</label>
+              <select class="form-select" [(ngModel)]="parcelasSelecionadas" name="parcelasSelecionadas"
+                (ngModelChange)="onParcelasChange($event)" [disabled]="!hasValorSolicitado">
+                <option [ngValue]="null" disabled>Selecione</option>
+                <option *ngFor="let p of parcelasComValor" [ngValue]="p.n">{{ p.label }}</option>
+              </select>
+
+              <small class="text-muted d-block mt-1" *ngIf="!hasValorSolicitado">
+                Primeiro informe o valor solicitado para habilitar as opções de parcelas.
+              </small>
+
+              <small class="text-muted d-block mt-1" *ngIf="resumoParcela">
+                {{ resumoParcela }}
+              </small>
+
+              <span class="badge bg-info-subtle text-dark border mt-2 d-inline-block">
+                Sugerida: {{ formatBRL((computeParcelaSugerida().valor || 0)) }}
+              </span>
+
+              <div class="d-flex flex-wrap gap-2 align-items-center mt-2" *ngIf="hasValorSolicitado">
+                <span class="badge border" [ngClass]="getParcelaEscolhidaClasse()">
+                  Parcela escolhida: {{ formatBRL(getParcelaEscolhidaNumber() || 0) }}
+                </span>
+                <small [ngClass]="getComparacaoParcelaClasse()" class="ms-1">
+                  {{ getComparacaoParcelaTexto() }}
+                </small>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
+
+        <!-- ===== BOTÕES DO FORM ===== -->
+        <div class="d-flex justify-content-start gap-2 mt-3">
+          <button type="submit" class="btn btn-success" [disabled]="loading()">
+            <span *ngIf="!loading()">Salvar pré-cadastro</span>
+            <span *ngIf="loading()" class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+            <span *ngIf="loading()" class="ms-2">Salvando...</span>
+          </button>
+          <button type="button" class="btn btn-outline-secondary" [disabled]="loading()"
+            (click)="router.navigate(['/'])">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  </form>
+</div>
+
+<!-- ===== MODAL: FLUXO DE CAIXA (fora do form!) ===== -->
+<!-- ===== MODAL: FLUXO DE CAIXA ===== -->
+<div #fluxoModalEl class="modal fade" tabindex="-1" aria-labelledby="fluxoCaixaModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content border-0 rounded-3 shadow-lg">
+      <div class="modal-header bg-light border-0 rounded-top-3">
+        <div>
+          <h5 id="fluxoCaixaModalLabel" class="modal-title text-success fw-bold mb-0">Fluxo de Caixa</h5>
+          <small class="text-muted">Preencha os valores do negócio (ou pessoais) — usamos só para sugerir parcela
+            segura.</small>
+        </div>
+        <button type="button" class="btn-close" (click)="closeFluxoModal()" aria-label="Close"></button>
+      </div>
+
+      <div class="modal-body">
+        <div class="row g-3">
+          <!-- FATURAMENTO -->
+          <div class="col-12">
+            <label class="form-label fw-semibold">Faturamento mensal</label>
+            <div class="input-group">
+              <span class="input-group-text">R$</span>
+              <input type="text" class="form-control" placeholder="Digite o faturamento" [(ngModel)]="faturamentoInput"
+                (ngModelChange)="onFaturamentoMaskedChange($event)" mask="separator.2" thousandSeparator="."
+                decimalMarker="," [dropSpecialCharacters]="true" [ngModelOptions]="{standalone:true}" />
+            </div>
+          </div>
+
+          <!-- FIXOS -->
+          <div class="col-12 col-md-6">
+            <div class="p-3 border rounded-3 bg-body-tertiary">
+              <h6 class="mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-building-gear"></i> Custos Fixos
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label">Aluguel</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 1.200,00"
+                    [(ngModel)]="fluxoForm.fixos.aluguelMasked" (ngModelChange)="syncNumber('fixos.aluguel', $event)"
+                    mask="separator.2" thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Salários</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 3.500,00"
+                    [(ngModel)]="fluxoForm.fixos.salariosMasked" (ngModelChange)="syncNumber('fixos.salarios', $event)"
+                    mask="separator.2" thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Energia elétrica</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 420,00"
+                    [(ngModel)]="fluxoForm.fixos.energiaEletricaMasked"
+                    (ngModelChange)="syncNumber('fixos.energiaEletrica', $event)" mask="separator.2"
+                    thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Água</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 120,00"
+                    [(ngModel)]="fluxoForm.fixos.aguaMasked" (ngModelChange)="syncNumber('fixos.agua', $event)"
+                    mask="separator.2" thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <label class="form-label">Telefone/Internet</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 199,90"
+                    [(ngModel)]="fluxoForm.fixos.telefoneInternetMasked"
+                    (ngModelChange)="syncNumber('fixos.telefoneInternet', $event)" mask="separator.2"
+                    thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VARIÁVEIS -->
+          <div class="col-12 col-md-6">
+            <div class="p-3 border rounded-3 bg-body-tertiary">
+              <h6 class="mb-3 d-flex align-items-center gap-2">
+                <i class="bi bi-truck"></i> Custos Variáveis
+              </h6>
+
+              <div class="mb-3">
+                <label class="form-label">Matéria-prima</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 800,00"
+                    [(ngModel)]="fluxoForm.variaveis.materiaPrimaMasked"
+                    (ngModelChange)="syncNumber('variaveis.materiaPrima', $event)" mask="separator.2"
+                    thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Insumos</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 300,00"
+                    [(ngModel)]="fluxoForm.variaveis.insumosMasked"
+                    (ngModelChange)="syncNumber('variaveis.insumos', $event)" mask="separator.2" thousandSeparator="."
+                    decimalMarker="," [dropSpecialCharacters]="true" [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Frete</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 150,00"
+                    [(ngModel)]="fluxoForm.variaveis.freteMasked"
+                    (ngModelChange)="syncNumber('variaveis.frete', $event)" mask="separator.2" thousandSeparator="."
+                    decimalMarker="," [dropSpecialCharacters]="true" [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mb-3">
+                <label class="form-label">Transporte</label>
+                <div class="input-group">
+                  <span class="input-group-text">R$</span>
+                  <input type="text" class="form-control" placeholder="Ex.: 200,00"
+                    [(ngModel)]="fluxoForm.variaveis.transporteMasked"
+                    (ngModelChange)="syncNumber('variaveis.transporte', $event)" mask="separator.2"
+                    thousandSeparator="." decimalMarker="," [dropSpecialCharacters]="true"
+                    [ngModelOptions]="{standalone:true}" />
+                </div>
+              </div>
+
+              <div class="mt-3">
+                <div class="d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">Outros</h6>
+                  <button type="button" class="btn btn-sm btn-outline-primary" (click)="addOutro()">
+                    <i class="bi bi-plus-lg"></i> Adicionar
+                  </button>
+                </div>
+
+                <div class="mt-2" *ngFor="let o of fluxoForm.variaveis.outros; let i = index">
+                  <div class="input-group mb-2">
+                    <input class="form-control" placeholder="Nome" [(ngModel)]="o.nome"
+                      [ngModelOptions]="{standalone: true}" />
+                    <span class="input-group-text">R$</span>
+                    <input class="form-control" placeholder="Valor" [(ngModel)]="o.valorMasked"
+                      (ngModelChange)="syncOutroValor(i, $event)" mask="separator.2" thousandSeparator="."
+                      decimalMarker="," [dropSpecialCharacters]="true" [ngModelOptions]="{standalone: true}" />
+                    <button type="button" class="btn btn-outline-danger" (click)="removeOutro(i)">
+                      <i class="bi bi-trash"></i>
+                    </button>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUMÁRIO -->
+        <hr class="my-3" />
+        <div class="row g-2">
+          <div class="col-12 col-md-4">
+            <div class="p-3 rounded-3 border bg-white d-flex justify-content-between">
+              <span class="fw-semibold">Receita</span>
+              <span class="fw-bold">{{ formatBRL(totalReceita()) }}</span>
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="p-3 rounded-3 border bg-white d-flex justify-content-between">
+              <span class="fw-semibold">Custos</span>
+              <span class="fw-bold">{{ formatBRL(totalCustos()) }}</span>
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <div class="p-3 rounded-3 border"
+              [ngClass]="{'bg-success-subtle': totalLucro()>=0, 'bg-danger-subtle': totalLucro()<0}">
+              <div class="d-flex justify-content-between">
+                <span class="fw-semibold">Lucro</span>
+                <span class="fw-bold">{{ formatBRL(totalLucro()) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer bg-light border-0 rounded-bottom-3">
+        <button type="button" class="btn btn-outline-secondary" (click)="closeFluxoModal()">Cancelar</button>
+        <button type="button" class="btn btn-success" (click)="salvarFluxo()">
+          <i class="bi bi-check2-circle me-1"></i> Salvar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- /MODAL -->
+
+<!-- /MODAL -->

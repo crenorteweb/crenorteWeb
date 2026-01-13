@@ -1,0 +1,49 @@
+:host {
+  --crn-green: #006e37;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 10px 26px rgba(0,0,0,.10);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.14);
+}
+
+/* Tabela */
+.table-responsive {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-md);
+}
+.th-sort { cursor: pointer; user-select: none; }
+.table tbody tr { transition: background .12s ease; }
+.table tbody tr:hover { background: var(--crn-green-soft); }
+
+/* Badge */
+.badge { border-radius: 999px; }
+
+/* Cursor pointer utilitário */
+.cursor-pointer { cursor: pointer; }
+
+/* Mobile Card */
+.mobile-card { overflow: hidden; }
+.mobile-card * { min-width: 0; }
+.header-row { display:flex; align-items:flex-start; gap:8px; }
+.title-truncate {
+  flex:1 1 auto;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* Modal */
+.crn-modal{
+  border-radius:18px; border:1px solid var(--crn-border);
+  box-shadow: var(--shadow-lg);
+}
+.crn-modal .modal-header{
+  background: linear-gradient(180deg, #f2fbf7, #fff);
+  border-bottom-color: var(--crn-border);
+}
+.crn-modal .modal-footer{ border-top-color: var(--crn-border); }
+
+details summary {
+  cursor: pointer;
+}

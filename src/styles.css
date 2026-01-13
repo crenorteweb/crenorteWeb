@@ -1,0 +1,95 @@
+
+@import "leaflet/dist/leaflet.css";
+
+/* Altura do header e z-index alto para não ficar atrás de nada */
+:root {
+  --app-header-h: 64px; /* desktop padrão */
+}
+
+/* Header fixo com leve blur e contraste sutil */
+.app-header {
+  z-index: 1040; /* acima de offcanvas e conteúdos comuns */
+  backdrop-filter: saturate(160%) blur(6px);
+  background: rgba(255, 255, 255, .92);
+  -webkit-backdrop-filter: saturate(160%) blur(6px);
+  border-bottom: 1px solid rgba(0,0,0,.06);
+}
+
+
+/* Mobile: geralmente o header fica um pouco mais alto por conta da quebra/empilhamento */
+@media (max-width: 576px) {
+  :root { --app-header-h: 72px; }
+  .user-box { gap: .5rem; }
+  .app-header .container-fluid { padding-left: .75rem; padding-right: .75rem; }
+}
+
+/* Se você optou pelo espaçador no HTML (em vez do padding-top no body), use: */
+/*
+.app-header-spacer { height: calc(var(--app-header-h) + 12px); }
+@media (max-width: 576px) {
+  .app-header-spacer { height: calc(72px + 12px); }
+}
+*/
+
+
+:root {
+  --cor-verde-principal: #008d45;
+  --cor-verde-claro: #8ac44b;
+  --cor-amarelo: #ffcc00;
+}
+
+html, body { height: 100%; }
+#map { height: calc(100vh - 140px); width: 100%; }
+
+body {
+  background-color: #f5f5f5;
+  font-family: 'Nunito', sans-serif;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--cor-verde-principal);
+  font-weight: 600;
+}
+
+.btn-principal {
+  background-color: var(--cor-verde-principal);
+  color: white;
+  border: none;
+}
+
+.btn-principal:hover {
+  background-color: #006e37;
+  color: white;
+}
+
+.btn-secundario {
+  background-color: var(--cor-verde-claro);
+  color: white;
+  border: none;
+}
+
+.btn-secundario:hover {
+  background-color: #76ad3c;
+  color: white;
+}
+
+.btn-destaque {
+  background-color: var(--cor-amarelo);
+  color: #333;
+  border: none;
+}
+
+.btn-destaque:hover {
+  background-color: #e6b800;
+  color: #222;
+}
+
+.label-crenorte {
+  color: var(--cor-verde-principal);
+  font-weight: 500;
+}
+
+.form-control:focus {
+  border-color: var(--cor-verde-principal);
+  box-shadow: 0 0 0 0.15rem rgba(0, 141, 69, 0.25);
+}

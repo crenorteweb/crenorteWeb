@@ -1,0 +1,138 @@
+<div class="container py-4 crn-page">
+  <!-- Título + Ações -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3 crn-header">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-clipboard-check me-2"></i>Relatório de Grupos (QA)
+    </h3>
+    <div class="d-flex gap-2">
+      <a class="btn btn-outline-success" routerLink="/grupos/novo">
+        <i class="bi bi-people-fill me-1"></i> Novo Grupo
+      </a>
+      <button class="btn btn-outline-secondary" (click)="carregarTodos()">
+        <i class="bi bi-arrow-clockwise me-1"></i> Recarregar
+      </button>
+    </div>
+  </div>
+
+  <!-- Filtros -->
+  <div class="crn-card mb-3">
+    <div class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label crn-label">Coordenador (nome)</label>
+        <input class="form-control crn-input"
+               [(ngModel)]="filtro.nome"
+               (ngModelChange)="aplicarFiltros(true)"
+               placeholder="Buscar por nome" />
+      </div>
+
+      <div class="col-md-4">
+        <label class="form-label crn-label">CPF do coordenador</label>
+        <input class="form-control crn-input"
+               [(ngModel)]="filtro.cpf"
+               (ngModelChange)="aplicarFiltros(true)"
+               placeholder="Somente dígitos ou parcial" />
+      </div>
+
+      <div class="col-md-3">
+        <label class="form-label crn-label">Status</label>
+        <select class="form-select crn-input"
+                [(ngModel)]="filtro.status"
+                (ngModelChange)="aplicarFiltros(true)">
+          <option value="">Todos</option>
+          <option value="em_qa">Em QA</option>
+          <option value="aprovado_basa">Aprovado BASA</option>
+          <option value="reprovado_basa">Reprovado BASA</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <!-- Estado -->
+  <div *ngIf="carregando" class="alert crn-alert-info py-2">Carregando grupos...</div>
+  <div *ngIf="!carregando && erro" class="alert alert-warning">{{ erro }}</div>
+
+  <!-- Tabela (md+) -->
+  <div class="crn-table-wrap d-none d-md-block">
+    <table class="table crn-table table-hover align-middle mb-0">
+      <thead>
+        <tr class="text-success">
+          <th style="width: 48px;">#</th>
+          <th (click)="ordenarPor('nome')" style="cursor:pointer;">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Coordenador</span>
+              <i *ngIf="sortField==='nome' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='nome' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+          <th>CPF Coordenador</th>
+          <th (click)="ordenarPor('criadoEm')" style="cursor:pointer; width:180px;">
+            <div class="d-inline-flex align-items-center gap-2">
+              <span>Criado em</span>
+              <i *ngIf="sortField==='criadoEm' && sortDir==='asc'" class="fa-solid fa-arrow-up"></i>
+              <i *ngIf="sortField==='criadoEm' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
+            </div>
+          </th>
+          <th style="width: 160px;">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let g of gruposPaginados; index as i">
+          <td>{{ (paginaAtual - 1) * porPagina + i + 1 }}</td>
+          <td class="fw-semibold text-success-emphasis text-truncate">{{ g.coordenadorNome || '—' }}</td>
+          <td><span class="crn-cpf">{{ maskCpf(g.coordenadorCpf) }}</span></td>
+          <td>{{ toBRDate(g.criadoEm) }}</td>
+          <td>
+            <span class="badge badge-pill" [ngClass]="statusClass(g.status)">
+              {{ statusLabel(g.status) }}
+            </span>
+          </td>
+        </tr>
+
+        <tr *ngIf="!carregando && gruposPaginados.length === 0">
+          <td colspan="5" class="text-center text-muted py-4">Nenhum grupo encontrado</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Lista Mobile (sm-) -->
+  <div class="d-block d-md-none">
+    <div class="mobile-card shadow-sm border rounded-4 p-3 mb-2" *ngFor="let g of gruposPaginados; index as i">
+      <div class="d-flex flex-column gap-1">
+        <div class="d-flex align-items-start justify-content-between header-row">
+          <h6 class="mb-1 fw-bold text-success-emphasis title-truncate">{{ g.coordenadorNome || '—' }}</h6>
+          <span class="badge badge-pill value-badge" [ngClass]="statusClass(g.status)">
+            {{ statusLabel(g.status) }}
+          </span>
+        </div>
+        <div class="small text-muted">
+          <i class="bi bi-person-vcard me-1"></i> <span class="crn-cpf">{{ maskCpf(g.coordenadorCpf) }}</span>
+        </div>
+        <div class="small text-muted" *ngIf="g.criadoEm">
+          <i class="bi bi-calendar3 me-1"></i> {{ toBRDate(g.criadoEm) }}
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!carregando && gruposPaginados.length === 0" class="text-center text-muted py-4">
+      Nenhum grupo encontrado
+    </div>
+  </div>
+
+  <!-- Paginação -->
+  <nav class="mt-4" *ngIf="!carregando && totalPaginas > 1">
+    <ul class="pagination justify-content-center flex-wrap gap-1">
+      <li class="page-item" [class.disabled]="paginaAtual === 1">
+        <button class="page-link" (click)="irParaPagina(paginaAtual - 1)">Anterior</button>
+      </li>
+
+      <li class="page-item" *ngFor="let p of pages()" [class.active]="paginaAtual === p">
+        <button class="page-link" (click)="irParaPagina(p)">{{ p }}</button>
+      </li>
+
+      <li class="page-item" [class.disabled]="paginaAtual === totalPaginas">
+        <button class="page-link" (click)="irParaPagina(paginaAtual + 1)">Próxima</button>
+      </li>
+    </ul>
+  </nav>
+</div>

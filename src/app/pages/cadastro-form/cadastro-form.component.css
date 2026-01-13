@@ -1,0 +1,57 @@
+/* Header com logo fixa à direita e texto colado à esquerda */
+.form-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between; /* texto à esquerda, logo à direita */
+  margin-bottom: 20px;
+  padding: 0; /* sem espaçamento lateral extra */
+}
+
+.title-box {
+  text-align: left;
+}
+
+.form-title {
+  margin: 0;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #006e37;
+}
+
+.subtitle {
+  font-size: 1.6rem;
+  color: #555;
+}
+
+.logo-box {
+  flex-shrink: 0; /* não deixa encolher */
+}
+
+.logo-img {
+  height: 70px; /* tamanho fixo */
+  width: auto;
+  display: block;
+}
+@media (max-width: 576px) {
+  .form-header {
+    flex-direction: row;       /* continua lado a lado */
+    justify-content: space-between;
+    align-items: center;
+    gap: 6px;                  /* espaço menor entre logo e texto */
+  }
+
+  .logo-img {
+    height: 50px;     
+  }
+
+  .form-title {
+    font-size: 1.1rem;         /* título reduzido */
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+  }
+}
+
+
+

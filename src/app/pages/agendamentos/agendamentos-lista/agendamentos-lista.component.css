@@ -1,0 +1,55 @@
+/* ==========================================================
+   C R E N O R T E – Tema bancário (verde #006e37)
+   ========================================================== */
+:host {
+  --crn-green: #006e37;
+  --crn-green-ink: #064d2b;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --crn-ink-900: #0f1c16;
+  --crn-ink-700: #23423a;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 10px 26px rgba(0,0,0,.1);
+  --shadow-lg: 0 16px 40px rgba(0,0,0,.14);
+}
+
+/* -------- KPIs ---------- */
+.crn-kpi{
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: var(--shadow-sm);
+}
+.crn-kpi__card{ background:#fff; border:1px solid var(--crn-border); border-radius:14px; padding:12px; }
+.crn-kpi__label{ color:#5a6c66; font-weight:700; font-size:.85rem; }
+.crn-kpi__value{ color: var(--crn-green); font-size:1.6rem; font-weight:900; line-height:1.1; }
+.crn-kpi__hint{ color:#8aa098; font-size:.8rem; }
+
+/* Tabela */
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.table td, .table th { white-space: nowrap; vertical-align: middle; }
+
+/* Lista Mobile */
+.mobile-card { overflow: hidden; }
+.mobile-card * { min-width: 0; }
+.mobile-card .header-row { display:flex; align-items:flex-start; justify-content:space-between; gap:8px; flex-wrap:wrap; }
+.mobile-card .title-truncate {
+  flex:1 1 auto; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; line-height:1.2;
+}
+.mobile-card .action-row { margin-top:.5rem; }
+@media (max-width:360px){
+  .mobile-card h6 { max-width: 160px; }
+  .pagination .page-link { padding:.3rem .5rem; }
+}
+
+/* Paginação */
+.pagination .page-link{
+  color: var(--crn-green);
+  border:1px solid var(--crn-border);
+  border-radius:999px !important; background:#fff;
+}
+.pagination .page-item.active .page-link{
+  color:#fff; background: var(--crn-green); border-color: var(--crn-green);
+  box-shadow: 0 8px 18px rgba(0,110,55,.2);
+}

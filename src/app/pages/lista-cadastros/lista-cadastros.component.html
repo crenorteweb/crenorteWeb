@@ -1,0 +1,242 @@
+<div class="container pre-cadastros-view py-3">
+  <!-- Header / Hero -->
+  <div class="d-flex flex-wrap gap-3 justify-content-between align-items-center mb-3">
+    <div class="d-flex align-items-center gap-3">
+      <div class="crn-kicker"></div>
+      <div>
+        <h3 class="mb-0 text-crn-dark fw-bold">Meus Cadastros</h3>
+        <div class="mt-1 d-flex align-items-center gap-2">
+          <span class="badge-soft">Total: {{ itens().length }}</span>
+          <span class="text-muted" style="font-size:.9rem">Visão geral dos seus cadastros recentes</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex flex-wrap gap-2">
+      <a routerLink="/cadastro/novo" class="btn btn-principal">
+        <i class="bi bi-plus-lg me-1"></i> Novo
+      </a>
+    </div>
+  </div>
+
+  <!-- Toolbar: busca -->
+  <div class="card shadow-sm border-0 mb-3">
+    <div class="card-body py-3">
+      <div class="row g-2 align-items-center">
+        <div class="col-12">
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-search"></i></span>
+            <input type="search" class="form-control" placeholder="Buscar por nome, CPF, e-mail…">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading()" class="alert alert-light border-0 shadow-sm d-flex align-items-center gap-2">
+    <span class="spinner-border spinner-border-sm"></span>
+    Carregando…
+  </div>
+
+  <!-- Lista em cards -->
+  <div class="card shadow-sm border-0" *ngIf="!loading()">
+    <div class="card-body">
+      <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
+        <div class="col" *ngFor="let i of itens()">
+          <div class="crn-card h-100 d-flex flex-column">
+            <!-- Cabeçalho -->
+            <div class="crn-card__header d-flex align-items-center gap-3">
+              <div class="avatar-inicial">
+                {{ (i.nomeCompleto || '?').charAt(0) | uppercase }}
+              </div>
+              <div class="min-w-0">
+                <div class="fw-semibold truncate-2 mb-0 text-crn-dark">
+                  {{ i.nomeCompleto || '—' }}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                  <small class="text-muted">Cadastro completo</small>
+                  <span class="badge-soft">CPF</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Corpo -->
+            <div class="crn-card__body">
+              <div class="crn-field">
+                <span class="crn-label">CPF</span>
+                <span class="crn-value">
+                  <span class="badge text-bg-light fw-medium">
+                    {{ i.cpfFormatado || i.cpf || '—' }}
+                  </span>
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">Telefone</span>
+                <span class="crn-value">
+                  <i class="bi bi-telephone text-crn me-1"></i>
+                  {{ i.contatoFormatado || i.contato || '—' }}
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">E-mail</span>
+                <span class="crn-value text-break">
+                  <i class="bi bi-envelope text-muted me-1"></i>
+                  {{ i.email || '—' }}
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">Endereço</span>
+                <span class="crn-value text-break">
+                  {{ i.endereco || '—' }}
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">Bairro</span>
+                <span class="crn-value text-break">
+                  {{ i.bairro || '—' }}
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">Criado em</span>
+                <span class="crn-value">
+                  <!-- aceita createdAt (Timestamp) OU criadoEm (Timestamp/Date/string) -->
+                  {{
+                    (asDate(i.createdAt) || asDate(i.criadoEm)) ? ((asDate(i.createdAt) || asDate(i.criadoEm)) | date:'dd/MM/yyyy HH:mm') : '—'
+                  }}
+                </span>
+              </div>
+
+              <div class="crn-field">
+                <span class="crn-label">Status</span>
+                <span class="crn-value">
+                  <span class="badge text-bg-secondary">{{ i.status || '—' }}</span>
+                </span>
+              </div>
+            </div>
+
+            <!-- Ações -->
+            <div class="crn-card__actions mt-3 d-flex flex-column gap-3">
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-primary flex-fill" (click)="abrirVer(i)">
+                  <i class="bi bi-eye me-1"></i> Ver
+                </button>
+                <button type="button" class="btn btn-outline-dark flex-fill" (click)="abrirEditar(i)">
+                  <i class="bi bi-pencil me-1"></i> Editar
+                </button>
+                <button type="button" class="btn btn-outline-danger flex-fill" (click)="remover(i)">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+
+              <a class="btn btn-success w-100" [routerLink]="['/cadastro','novo']" [queryParams]="{ preCadastroId: i.id }">
+                <i class="bi bi-clipboard-check me-1"></i> Iniciar novo cadastro
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="!itens()?.length" class="text-center text-muted py-4">Nenhum registro ainda.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: VER ===== -->
+<div *ngIf="modalVerAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
+  <div class="crn-modal__dialog" role="document" aria-labelledby="modalVerTitulo">
+    <div class="crn-modal__header">
+      <h5 id="modalVerTitulo" class="mb-0">Detalhes do Cadastro</h5>
+      <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
+    </div>
+    <div class="crn-modal__body" *ngIf="viewItem() as v">
+      <div class="d-flex align-items-center gap-2 mb-3">
+        <div class="avatar-inicial avatar-lg">
+          {{ (v.nomeCompleto || '?').charAt(0) | uppercase }}
+        </div>
+        <div class="min-w-0">
+          <div class="fw-semibold truncate-2 text-crn-dark">{{ v.nomeCompleto || '—' }}</div>
+          <small class="text-muted">
+            {{ (asDate(v.createdAt) || asDate(v.criadoEm)) ? ((asDate(v.createdAt) || asDate(v.criadoEm)) | date:'dd/MM/yyyy HH:mm') : '—' }}
+          </small>
+        </div>
+      </div>
+
+      <dl class="row mb-0">
+        <dt class="col-sm-3">CPF</dt>
+        <dd class="col-sm-9">{{ v.cpfFormatado || v.cpf || '—' }}</dd>
+        <dt class="col-sm-3">Telefone</dt>
+        <dd class="col-sm-9">{{ v.contatoFormatado || v.contato || '—' }}</dd>
+        <dt class="col-sm-3">E-mail</dt>
+        <dd class="col-sm-9 text-break">{{ v.email || '—' }}</dd>
+        <dt class="col-sm-3">Endereço</dt>
+        <dd class="col-sm-9 text-break">{{ v.endereco || '—' }}</dd>
+        <dt class="col-sm-3">Bairro</dt>
+        <dd class="col-sm-9 text-break">{{ v.bairro || '—' }}</dd>
+        <dt class="col-sm-3">Status</dt>
+        <dd class="col-sm-9 text-break">{{ v.status || '—' }}</dd>
+      </dl>
+    </div>
+    <div class="crn-modal__footer">
+      <button class="btn btn-secondary" (click)="fecharModais()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: EDITAR ===== -->
+<div *ngIf="modalEditarAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
+  <div class="crn-modal__dialog" role="document" aria-labelledby="modalEditarTitulo">
+    <div class="crn-modal__header">
+      <h5 id="modalEditarTitulo" class="mb-0">Editar Cadastro</h5>
+      <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
+    </div>
+
+    <form #formEdit="ngForm" (ngSubmit)="salvarEdicao()" *ngIf="editModel() as m" novalidate>
+      <div class="crn-modal__body">
+        <div class="row g-3">
+          <div class="col-12">
+            <label class="form-label">Nome completo</label>
+            <input type="text" class="form-control" name="nomeCompleto" [(ngModel)]="m.nomeCompleto" autocomplete="name">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">CPF</label>
+            <input type="text" class="form-control" name="cpf" [(ngModel)]="m.cpf">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Telefone</label>
+            <input type="text" class="form-control" name="contato" [(ngModel)]="m.contato">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">E-mail</label>
+            <input type="text" class="form-control" name="email" [(ngModel)]="m.email" autocomplete="email">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Bairro</label>
+            <input type="text" class="form-control" name="bairro" [(ngModel)]="m.bairro" autocomplete="address-level2">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Endereço</label>
+            <input type="text" class="form-control" name="endereco" [(ngModel)]="m.endereco" autocomplete="street-address">
+          </div>
+        </div>
+      </div>
+
+      <div class="crn-modal__footer">
+        <button type="button" class="btn btn-light" (click)="fecharModais()">Cancelar</button>
+        <button type="submit" class="btn btn-success" [disabled]="saving()">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>

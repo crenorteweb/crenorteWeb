@@ -1,0 +1,166 @@
+<div class="container py-4">
+  <div class="form-header d-flex justify-content-between align-items-center mb-3">
+    <div class="title-box px-2">
+      <h2 class="form-title mb-0">Relatório de Pré-cadastros</h2>
+      <small class="subtitle">Microcrédito Produtivo Orientado</small>
+    </div>
+    <div class="logo-box">
+      <img src="../../../assets/img/logo2-crenorte.png" alt="Logo CRENORTE" class="logo-img" />
+    </div>
+  </div>
+
+  <div *ngIf="loading()" class="alert alert-light">Carregando…</div>
+
+  <!-- Visão Assessor -->
+  <div *ngIf="!loading() && (papel==='assessor')">
+    <div class="card card-crenorte shadow-sm mb-3">
+      <div class="card-body d-flex justify-content-between align-items-center">
+        <div>
+          <div class="h5 mb-0">Meus Pré-cadastros</div>
+          <small class="text-muted">Total: {{ meus().length }}</small>
+        </div>
+        <div class="d-flex gap-2">
+          <a routerLink="/pre-cadastro/minha-lista" class="btn btn-outline-primary btn-sm">
+            Ver lista
+          </a>
+          <button class="btn btn-outline-success btn-sm"
+            (click)="abrirPreCadastros(auth.currentUser?.uid || '', 'Meus pré-cadastros')">
+            Ver meus pré-cadastros
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card card-crenorte shadow-sm">
+      <div class="table-responsive">
+        <table class="table mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Nome</th>
+              <th>Data</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of meus()">
+              <td>{{ r.nome }}</td>
+              <td>{{ r.data | date:'dd/MM/yyyy HH:mm' }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-success btn-sm"
+                  (click)="abrirPreCadastros(auth.currentUser?.uid || '', 'Meus pré-cadastros')">
+                  Visualizar pré-cadastros
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!meus().length">
+              <td colspan="3" class="text-center text-muted py-4">Sem registros.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Visão Admin/Supervisor -->
+  <div *ngIf="!loading() && (papel==='admin' || papel==='supervisor')">
+    <div class="card card-crenorte shadow-sm">
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Assessor</th>
+              <th>Total</th>
+              <th class="text-end">Ações</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let a of porAssessor()">
+              <td class="fw-semibold">{{ a.assessor }}</td>
+              <td>{{ a.total }}</td>
+              <td class="text-end">
+                <button class="btn btn-outline-success btn-sm" (click)="abrirPreCadastros(a.uid, a.assessor)">
+                  Ver pré-cadastros
+                </button>
+              </td>
+            </tr>
+            <tr *ngIf="!porAssessor().length">
+              <td colspan="3" class="text-center text-muted py-4">Sem registros.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Acesso negado -->
+  <div *ngIf="!loading() && !(papel==='assessor' || papel==='admin' || papel==='supervisor')"
+    class="alert alert-warning mt-3">
+    Seu perfil não tem acesso a este relatório.
+  </div>
+
+  <!-- Modal Pré-cadastros (cards) -->
+  <div #preCadastrosModal class="modal fade" tabindex="-1" aria-labelledby="preCadastrosModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 id="preCadastrosModalLabel" class="modal-title">
+            Pré-cadastros — {{ selectedAssessorNome }}
+          </h5>
+          <button type="button" class="btn-close" (click)="fecharPreCadastros()" aria-label="Close"></button>
+        </div>
+
+        <div class="modal-body">
+          <ng-container *ngIf="selectedPreCadastros?.length; else semItens">
+            <div class="row g-3">
+              <div class="col-12 col-sm-6 col-lg-4" *ngFor="let pc of selectedPreCadastros">
+                <div class="pc-card h-100 d-flex flex-column">
+                  <div class="pc-card__header">
+                    <div class="pc-card__title text-truncate" [title]="pc.nome">{{ pc.nome || '—' }}</div>
+                    <small class="text-muted">
+                      {{ pc.data ? (pc.data | date:'dd/MM/yyyy HH:mm') : '-' }}
+                    </small>
+                  </div>
+
+                  <div class="pc-card__body">
+                    <div class="pc-field" *ngIf="pc['cpf']">
+                      <span class="pc-label">CPF</span>
+                      <span class="pc-value">{{ pc['cpf'] }}</span>
+                    </div>
+                    <div class="pc-field" *ngIf="pc['telefone'] || pc['contato']">
+                      <span class="pc-label">Telefone</span>
+                      <span class="pc-value">{{ pc['telefone'] || pc['contato'] }}</span>
+                    </div>
+                    <div class="pc-field" *ngIf="pc['email']">
+                      <span class="pc-label">E-mail</span>
+                      <span class="pc-value text-truncate">{{ pc['email'] }}</span>
+                    </div>
+                    <div class="pc-field" *ngIf="pc['endereco'] || pc['enderecoCompleto']">
+                      <span class="pc-label">Endereço</span>
+                      <span class="pc-value text-truncate">{{ pc['endereco'] || pc['enderecoCompleto'] }}</span>
+                    </div>
+                  </div>
+
+                  <div class="pc-card__footer mt-auto d-flex gap-2">
+                    <!-- REMOVIDO o botão "Ver detalhes" -->
+                    <button type="button" class="btn btn-success btn-sm ms-auto" (click)="iniciarCadastro(pc)">
+                      Iniciar cadastro
+                    </button>
+
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <ng-template #semItens>
+            <div class="text-muted">Sem pré-cadastros para exibir.</div>
+          </ng-template>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" (click)="fecharPreCadastros()">Fechar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,76 @@
+:host {
+  --crn-green: #006e37;
+  --crn-green-soft: #eaf6f0;
+  --crn-border: #e7edf0;
+  --shadow-sm: 0 6px 18px rgba(0,0,0,.06);
+  --shadow-md: 0 10px 26px rgba(0,0,0,.1);
+}
+
+.crn-card {
+  background: #fff;
+  border: 1px solid var(--crn-border);
+  border-radius: 16px;
+  box-shadow: var(--shadow-sm);
+  padding: 16px;
+  position: relative;
+}
+.crn-card::before {
+  content:"";
+  position:absolute; inset:0;
+  background: linear-gradient(90deg, var(--crn-green), var(--crn-green)) top left/100% 4px no-repeat;
+  border-radius: 16px;
+}
+
+.crn-table-wrap{
+  background:#fff; border:1px solid var(--crn-border);
+  border-radius:18px; box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+.crn-table{ table-layout: fixed; width:100%; margin:0; }
+.crn-table thead{
+  background: #f2fbf7;
+  box-shadow: inset 0 -1px 0 var(--crn-border);
+  position: sticky; top: 0; z-index: 1;
+}
+.crn-table thead th{
+  border:none; padding:.85rem .9rem;
+  font-size:.78rem; letter-spacing:.08em;
+  text-transform:uppercase; font-weight:900; color:#2a3f36;
+}
+.crn-table tbody td{
+  border-color: var(--crn-border) !important;
+  padding:.85rem .9rem; color:#14221c; font-weight:500;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+
+/* cpf chip */
+.crn-cpf{
+  display:inline-block; background:#f5f7f6;
+  border:1px solid var(--crn-border);
+  padding:.28rem .55rem; border-radius:10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color:#213a31;
+}
+
+/* badge pill */
+.badge-pill{
+  border-radius:999px;
+  padding:.4rem .7rem;
+  font-weight: 800;
+}
+
+/* mobile list */
+.mobile-card { overflow: hidden; }
+.mobile-card * { min-width: 0; }
+.header-row { gap: 8px; flex-wrap: wrap; }
+.title-truncate {
+  flex: 1 1 auto;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.value-badge { flex: 0 0 auto; white-space: nowrap; margin-left: auto; }
+
+/* Alerts */
+.crn-alert-info{
+  background:#fff; border:1px solid var(--crn-border);
+  color:#335a4b; border-radius:12px;
+}
