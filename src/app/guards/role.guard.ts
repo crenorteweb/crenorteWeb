@@ -5,6 +5,8 @@ import { firstValueFrom } from 'rxjs';
 import { take } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 
+const MAX_SESSION_TIME = 3 * 60 * 60 * 1000; // Tempo do token 3 horas
+
 // Mesmo tipo do seu model
 export type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -35,6 +37,16 @@ function roleGuardCore(rolesPermitidos: Papel[]): CanActivateFn {
       // 1) Checa usuário logado
       const user = await firstValueFrom(auth.firebaseUser$.pipe(take(1)));
       if (!user) return router.parseUrl('/login');
+
+      // 🔐 1.1) Força novo login a cada 24h
+      const tokenResult = await user.getIdTokenResult();
+      const authTime = new Date(tokenResult.authTime).getTime();
+      const now = Date.now();
+
+      if (now - authTime > MAX_SESSION_TIME) {
+        await auth.logout(); // ou signOut(auth)
+        return router.parseUrl('/login');
+      }
 
       // 2) Bootstrap do perfil
       try {
