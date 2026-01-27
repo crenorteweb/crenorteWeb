@@ -1,5 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 
+const teste: string = "teste";
+
 // AngularFire Auth
 import {
   Auth,
