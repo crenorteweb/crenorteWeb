@@ -105,7 +105,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
     nome: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     senha: ['', [Validators.required, Validators.minLength(6)]],
-    //cpf: ['', [Validators.required, Validators.pattern(/^\d{11}$/)]],
+    cpf: [''],
     telefone: ['', [Validators.pattern(TEL_REGEX)]],
     papel: ['assessor' as Papel, Validators.required],
     cargo: [''],
@@ -256,10 +256,21 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
 
     const v = this.form.value as any;
     const cpfDigits = String(v.cpf || '').replace(/\D/g, '');
-    if (!this.validarCPF(cpfDigits)) {
-      this.form.get('cpf')?.markAsTouched();
-      this.erro.set('CPF inválido.');
-      return;
+    // if (!this.validarCPF(cpfDigits)) {
+    //   this.form.get('cpf')?.markAsTouched();
+    //   this.erro.set('CPF inválido.');
+    //   return;
+    // }
+    if (cpfDigits) { // 🔥 só valida se tiver algo
+      if (!/^\d{11}$/.test(cpfDigits)) {
+        this.erro.set('Informe 11 dígitos.');
+        return;
+      }
+
+      if (!this.validarCPF(cpfDigits)) {
+        this.erro.set('CPF inválido.');
+        return;
+      }
     }
 
     const telDigits = String(v.telefone || '').replace(/\D/g, '');
@@ -288,7 +299,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
         cargo: v.cargo ?? null,
         rota: v.rota,                 // obrigatório
         status: v.status,
-        cpf: cpfDigits,
+        cpf: cpfDigits || null,
         telefone: telDigits || null,
         photoURL: photoURL ?? null,
         supervisorId: v.supervisorId ?? null,
