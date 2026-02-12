@@ -50,30 +50,30 @@
 
           <div class="col-12 col-md-6">
             <label class="form-label">E-mail</label>
-            <input type="email" class="form-control" name="email" [(ngModel)]="model.email" required
+            <input type="email" class="form-control" name="email" [(ngModel)]="model.email"
               autocomplete="email" />
           </div>
 
           <div class="col-12 col-md-6">
             <label class="form-label">Endereço</label>
-            <input class="form-control" name="endereco" [(ngModel)]="model.endereco" required
+            <input class="form-control" name="endereco" [(ngModel)]="model.endereco"
               autocomplete="street-address" />
           </div>
 
           <div class="col-12 col-md-6">
             <label class="form-label">Bairro</label>
-            <input class="form-control" name="bairro" [(ngModel)]="model.bairro" required />
+            <input class="form-control" name="bairro" [(ngModel)]="model.bairro"  />
           </div>
 
           <!-- NOVOS CAMPOS -->
           <div class="col-12 col-md-4">
             <label class="form-label">Cidade</label>
-            <input class="form-control" name="cidade" [(ngModel)]="model.cidade" placeholder="Ex.: Belém" />
+            <input class="form-control" name="cidade" [(ngModel)]="model.cidade" placeholder="Ex.: Belém" required />
           </div>
 
           <div class="col-12 col-md-2">
             <label class="form-label">UF</label>
-            <select class="form-select" name="uf" [(ngModel)]="model.uf">
+            <select class="form-select" name="uf" [(ngModel)]="model.uf" required>
               <option [ngValue]="''">—</option>
               <option *ngFor="let u of ufsBrasil" [ngValue]="u">{{ u }}</option>
             </select>
@@ -81,7 +81,7 @@
           <!-- /NOVOS CAMPOS -->
 
           <div class="col-12 col-md-6">
-            <label class="form-label">Origem</label>
+            <label class="form-label">Origem do Cliente</label>
             <input class="form-control" name="origem" [(ngModel)]="model.origem" required />
           </div>
         </div>
