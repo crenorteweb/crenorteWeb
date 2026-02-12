@@ -105,7 +105,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
     nome: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
     senha: ['', [Validators.required, Validators.minLength(6)]],
-    cpf: ['', [Validators.required, Validators.pattern(/^\d{11}$/)]],
+    //cpf: ['', [Validators.required, Validators.pattern(/^\d{11}$/)]],
     telefone: ['', [Validators.pattern(TEL_REGEX)]],
     papel: ['assessor' as Papel, Validators.required],
     cargo: [''],
@@ -219,7 +219,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
     const c = this.form.get('cpf');
     if (!c || !c.touched) return null;
     const raw = String(c.value || '').replace(/\D/g, '');
-    if (!raw) return 'CPF é obrigatório.';
+    if (!raw) return null;
     if (!/^\d{11}$/.test(raw)) return 'Informe 11 dígitos.';
     if (!this.validarCPF(raw)) return 'CPF inválido.';
     return null;
