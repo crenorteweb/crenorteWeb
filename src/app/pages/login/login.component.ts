@@ -12,7 +12,7 @@ import { AuthService } from '../../services/auth.service';
   imports: [CommonModule, ReactiveFormsModule],
   template: `
   <div class="container py-5" style="max-width: 420px;">
-    <h3 class="mb-3">Entrar em desenvolvimento</h3>
+    <h3 class="mb-3">Entrar</h3>
     <form [formGroup]="form" (ngSubmit)="onSubmit()">
       <div class="mb-3">
         <label class="form-label">E-mail</label>
