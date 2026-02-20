@@ -111,6 +111,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   model: Omit<PreCadastro, 'id' | 'createdAt' | 'createdByUid' | 'createdByNome'> & {
     cidade?: string;
     uf?: string;
+    modalidade?: 'cadunico' | 'grupo_solidario' | null;
+    sexo?: 'masculino' | 'feminino' | null;
   } = {
       nomeCompleto: '',
       cpf: '',
@@ -121,6 +123,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
       origem: '',
       cidade: '',
       uf: '',
+      modalidade: null,
+      sexo: null,
     };
 
   private lastPreCadastroId: string | null = null;
@@ -460,6 +464,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
           origem: data.origem ?? '',
           cidade: cidade || '',
           uf: uf || '',
+          modalidade: data.modalidade ?? '',
+          sexo: data.sexo ?? null,
         };
 
         // 👇 AQUI ENTRA O TRECHO
@@ -768,6 +774,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
       bairro: this.limpar(this.model.bairro),
       cidade: this.limpar(this.model.cidade || ''),
       uf: (this.model.uf || '').toString().trim().toUpperCase(),
+      modalidade: this.model.modalidade || '',
+      sexo: this.model.sexo || '',
     };
 
     if (payloadBase.cpf && !this.cpfValido(payloadBase.cpf, true)) {

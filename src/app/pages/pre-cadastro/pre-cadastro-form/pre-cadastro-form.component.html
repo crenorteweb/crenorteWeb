@@ -27,7 +27,7 @@
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     </div>
 
-    <div class="card shadow-soft">
+    <div class="card border-0">
       <div class="card-body">
         <div class="row g-3 g-md-4">
           <div class="col-12 col-md-6">
@@ -48,17 +48,17 @@
               placeholder="(91) 9XXXX-XXXX" inputmode="tel" autocomplete="tel" />
           </div>
 
-          <div class="col-12 col-md-6">
+          <!-- <div class="col-12 col-md-6">
             <label class="form-label">E-mail</label>
             <input type="email" class="form-control" name="email" [(ngModel)]="model.email"
               autocomplete="email" />
-          </div>
+          </div> -->
 
-          <div class="col-12 col-md-6">
+          <!-- <div class="col-12 col-md-6">
             <label class="form-label">Endereço</label>
             <input class="form-control" name="endereco" [(ngModel)]="model.endereco"
               autocomplete="street-address" />
-          </div>
+          </div> -->
 
           <div class="col-12 col-md-6">
             <label class="form-label">Bairro</label>
@@ -80,14 +80,65 @@
           </div>
           <!-- /NOVOS CAMPOS -->
 
-          <div class="col-12 col-md-6">
+          <!-- <div class="col-12 col-md-6">
             <label class="form-label">Origem do Cliente</label>
             <input class="form-control" name="origem" [(ngModel)]="model.origem" required />
+          </div> -->
+
+          <div class="col-12 col-md-6">
+            <label class="form-label">Modalidade</label>
+            <select
+              class="form-select"
+              name="modalidade"
+              [(ngModel)]="model.modalidade"
+              required
+            >
+              <option [ngValue]="''">—</option>
+              <option value="cadunico">CadÚnico</option>
+              <option value="grupo_solidario">Grupo Solidário</option>
+            </select>
+          </div>
+
+          <div class="col-12 col-md-6">
+          <label class="form-label">Sexo</label>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              name="sexo"
+              id="sexoMasculino"
+              value="masculino"
+              [(ngModel)]="model.sexo"
+              required
+            />
+            <label class="form-check-label" for="sexoMasculino">
+              Masculino
+            </label>
+          </div>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="radio"
+              name="sexo"
+              id="sexoFeminino"
+              value="feminino"
+              [(ngModel)]="model.sexo"
+              required
+            />
+            <label class="form-check-label" for="sexoFeminino">
+              Feminino
+            </label>
           </div>
         </div>
 
+        </div>
+
+
+
         <!-- ===== FLUXO DE CAIXA (ABERTURA DO MODAL) ===== -->
-        <br />
+        <!-- <br />
         <fieldset class="crn-fieldset mb-4">
           <h2 class="form-title mb-3 mt-3">
             Fluxo de Caixa <small class="text-muted">(Empreendimento/Pessoal)</small>
@@ -95,11 +146,11 @@
           <button type="button" class="btn btn-outline-success btn-md" (click)="openFluxoModal()">
             Inserir / Editar fluxo de caixa
           </button>
-        </fieldset>
+        </fieldset> -->
 
         <!-- ===== FINANCIAMENTO ===== -->
         <!-- ===== FINANCIAMENTO ===== -->
-        <fieldset class="crn-fieldset mb-4">
+        <!-- <fieldset class="crn-fieldset mb-4">
           <h2 class="form-title mb-3 mt-3">Financiamento</h2>
 
           <div class="row g-3">
@@ -147,7 +198,7 @@
               </div>
             </div>
           </div>
-        </fieldset>
+        </fieldset> -->
 
 
         <!-- ===== BOTÕES DO FORM ===== -->

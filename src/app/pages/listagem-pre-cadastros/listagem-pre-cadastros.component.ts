@@ -54,6 +54,8 @@ export class ListagemPreCadastrosComponent implements OnInit {
     cidade: '',
     uf: '',
     assessor: '',
+    modalidade: '',
+    sexo: '',
     agDataDe: '' as string | '',
     agDataAte: '' as string | '',
     agStatus: '',
@@ -78,6 +80,9 @@ export class ListagemPreCadastrosComponent implements OnInit {
   agStatusDisponiveis: string[] = [];
   aprovStatusDisponiveis: string[] = [];
   distribuicoesDisponiveis: string[] = []; // <— NOVO
+  modalidadesDisponiveis: string[] = [];
+  sexosDisponiveis: string[] = [];
+
 
   // Relatório
   relatorioAberto = false;
@@ -490,6 +495,8 @@ export class ListagemPreCadastrosComponent implements OnInit {
     this.ufsDisponiveis = this.uniqSorted(this.presAll.map(c => this.getUF(c)));
     this.assessoresDisponiveis = this.uniqSorted(this.presAll.map(c => this.getAssessorNome(c)).filter(a => a !== '(sem assessor)'));
     this.agStatusDisponiveis = this.uniqSorted(this.presAll.map(c => this.getAgendaStatus(c)));
+    this.modalidadesDisponiveis = this.uniqSorted(this.presAll.map(c => (c as any).modalidade || '—'));
+    this.sexosDisponiveis = this.uniqSorted(this.presAll.map(c => (c as any).sexo || '—'));
 
     // Distribuídos para — usando o resolvedor (pega nomes por UID também)
     this.distribuicoesDisponiveis = this.uniqSorted(

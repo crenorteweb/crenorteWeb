@@ -41,6 +41,10 @@
 .card-grid > * { display: flex; }
 .card-grid > * > .card { width: 100%; }
 
+.coluna{
+  max-width: 200px;
+}
+
 /* Avatar */
 .avatar-wrap{
   width:64px; height:64px; border-radius:50%;
