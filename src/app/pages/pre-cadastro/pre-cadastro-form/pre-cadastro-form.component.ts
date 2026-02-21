@@ -111,8 +111,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   model: Omit<PreCadastro, 'id' | 'createdAt' | 'createdByUid' | 'createdByNome'> & {
     cidade?: string;
     uf?: string;
-    modalidade?: 'cadunico' | 'grupo_solidario' | null;
-    sexo?: 'masculino' | 'feminino' | null;
+    modalidade?: 'cadunico' | 'grupo_solidario' | '';
+    sexo?: 'masculino' | 'feminino' | '';
   } = {
       nomeCompleto: '',
       cpf: '',
@@ -123,8 +123,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
       origem: '',
       cidade: '',
       uf: '',
-      modalidade: null,
-      sexo: null,
+      modalidade: '',
+      sexo: '',
     };
 
   private lastPreCadastroId: string | null = null;
