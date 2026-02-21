@@ -59,6 +59,8 @@ export interface PreCadastro {
   email: string;
   bairro: string;
   origem: string;
+  sexo: string;
+  modalidade: string;
 
   // NOVO: regionalização
   cidade?: string | null;

@@ -47,6 +47,7 @@
         [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" />
     </div>
 
+
     <!-- Filtros rápidos da aba Pessoas (encaminhamento) -->
     <div class="col-12 col-md-6" *ngIf="aba === 'pessoas'">
       <div class="d-flex flex-wrap gap-2 justify-content-md-end">
@@ -54,6 +55,19 @@
           <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'todos'"
             (click)="setEnvioFilter('todos')">
             Todos
+          </button>
+          <button type="button"
+                  class="btn btn-outline-success"
+                  [class.active]="filtroEnvio === 'apto'"
+                  (click)="setEnvioFilter('apto')">
+            Aptos
+          </button>
+
+          <button type="button"
+                  class="btn btn-outline-danger"
+                  [class.active]="filtroEnvio === 'inapto'"
+                  (click)="setEnvioFilter('inapto')">
+            Inaptos
           </button>
           <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'encaminhado'"
             (click)="setEnvioFilter('encaminhado')">
@@ -124,11 +138,20 @@
             <div>
               <div class="fw-semibold d-flex align-items-center gap-2">
                 <span>{{ p.nomeCompleto || 'Sem nome' }}</span>
+                <span
+                  class="ms-2 badge"
+                  [ngClass]="getStatusClass(p.aprovacao?.status)"
+                >{{  p.aprovacao?.status }}</span>
               </div>
 
               <div class="text-muted small">
+                <span>{{ p.aprovacao?.motivo || 'APTO PARA MICROCREDITO' }}</span>
+                <br>
                 <span *ngIf="p.cpf">
                   CPF: {{ cpfMask(p.cpf) }}
+                  <span>
+                    Sexo: {{ p.sexo }}
+                  </span>
                 </span>
                 <br>
                 <span *ngIf="p.cidade || p.uf">
@@ -136,6 +159,18 @@
                 </span>
                 <span *ngIf="p.bairro">
                   • {{ p.bairro }}
+                </span>
+                <br>
+                <span *ngIf="p.cpf">
+                  Modalidade: {{ p.modalidade }}
+                </span>
+                <br>
+                <span *ngIf="p.cpf">
+                  Criado por: {{ p.createdByNome }}
+                </span>
+                <br>
+                <span>
+                  Analisado por: {{ p.aprovacao?.porNome }}
                 </span>
               </div>
 
