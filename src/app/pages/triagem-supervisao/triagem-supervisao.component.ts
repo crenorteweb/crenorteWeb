@@ -29,7 +29,7 @@ import { Subscription } from 'rxjs';
 
 type Aba = 'pessoas' | 'grupos';
 
-type FiltroEnvio = 'todos' | 'encaminhado' | 'nao_encaminhado';
+type FiltroEnvio = 'todos' | 'encaminhado' | 'nao_encaminhado' | 'apto' | 'inapto';
 
 
 type Assessor = {
@@ -442,6 +442,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
   }
 
+
   // ====================================================
   // Mesclar pré-cadastros de GRUPOS na aba PESSOAS
   // (cópia da lógica do módulo Lista, adaptada aqui)
@@ -572,20 +573,44 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   setEnvioFilter(f: FiltroEnvio) {
-    this.filtroEnvio = f;
-    this.aplicarFiltrosPessoas();
+    //this.filtroEnvio = f;
+    if (this.filtroEnvio === f) {
+      this.filtroEnvio = 'todos';
+    } else {
+      this.filtroEnvio = f;
+    }
+      this.aplicarFiltrosPessoas();
   }
 
   private aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
     // filtro encaminhamento
+    // if (this.filtroEnvio !== 'todos') {
+    //   list = list.filter((p) => {
+    //     const enc = !!(p as any).encaminhadoParaUid;
+    //     return this.filtroEnvio === 'encaminhado' ? enc : !enc;
+    //   });
+    // }
+
     if (this.filtroEnvio !== 'todos') {
-      list = list.filter((p) => {
-        const enc = !!(p as any).encaminhadoParaUid;
-        return this.filtroEnvio === 'encaminhado' ? enc : !enc;
-      });
+      // 🔵 FILTROS DE ENCAMINHAMENTO
+      if (this.filtroEnvio === 'encaminhado' || this.filtroEnvio === 'nao_encaminhado') {
+        list = list.filter((p) => {
+          const enc = !!(p as any).encaminhadoParaUid;
+          return this.filtroEnvio === 'encaminhado' ? enc : !enc;
+        });
+      }
+      // 🟢 FILTROS DE APROVAÇÃO
+      if (this.filtroEnvio === 'apto' || this.filtroEnvio === 'inapto') {
+
+        list = list.filter((p) => {
+          const status = (p as any).aprovacao?.status || 'nao_verificado';
+          return status === this.filtroEnvio;
+        });
+      }
     }
+
 
     // filtro por assessor (somente quando encaminhado)
     if (this.filtroAssessor !== 'todos') {
@@ -594,15 +619,20 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       );
     }
 
-
     const term = this.normalize(this.searchTerm);
-    if (term) {
+    if (term === 'apto' || term === 'inapto' || term === 'nao_verificado') {
+      list = list.filter((p) => {
+        const status = (p as any).aprovacao?.status || 'nao_verificado';
+        return status === term;
+      });
+
+    } else if (term) {
       list = list.filter((p) => {
         const blob = this.normalize(
           `${(p as any).nomeCompleto || (p as any).nome || ''} ${(p as any).cpf || ''
           } ${(p as any).telefone || ''} ${(p as any).email || ''} ${(p as any).bairro || ''
           } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).grupoNome || ''
-          }`
+          } ${(p as any).aprovacao?.status || ''} ${(p as any).createdByNome || ''} ${(p as any).modalidade || ''} ${(p as any).sexo || ''}`
         );
         return blob.includes(term);
       });
@@ -626,7 +656,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         const coord: any = (g as any).coordenadorView || {};
         const blob = this.normalize(
           `${(g as any).nome || ''} ${(g as any).codigo || ''} ${coord?.nome || ''
-          } ${(g as any).cidade || ''} ${(g as any).estado || ''}`
+          } ${(g as any).cidade || ''} ${(g as any).estado || ''}
+          ${(g as any).aprovacao || ''}`
         );
         return blob.includes(term);
       });
@@ -661,6 +692,19 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!encNome) return null;
     return `Encaminhado para ${encNome}`;
   }
+
+  getStatusClass(status?: string) {
+  switch ((status || '').toLowerCase()) {
+    case 'apto':
+      return 'bg-success';
+    case 'inapto':
+      return 'bg-danger';
+    case 'nao_verificado':
+      return 'bg-secondary';
+    default:
+      return 'bg-secondary';
+  }
+}
 
   // ====================================================
   // MODAL — ENC. PESSOA
