@@ -49,6 +49,21 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   onFiltroDataDeChange(v: string) { this.filtroDataDe.set(v); this.currentPage = 1; }
   onFiltroDataAteChange(v: string) { this.filtroDataAte.set(v); this.currentPage = 1; }
 
+  onFiltroCidadeChange(v: string) {
+    this.filtroCidade.set(v);
+    this.currentPage = 1;
+  }
+
+  onFiltroUfChange(v: string) {
+    this.filtroUf.set(v);
+    this.currentPage = 1;
+  }
+
+  onFiltroBairroChange(v: string) {
+    this.filtroBairro.set(v);
+    this.currentPage = 1;
+  }
+
   private fs = inject(Firestore);
   private auth = inject(Auth);
 
@@ -69,7 +84,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   filtroAprovacao = signal<'todos' | 'apto' | 'inapto' | 'nao_verificado'>('todos');
   filtroAssessor = signal<string>('todos'); // UID do autor (createdByUid)
   filtroDataDe = signal<string>('');        // yyyy-MM-dd
-  filtroDataAte = signal<string>('');       // yyyy-MM-dd
+  filtroDataAte = signal<string>('');
+
+  // NOVOS
+  filtroCidade = signal<string>('');
+  filtroUf = signal<string>('');
+  filtroBairro = signal<string>('');
 
   // ===== Paginação =====
   pageSize = 20;
@@ -156,6 +176,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const assUid = this.filtroAssessor();
     const de = this.filtroDataDe();
     const ate = this.filtroDataAte();
+    const cidade = this.filtroCidade().toLowerCase();
+    const uf = this.filtroUf().toLowerCase();
+    const bairro = this.filtroBairro().toLowerCase();
 
     const statusOf = (x: any) =>
       (x?.aprovacao?.status ?? 'nao_verificado') as 'apto' | 'inapto' | 'nao_verificado';
@@ -165,6 +188,29 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     if (assUid !== 'todos') base = base.filter(i => (i as any)?.createdByUid === assUid);
 
     // ==== FILTRO POR DATA USANDO APROVAÇÃO (aprovacao.em) ====
+    if (cidade) {
+      base = base.filter(i =>
+        ((i as any).cidade || '').toLowerCase().includes(cidade)
+      );
+    }
+
+    if (uf) {
+      base = base.filter(i => {
+        const valorUf =
+          ((i as any).uf ||
+          (i as any).estado ||
+          '').toLowerCase();
+
+        return valorUf.includes(uf);
+      });
+    }
+
+    if (bairro) {
+      base = base.filter(i =>
+        ((i as any).bairro || '').toLowerCase().includes(bairro)
+      );
+    }
+
     const dtDe = de ? new Date(de + 'T00:00:00') : null;
     const dtAte = ate ? new Date(ate + 'T23:59:59') : null;
     if (dtDe || dtAte) {
