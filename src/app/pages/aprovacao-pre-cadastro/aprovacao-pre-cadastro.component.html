@@ -38,6 +38,25 @@
         </select>
       </div>
 
+      <div class=" input-group">
+
+        <span class="input-group-text">UF</span>
+        <input type="text"
+              class="form-control"
+              (input)="onFiltroUfChange($any($event.target).value)">
+
+        <span class="input-group-text">Cidade</span>
+        <input type="text"
+              class="form-control"
+              (input)="onFiltroCidadeChange($any($event.target).value)">
+
+        <span class="input-group-text">Bairro</span>
+        <input type="text"
+              class="form-control"
+              (input)="onFiltroBairroChange($any($event.target).value)">
+
+      </div>
+
       <!-- Relatório -->
       <button class="btn btn-outline-secondary" (click)="relatorioAberto.set(true)">
         Relatório de Aprovação
@@ -80,7 +99,7 @@
         <div class="pe-3">
           <strong>{{ item.nomeCompleto }}</strong>
           <div class="text-muted">
-            CPF {{ item.cpf }} • {{ item.cidade }} • {{ item.bairro }} • Modalidade: {{ item.modalidade }}
+            CPF {{ item.cpf }} • {{ item.cidade }}/{{ item.uf }} • {{ item.bairro }} • Modalidade: {{ item.modalidade }}
           </div>
 
           <!-- autor + total do autor -->
