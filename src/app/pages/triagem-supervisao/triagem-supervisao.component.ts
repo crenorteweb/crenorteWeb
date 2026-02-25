@@ -69,10 +69,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aba: Aba = 'pessoas';
 
   searchTerm = '';
-  filtroEnvio: FiltroEnvio = 'todos';
-
   filtroAssessor: string | 'todos' = 'todos';
 
+  /** Conjunto de filtros booleanos ativos (toggle múltiplo). */
+  filtrosAtivos: Record<string, boolean> = {};
 
   // ====== pessoas ======
   pessoas: PreCadastro[] = [];      // base completa (caixa + encaminhados + membros de grupos)
@@ -663,43 +663,38 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     else this.aplicarFiltrosGrupos();
   }
 
-  setEnvioFilter(f: FiltroEnvio) {
-    //this.filtroEnvio = f;
-    if (this.filtroEnvio === f) {
-      this.filtroEnvio = 'todos';
+  setEnvioFilter(f: string) {
+    if (f === 'todos') {
+      this.filtrosAtivos = {};
     } else {
-      this.filtroEnvio = f;
+      this.filtrosAtivos = { ...this.filtrosAtivos, [f]: !this.filtrosAtivos[f] };
     }
-      this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosPessoas();
+  }
+
+  nenhumFiltroAtivo(): boolean {
+    return !Object.values(this.filtrosAtivos).some(Boolean);
   }
 
   private aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // filtro encaminhamento
-    // if (this.filtroEnvio !== 'todos') {
-    //   list = list.filter((p) => {
-    //     const enc = !!(p as any).encaminhadoParaUid;
-    //     return this.filtroEnvio === 'encaminhado' ? enc : !enc;
-    //   });
-    // }
+    // Filtros de aprovação — OR dentro do grupo (apto/inapto)
+    const filtrosAprovacao = (['apto', 'inapto'] as const).filter(f => !!this.filtrosAtivos[f]);
+    if (filtrosAprovacao.length > 0) {
+      list = list.filter((p) => {
+        const status = (p as any).aprovacao?.status || 'nao_verificado';
+        return filtrosAprovacao.includes(status as any);
+      });
+    }
 
-    if (this.filtroEnvio !== 'todos') {
-      // 🔵 FILTROS DE ENCAMINHAMENTO
-      if (this.filtroEnvio === 'encaminhado' || this.filtroEnvio === 'nao_encaminhado') {
-        list = list.filter((p) => {
-          const enc = !!(p as any).encaminhadoParaUid;
-          return this.filtroEnvio === 'encaminhado' ? enc : !enc;
-        });
-      }
-      // 🟢 FILTROS DE APROVAÇÃO
-      if (this.filtroEnvio === 'apto' || this.filtroEnvio === 'inapto') {
-
-        list = list.filter((p) => {
-          const status = (p as any).aprovacao?.status || 'nao_verificado';
-          return status === this.filtroEnvio;
-        });
-      }
+    // Filtros de encaminhamento — se ambos ativos, cancelam-se (exibir tudo)
+    const temEnc    = !!this.filtrosAtivos['encaminhado'];
+    const temNaoEnc = !!this.filtrosAtivos['nao_encaminhado'];
+    if (temEnc && !temNaoEnc) {
+      list = list.filter((p) => !!(p as any).encaminhadoParaUid);
+    } else if (temNaoEnc && !temEnc) {
+      list = list.filter((p) => !(p as any).encaminhadoParaUid);
     }
 
 
@@ -796,6 +791,24 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       return 'bg-secondary';
   }
 }
+
+  // ====================================================
+  // FORMATAÇÃO DE DATA/HORA (Timestamps Firebase)
+  // ====================================================
+  formatarDataHora(data: any): string {
+    if (!data) return '—';
+    let d: Date | null = null;
+    if (typeof data?.toDate === 'function') {
+      try { d = data.toDate(); } catch { return '—'; }
+    } else if (data instanceof Date) {
+      d = data;
+    } else if (typeof data === 'number') {
+      d = new Date(data);
+    }
+    if (!d || isNaN(d.getTime())) return '—';
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
 
   // ====================================================
   // MODAL — ENC. PESSOA
