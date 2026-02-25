@@ -1,6 +1,4 @@
-import { Injectable, inject } from '@angular/core';
-
-const teste: string = "teste";
+import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
 
 // AngularFire Auth
 import {
@@ -33,6 +31,7 @@ import { map, switchMap } from 'rxjs/operators';
 export class AuthService {
   private auth = inject(Auth);
   private db = inject(Firestore);
+  private injector = inject(EnvironmentInjector);
 
   /** Usuário bruto do Firebase (null quando deslogado) */
   firebaseUser$ = user(this.auth);
@@ -45,8 +44,10 @@ export class AuthService {
     switchMap((u) => {
       if (!u?.uid) return of<Colaborador | null>(null);
       const ref = doc(this.db, 'colaboradores', u.uid) as DocumentReference<Colaborador>;
-      return (docData(ref) as Observable<Colaborador | undefined>).pipe(
-        map((d) => d ?? null)
+      return runInInjectionContext(this.injector, () =>
+        (docData(ref) as Observable<Colaborador | undefined>).pipe(
+          map((d) => d ?? null)
+        )
       );
     })
   );
@@ -59,8 +60,7 @@ export class AuthService {
   /** Login por e-mail/senha */
   async login(email: string, senha: string): Promise<void> {
     try {
-      const cred = await signInWithEmailAndPassword(this.auth, email, senha);
-      console.log('[LOGIN OK]', cred.user.uid, cred.user.email);
+      await signInWithEmailAndPassword(this.auth, email, senha);
       // Opcional: bootstrap mínimo do perfil
       // await this.garantirPerfilMinimo();
     } catch (e: any) {
@@ -127,7 +127,7 @@ export class AuthService {
     if (!u) return;
 
     const ref = doc(this.db, 'colaboradores', u.uid) as DocumentReference<Colaborador>;
-    const snap = await getDoc(ref);
+    const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
 
     if (!snap.exists()) {
       const base: Colaborador = {
@@ -145,7 +145,7 @@ export class AuthService {
         analistaId: null,
         criadoEm: Date.now(),
       };
-      await setDoc(ref, base);
+      await runInInjectionContext(this.injector, () => setDoc(ref, base));
     }
   }
 }
