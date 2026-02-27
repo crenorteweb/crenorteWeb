@@ -1,5 +1,5 @@
 // src/app/services/grupo-solidario.service.ts
-import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import {
   Firestore,
   doc,
@@ -39,12 +39,12 @@ async function fetchPreCadastrosByIds(fs: Firestore, ids: string[]): Promise<Pre
   if (!ids?.length) return out;
   const col = collection(fs, 'pre_cadastros');
 
-  const chunks: string[][] = [];
-  for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
-  const snaps = await Promise.all(
-    chunks.map(chunk => getDocs(query(col, where(documentId(), 'in', chunk))))
-  );
-  snaps.forEach(snap => snap.docs.forEach(d => out.push({ id: d.id, ...(d.data() as any) } as PreCadastro)));
+  for (let i = 0; i < ids.length; i += 10) {
+    const chunk = ids.slice(i, i + 10);
+    const qy = query(col, where(documentId(), 'in', chunk));
+    const snap = await getDocs(qy);
+    snap.docs.forEach(d => out.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
+  }
   return out;
 }
 
@@ -52,7 +52,6 @@ async function fetchPreCadastrosByIds(fs: Firestore, ids: string[]): Promise<Pre
 export class GrupoSolidarioService {
   private fs = inject(Firestore);
   private auth = inject(Auth);
-  private injector = inject(EnvironmentInjector);
 
   /* =========================
    * EXISTENTES (mantidos)
@@ -149,17 +148,18 @@ export class GrupoSolidarioService {
 
     const tryGet = async (qy: any) => {
       try {
-        const snap = await runInInjectionContext(this.injector, () => getDocs(qy));
+        const snap = await getDocs(qy);
         snap.docs.forEach(d => rows.push({ id: d.id, ...(d.data() as any) } as GrupoSolidario));
       } catch {}
     };
 
-    await Promise.all([
-      tryGet(query(colRef, where('distribuicao.groupAssessorUid', '==', assessorUid))), // preferencial (novo)
-      tryGet(query(colRef, where('dist.grupoAssessorUid', '==', assessorUid))),         // variação (“dist”)
-      tryGet(query(colRef, where('assessorUid', '==', assessorUid))),                   // legado
-      tryGet(query(colRef, where('caixaUid', '==', assessorUid))),                      // legado
-    ]);
+    // preferencial (novo)
+    await tryGet(query(colRef, where('distribuicao.groupAssessorUid', '==', assessorUid)));
+    // variação observada em dados (“dist”)
+    await tryGet(query(colRef, where('dist.grupoAssessorUid', '==', assessorUid)));
+    // legados
+    await tryGet(query(colRef, where('assessorUid', '==', assessorUid)));
+    await tryGet(query(colRef, where('caixaUid', '==', assessorUid)));
 
     // dedup + sort por criadoEm desc
     const map = new Map<string, GrupoSolidario>();

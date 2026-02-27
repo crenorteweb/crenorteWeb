@@ -10,7 +10,7 @@ import { provideStorage } from '@angular/fire/storage';
 
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 import { firebaseConfig } from '../environments/firebase.config';
@@ -38,14 +38,10 @@ export const appConfig: ApplicationConfig = {
 
     provideAuth(() => getAuth()),
     provideFirestore(() => {
-      const app = getApp();
-      try {
-        // API atual de cache persistente (substitui enableIndexedDbPersistence deprecado)
-        return initializeFirestore(app, { localCache: persistentLocalCache({}) });
-      } catch {
-        // Firestore já inicializado (hot reload / múltiplos módulos)
-        return getFirestore(app);
-      }
+      const fs = getFirestore();
+      // opcional: cache offline
+      enableIndexedDbPersistence(fs).catch(() => {});
+      return fs;
     }),
     provideStorage(() => getStorage()),
 

@@ -51,40 +51,30 @@
     <!-- Filtros rápidos da aba Pessoas (encaminhamento) -->
     <div class="col-12 col-md-6" *ngIf="aba === 'pessoas'">
       <div class="d-flex flex-wrap gap-2 justify-content-md-end">
-        <div class="btn-group btn-group-sm" role="group" aria-label="Filtros de triagem">
-          <button type="button" class="btn"
-            [class.btn-success]="nenhumFiltroAtivo()"
-            [class.btn-outline-success]="!nenhumFiltroAtivo()"
-            [class.active]="nenhumFiltroAtivo()"
+        <div class="btn-group btn-group-sm" role="group" aria-label="Encaminhamento">
+          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'todos'"
             (click)="setEnvioFilter('todos')">
             Todos
           </button>
-          <button type="button" class="btn"
-            [class.btn-success]="filtrosAtivos['apto']"
-            [class.btn-outline-success]="!filtrosAtivos['apto']"
-            [class.active]="filtrosAtivos['apto']"
-            (click)="setEnvioFilter('apto')">
+          <button type="button"
+                  class="btn btn-outline-success"
+                  [class.active]="filtroEnvio === 'apto'"
+                  (click)="setEnvioFilter('apto')">
             Aptos
           </button>
-          <button type="button" class="btn"
-            [class.btn-danger]="filtrosAtivos['inapto']"
-            [class.btn-outline-danger]="!filtrosAtivos['inapto']"
-            [class.active]="filtrosAtivos['inapto']"
-            (click)="setEnvioFilter('inapto')">
+
+          <button type="button"
+                  class="btn btn-outline-danger"
+                  [class.active]="filtroEnvio === 'inapto'"
+                  (click)="setEnvioFilter('inapto')">
             Inaptos
           </button>
-          <button type="button" class="btn"
-            [class.btn-success]="filtrosAtivos['encaminhado']"
-            [class.btn-outline-success]="!filtrosAtivos['encaminhado']"
-            [class.active]="filtrosAtivos['encaminhado']"
+          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'encaminhado'"
             (click)="setEnvioFilter('encaminhado')">
             Encaminhados
           </button>
-          <button type="button" class="btn text-dark"
-            [class.btn-warning]="filtrosAtivos['nao_encaminhado']"
-            [class.btn-outline-warning]="!filtrosAtivos['nao_encaminhado']"
-            [class.active]="filtrosAtivos['nao_encaminhado']"
-            (click)="setEnvioFilter('nao_encaminhado')">
+          <button type="button" class="btn btn-outline-warning text-dark"
+            [class.active]="filtroEnvio === 'nao_encaminhado'" (click)="setEnvioFilter('nao_encaminhado')">
             Não encaminhados
           </button>
         </div>
@@ -163,9 +153,6 @@
                     Sexo: {{ p.sexo }}
                   </span>
                 </span>
-                <span *ngIf="p.telefone">
-                  &nbsp;• Tel: {{ p.telefone }}
-                </span>
                 <br>
                 <span *ngIf="p.cidade || p.uf">
                   {{ p.cidade || '—' }}<span *ngIf="p.uf">/{{ p.uf }}</span>
@@ -199,9 +186,6 @@
               <!-- Informação de encaminhamento (sempre que tiver encaminhado, com ou sem grupo) -->
               <div class="text-muted small" *ngIf="encaminhadoLabel(p) as encLab">
                 {{ encLab }}
-                <span *ngIf="$any(p).encaminhadoEm || $any(p).designadoEm" class="ms-1">
-                  — {{ formatarDataHora($any(p).encaminhadoEm || $any(p).designadoEm) }}
-                </span>
               </div>
             </div>
 

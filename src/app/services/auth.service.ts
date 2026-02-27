@@ -1,4 +1,6 @@
-import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+
+const teste: string = "teste";
 
 // AngularFire Auth
 import {
@@ -31,7 +33,6 @@ import { map, switchMap } from 'rxjs/operators';
 export class AuthService {
   private auth = inject(Auth);
   private db = inject(Firestore);
-  private injector = inject(EnvironmentInjector);
 
   /** Usuário bruto do Firebase (null quando deslogado) */
   firebaseUser$ = user(this.auth);
@@ -44,10 +45,8 @@ export class AuthService {
     switchMap((u) => {
       if (!u?.uid) return of<Colaborador | null>(null);
       const ref = doc(this.db, 'colaboradores', u.uid) as DocumentReference<Colaborador>;
-      return runInInjectionContext(this.injector, () =>
-        (docData(ref) as Observable<Colaborador | undefined>).pipe(
-          map((d) => d ?? null)
-        )
+      return (docData(ref) as Observable<Colaborador | undefined>).pipe(
+        map((d) => d ?? null)
       );
     })
   );
@@ -60,7 +59,8 @@ export class AuthService {
   /** Login por e-mail/senha */
   async login(email: string, senha: string): Promise<void> {
     try {
-      await signInWithEmailAndPassword(this.auth, email, senha);
+      const cred = await signInWithEmailAndPassword(this.auth, email, senha);
+      console.log('[LOGIN OK]', cred.user.uid, cred.user.email);
       // Opcional: bootstrap mínimo do perfil
       // await this.garantirPerfilMinimo();
     } catch (e: any) {
@@ -127,7 +127,7 @@ export class AuthService {
     if (!u) return;
 
     const ref = doc(this.db, 'colaboradores', u.uid) as DocumentReference<Colaborador>;
-    const snap = await runInInjectionContext(this.injector, () => getDoc(ref));
+    const snap = await getDoc(ref);
 
     if (!snap.exists()) {
       const base: Colaborador = {
@@ -145,7 +145,7 @@ export class AuthService {
         analistaId: null,
         criadoEm: Date.now(),
       };
-      await runInInjectionContext(this.injector, () => setDoc(ref, base));
+      await setDoc(ref, base);
     }
   }
 }
