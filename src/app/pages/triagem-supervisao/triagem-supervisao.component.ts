@@ -37,7 +37,10 @@ type Assessor = {
   nome: string;
   email?: string | null;
   rota?: string | null;
+  analistaId?: string | null;
 };
+
+type Analista = { uid: string; nome: string };
 
 @Component({
   selector: 'app-triagem-supervisao',
@@ -61,6 +64,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // cache de nomes para não ficar lendo o mesmo colaborador sempre
   private nomeCache = new Map<string, string>();
 
+  // UIDs dos Analistas vinculados ao Supervisor (extraídos do analistaId dos assessores)
+  private analistasUids: string[] = [];
+
   // ====== abas / UI básica ======
   loading = false;
   aba: Aba = 'pessoas';
@@ -69,6 +75,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   filtroEnvio: FiltroEnvio = 'todos';
 
   filtroAssessor: string | 'todos' = 'todos';
+
+  // ====== filtro por analista do time ======
+  analistas: Analista[] = [];
+  filtroAnalista: string | 'todos' = 'todos';
 
 
   // ====== pessoas ======
@@ -116,9 +126,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         this.currentUserUid = u.uid;
         this.currentUserNome = await this.resolveUserName(u.uid);
 
-        await this.carregarAssessoresDoMeuTime(u.uid);
-        await this.carregarPessoasDoAnalista(u.uid);
-        await this.carregarGruposDoAnalista(u.uid);
+        // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
+        const equipeUids = await this.obterIdsDoMeuTime();
+        await this.carregarAssessoresDoMeuTime(equipeUids);
+
+        await this.carregarPessoasDoAnalista(equipeUids);
+        await this.carregarGruposDoAnalista(equipeUids);
         await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
 
         this.aplicarFiltrosPessoas();
@@ -143,11 +156,20 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.gruposView = [];
     this.assessores = [];
     this.assessoresFiltrados = [];
+    this.analistas = [];
+    this.filtroAnalista = 'todos';
   }
 
   setAssessorFilter(uid: string | 'todos') {
     this.filtroAssessor = uid;
     this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosGrupos();
+  }
+
+  setAnalistaFilter(uid: string | 'todos') {
+    this.filtroAnalista = uid;
+    this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosGrupos();
   }
 
 
@@ -203,31 +225,80 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====================================================
-  // CARREGAR ASSESSORES DO MEU TIME
+  // DESCOBERTA DE TIME: [supervisorUid, ...analistasIds]
+  // Busca dupla em paralelo:
+  //  A) Analistas com supervisorId == eu no próprio perfil (ligação direta)
+  //  B) Analistas inferidos pelo analistaId dos assessores vinculados ao supervisor
   // ====================================================
-  private async carregarAssessoresDoMeuTime(meUid: string): Promise<void> {
+  private async obterIdsDoMeuTime(): Promise<string[]> {
+    if (!this.currentUserUid) return [];
     try {
       const ref = collection(this.afs, 'colaboradores');
 
-      const qSup = fsQuery(
+      // Busca A: analistas que têm supervisorId apontando para mim diretamente
+      const qAnalistaDireto = fsQuery(
         ref,
         where('status', '==', 'ativo'),
-        where('papel', '==', 'assessor'),
-        where('supervisorId', '==', meUid)
-      );
-      const qAna = fsQuery(
-        ref,
-        where('status', '==', 'ativo'),
-        where('papel', '==', 'assessor'),
-        where('analistaId', '==', meUid)
+        where('papel', '==', 'analista'),
+        where('supervisorId', '==', this.currentUserUid)
       );
 
-      const [supSnap, anaSnap] = await Promise.all([
-        getDocs(qSup),
-        getDocs(qAna),
+      // Busca B: assessores cujo supervisorId é meu → extrair analistaId deles
+      const qAssessorDoSupervisor = fsQuery(
+        ref,
+        where('status', '==', 'ativo'),
+        where('papel', '==', 'assessor'),
+        where('supervisorId', '==', this.currentUserUid)
+      );
+
+      const [snapAnalistas, snapAssessores] = await Promise.all([
+        getDocs(qAnalistaDireto),
+        getDocs(qAssessorDoSupervisor),
       ]);
 
+      const analistaIdsSet = new Set<string>();
+
+      // Resultado A: UIDs diretos dos analistas
+      snapAnalistas.docs.forEach(d => analistaIdsSet.add(d.id));
+
+      // Resultado B: analistaId de cada assessor
+      snapAssessores.docs.forEach(d => {
+        const a = d.data() as any;
+        if (a?.analistaId) analistaIdsSet.add(a.analistaId);
+      });
+
+      this.analistasUids = Array.from(analistaIdsSet);
+
+      // Resolve os nomes dos analistas para exibir no filtro visual
+      this.analistas = await Promise.all(
+        this.analistasUids.map(async uid => ({
+          uid,
+          nome: await this.resolveUserName(uid),
+        }))
+      );
+
+      return [this.currentUserUid, ...this.analistasUids];
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao obter IDs do time:', e);
+      return [this.currentUserUid];
+    }
+  }
+
+  // ====================================================
+  // CARREGAR ASSESSORES DO MEU TIME
+  // ====================================================
+  private async carregarAssessoresDoMeuTime(teamUids: string[]): Promise<void> {
+    try {
+      const uids = [...new Set(teamUids)].filter(Boolean);
+      if (!uids.length) {
+        this.assessores = [];
+        this.assessoresFiltrados = [];
+        return;
+      }
+
+      const ref = collection(this.afs, 'colaboradores');
       const map = new Map<string, Assessor>();
+
       const pushDoc = (d: any) => {
         const data = d.data() as any;
         map.set(d.id, {
@@ -235,11 +306,30 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           nome: data?.nome || data?.displayName || data?.email || 'Assessor',
           email: data?.email || null,
           rota: data?.rota || null,
+          analistaId: data?.analistaId || null,
         });
       };
 
-      supSnap.docs.forEach(pushDoc);
-      anaSnap.docs.forEach(pushDoc);
+      // Chunking para Firestore 'in' (máx 10 valores por query)
+      const chunks: string[][] = [];
+      for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+
+      for (const chunk of chunks) {
+        const inSup = chunk.length === 1
+          ? where('supervisorId', '==', chunk[0])
+          : where('supervisorId', 'in', chunk);
+        const inAna = chunk.length === 1
+          ? where('analistaId', '==', chunk[0])
+          : where('analistaId', 'in', chunk);
+
+        const [supSnap, anaSnap] = await Promise.all([
+          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inSup)),
+          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inAna)),
+        ]);
+
+        supSnap.docs.forEach(pushDoc);
+        anaSnap.docs.forEach(pushDoc);
+      }
 
       this.assessores = Array.from(map.values()).sort((a, b) =>
         (a.nome || '').localeCompare(b.nome || '')
@@ -277,18 +367,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private async carregarPessoasDoAnalista(uid: string): Promise<void> {
+  private async carregarPessoasDoAnalista(uid: string | string[]): Promise<void> {
     try {
-      let base: PreCadastro[] = [];
-      const svcAny = this.preSvc as any;
+      // listarParaCaixa busca por caixaUid (onde o Admin deposita o lead)
+      // e encaminhamento.assessorUid — cobre todos os cenários de distribuição
+      const base = await this.preSvc.listarParaCaixa(uid);
 
-      // mesma estratégia da Lista
-      if (typeof svcAny.listarParaCaixa === 'function') {
-        base = await svcAny.listarParaCaixa(uid);
-      } else {
-        base = await this.preSvc.listarDoAssessor(uid);
-      }
-
+      // encaminhadosPorUid: cobre todos os UIDs do time (supervisor + analistas)
       const encaminhados = await this.buscarPreCadastrosEncaminhadosPor(uid);
 
       const mapRows = new Map<string, PreCadastro>();
@@ -356,27 +441,31 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
   }
 
-  // =========== busca extra: pré-cadastros que ESTE analista encaminhou ===========
+  // =========== busca extra: pré-cadastros encaminhados por qualquer membro do time ===========
   private async buscarPreCadastrosEncaminhadosPor(
-    uid: string
+    uid: string | string[]
   ): Promise<PreCadastro[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) return [];
     try {
       const ref = collection(this.afs, 'pre_cadastros');
-      const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
-      const snap = await getDocs(q);
-
       const lista: PreCadastro[] = [];
-      snap.forEach((docSnap) => {
-        const data = docSnap.data() as any;
-        lista.push({ id: docSnap.id, ...data } as PreCadastro);
-      });
+
+      // Chunking para o operador 'in' do Firestore (máx 10 por query)
+      for (let i = 0; i < uids.length; i += 10) {
+        const chunk = uids.slice(i, i + 10);
+        const q = chunk.length === 1
+          ? fsQuery(ref, where('encaminhadoPorUid', '==', chunk[0]))
+          : fsQuery(ref, where('encaminhadoPorUid', 'in', chunk));
+        const snap = await getDocs(q);
+        snap.forEach((docSnap) => {
+          lista.push({ id: docSnap.id, ...docSnap.data() } as PreCadastro);
+        });
+      }
 
       return lista;
     } catch (e) {
-      console.error(
-        '[TriagemSupervisao] erro ao buscar pre_cadastros encaminhados:',
-        e
-      );
+      console.error('[TriagemSupervisao] erro ao buscar pre_cadastros encaminhados:', e);
       return [];
     }
   }
@@ -385,33 +474,39 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // CARREGAR GRUPOS DO ANALISTA
   // (igual Lista: caixa + grupos encaminhados por mim + joinGruposView)
   // ====================================================
+  // =========== busca extra: grupos encaminhados por qualquer membro do time ===========
   private async buscarGruposEncaminhadosPor(
-    uid: string
+    uid: string | string[]
   ): Promise<GrupoSolidario[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) return [];
     try {
       const ref = collection(this.afs, 'grupos_solidarios');
-      const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
-      const snap = await getDocs(q);
-
       const lista: GrupoSolidario[] = [];
-      snap.forEach((docSnap) => {
-        const data = docSnap.data() as any;
-        lista.push({ id: docSnap.id, ...data } as GrupoSolidario);
-      });
+
+      // Chunking para o operador 'in' do Firestore (máx 10 por query)
+      for (let i = 0; i < uids.length; i += 10) {
+        const chunk = uids.slice(i, i + 10);
+        const q = chunk.length === 1
+          ? fsQuery(ref, where('encaminhadoPorUid', '==', chunk[0]))
+          : fsQuery(ref, where('encaminhadoPorUid', 'in', chunk));
+        const snap = await getDocs(q);
+        snap.forEach((docSnap) => {
+          lista.push({ id: docSnap.id, ...docSnap.data() } as GrupoSolidario);
+        });
+      }
 
       return lista;
     } catch (e) {
-      console.error(
-        '[TriagemSupervisao] erro ao buscar grupos encaminhados:',
-        e
-      );
+      console.error('[TriagemSupervisao] erro ao buscar grupos encaminhados:', e);
       return [];
     }
   }
 
-  private async carregarGruposDoAnalista(uid: string): Promise<void> {
+  private async carregarGruposDoAnalista(uid: string | string[]): Promise<void> {
     try {
       const base = await this.gruposSvc.listarParaCaixaAssessor(uid);
+      // encaminhadosPorUid: cobre todos os UIDs do time (supervisor + analistas)
       const encaminhadosPorMim = await this.buscarGruposEncaminhadosPor(uid);
 
       const map = new Map<string, GrupoSolidario>();
@@ -612,11 +707,23 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
 
 
-    // filtro por assessor (somente quando encaminhado)
-    if (this.filtroAssessor !== 'todos') {
+    // filtro por analista do time (leads na caixa do analista ou encaminhados por ele)
+    if (this.filtroAnalista !== 'todos') {
       list = list.filter((p) =>
-        (p as any).encaminhadoParaUid === this.filtroAssessor
+        (p as any).caixaUid === this.filtroAnalista ||
+        (p as any).encaminhadoPorUid === this.filtroAnalista
       );
+    }
+
+    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
+    if (this.filtroAssessor !== 'todos') {
+      list = list.filter((p) => {
+        const pAny = p as any;
+        return pAny.encaminhadoParaUid          === this.filtroAssessor ||
+               pAny.designadoParaUid            === this.filtroAssessor ||
+               pAny.caixaUid                   === this.filtroAssessor ||
+               pAny.encaminhamento?.assessorUid === this.filtroAssessor;
+      });
     }
 
     const term = this.normalize(this.searchTerm);
@@ -649,8 +756,26 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
   private aplicarFiltrosGrupos() {
     let list = [...this.grupos];
-    const term = this.normalize(this.searchTerm);
 
+    // filtro por analista do time (grupos na caixa do analista ou encaminhados por ele)
+    if (this.filtroAnalista !== 'todos') {
+      list = list.filter((g) =>
+        (g as any).caixaUid === this.filtroAnalista ||
+        (g as any).encaminhadoPorUid === this.filtroAnalista
+      );
+    }
+
+    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
+    if (this.filtroAssessor !== 'todos') {
+      list = list.filter((g) => {
+        const gAny = g as any;
+        return gAny.encaminhadoParaUid === this.filtroAssessor ||
+               gAny.designadoParaUid   === this.filtroAssessor ||
+               gAny.caixaUid           === this.filtroAssessor;
+      });
+    }
+
+    const term = this.normalize(this.searchTerm);
     if (term) {
       list = list.filter((g) => {
         const coord: any = (g as any).coordenadorView || {};
@@ -684,27 +809,38 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     return `https://wa.me/55${d}`;
   }
 
-  encaminhadoLabel(p: PreCadastro): string | null {
-    const encNome =
+  encaminhadoNome(p: PreCadastro): string | null {
+    return (
       (p as any).encaminhadoParaNome ||
       (p as any).encaminhamento?.assessorNome ||
-      null;
-    if (!encNome) return null;
-    return `Encaminhado para ${encNome}`;
+      null
+    );
   }
 
-  getStatusClass(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'apto':
-      return 'bg-success';
-    case 'inapto':
-      return 'bg-danger';
-    case 'nao_verificado':
-      return 'bg-secondary';
-    default:
-      return 'bg-secondary';
+  encaminhadoData(p: PreCadastro): string | null {
+    const rawEm = (p as any).encaminhadoEm ?? (p as any).designadoEm ?? null;
+    const d = this.toJSDate(rawEm);
+    if (!d) return null;
+    const dd  = String(d.getDate()).padStart(2, '0');
+    const mm  = String(d.getMonth() + 1).padStart(2, '0');
+    const hh  = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm} às ${hh}:${min}`;
   }
-}
+
+  // Mantido para o *ngIf do badge "Encaminhado / Não encaminhado"
+  encaminhadoLabel(p: PreCadastro): string | null {
+    return this.encaminhadoNome(p);
+  }
+
+  getStatusClass(status?: string): string {
+    switch ((status || '').toLowerCase()) {
+      case 'apto':        return 'bg-success';
+      case 'inapto':      return 'bg-danger';
+      case 'nao_verificado': return 'bg-secondary';
+      default:            return 'bg-secondary';
+    }
+  }
 
   // ====================================================
   // MODAL — ENC. PESSOA

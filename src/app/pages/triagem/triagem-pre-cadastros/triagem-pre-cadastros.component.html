@@ -136,8 +136,11 @@
             </div>
 
             <!-- Distribuído para (Pessoas) -->
-            <div class="text-muted small" *ngIf="nomeDistribuido(r)">
-              Distribuído para: {{ nomeDistribuido(r) }}
+            <div class="small" *ngIf="nomeDistribuido(r) as nomeDist">
+              <span class="text-muted">Distribuído para: </span>
+              <span class="text-body fw-medium">{{ nomeDist }}</span>
+              <span class="text-muted" *ngIf="r.designadoEm"
+                style="opacity: 0.65"> ({{ r.designadoEm | date:'dd/MM HH:mm' }})</span>
             </div>
           </div>
 
@@ -284,10 +287,13 @@
             </button>
 
             <div class="small">
-              <span *ngIf="!designandoGrupo[g.id!]">
-                {{ (g.designadoParaNome || (g.designadoParaUid ? resolveAssessorNome(g.designadoParaUid || '') : '')) ||
-                '' }}
-              </span>
+              <ng-container *ngIf="!designandoGrupo[g.id!]">
+                <ng-container *ngIf="(g.designadoParaNome || (g.designadoParaUid ? resolveAssessorNome(g.designadoParaUid || '') : '')) as nomeG">
+                  <span class="text-body fw-medium">{{ nomeG }}</span>
+                  <span class="text-muted" *ngIf="g.designadoEm"
+                    style="opacity: 0.65"> ({{ g.designadoEm | date:'dd/MM HH:mm' }})</span>
+                </ng-container>
+              </ng-container>
               <span *ngIf="designandoGrupo[g.id!]">Enviando…</span>
             </div>
           </div>

@@ -142,7 +142,14 @@ export class GrupoSolidarioService {
    *  - dist.grupoAssessorUid           (variação já vista em base)
    *  - assessorUid / caixaUid          (legado)
    */
-  async listarParaCaixaAssessor(assessorUid: string): Promise<GrupoSolidario[]> {
+  async listarParaCaixaAssessor(assessorUid: string | string[]): Promise<GrupoSolidario[]> {
+    const uids = [...new Set(Array.isArray(assessorUid) ? assessorUid : [assessorUid])].filter(Boolean);
+    if (!uids.length) return [];
+
+    // Firestore 'in' aceita no máximo 10 valores por query
+    const chunks: string[][] = [];
+    for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+
     const rows: GrupoSolidario[] = [];
     const colRef = collection(this.fs, 'grupos_solidarios');
 
@@ -153,13 +160,20 @@ export class GrupoSolidarioService {
       } catch {}
     };
 
-    // preferencial (novo)
-    await tryGet(query(colRef, where('distribuicao.groupAssessorUid', '==', assessorUid)));
-    // variação observada em dados (“dist”)
-    await tryGet(query(colRef, where('dist.grupoAssessorUid', '==', assessorUid)));
-    // legados
-    await tryGet(query(colRef, where('assessorUid', '==', assessorUid)));
-    await tryGet(query(colRef, where('caixaUid', '==', assessorUid)));
+    for (const chunk of chunks) {
+      const eq = (field: string) =>
+        chunk.length === 1
+          ? where(field, '==', chunk[0])
+          : where(field, 'in', chunk);
+
+      // preferencial (novo)
+      await tryGet(query(colRef, eq('distribuicao.groupAssessorUid')));
+      // variação observada em dados (“dist”)
+      await tryGet(query(colRef, eq('dist.grupoAssessorUid')));
+      // legados
+      await tryGet(query(colRef, eq('assessorUid')));
+      await tryGet(query(colRef, eq('caixaUid')));
+    }
 
     // dedup + sort por criadoEm desc
     const map = new Map<string, GrupoSolidario>();

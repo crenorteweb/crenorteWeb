@@ -257,8 +257,13 @@ export class PreCadastroService {
     return snap.docs.map(d => ({ uid: d.id, ...(d.data() as any) })) as UsuarioAssessor[];
   }
 
-  async listarParaCaixa(uid: string): Promise<PreCadastro[]> {
-    if (!uid) throw new Error('uid obrigatório');
+  async listarParaCaixa(uid: string | string[]): Promise<PreCadastro[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) throw new Error('uid obrigatório');
+
+    // Firestore 'in' aceita no máximo 10 valores por query
+    const chunks: string[][] = [];
+    for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
 
     const rows: PreCadastro[] = [];
     const tryGet = async (qy: any) => {
@@ -268,9 +273,16 @@ export class PreCadastroService {
       } catch {}
     };
 
-    await tryGet(query(this.colRef, where('caixaUid', '==', uid)));
-    await tryGet(query(this.colRef, where('encaminhamento.assessorUid', '==', uid)));
-    await tryGet(query(this.colRef, where('createdByUid', '==', uid)));
+    for (const chunk of chunks) {
+      const eq = (field: string) =>
+        chunk.length === 1
+          ? where(field, '==', chunk[0])
+          : where(field, 'in', chunk);
+
+      await tryGet(query(this.colRef, eq('caixaUid')));
+      await tryGet(query(this.colRef, eq('encaminhamento.assessorUid')));
+      await tryGet(query(this.colRef, eq('createdByUid')));
+    }
 
     const ms = (x: any) => x?.toMillis ? x.toMillis() : x?.toDate ? x.toDate().getTime() : (typeof x === 'number' ? x : 0);
     const map = new Map<string, PreCadastro>();
