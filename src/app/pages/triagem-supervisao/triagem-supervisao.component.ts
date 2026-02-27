@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -22,7 +22,6 @@ import {
   where,
   limit,
   setDoc,
-  updateDoc,
   serverTimestamp,
   writeBatch,
 } from '@angular/fire/firestore';
@@ -38,7 +37,10 @@ type Assessor = {
   nome: string;
   email?: string | null;
   rota?: string | null;
+  analistaId?: string | null;
 };
+
+type Analista = { uid: string; nome: string };
 
 @Component({
   selector: 'app-triagem-supervisao',
@@ -53,26 +55,31 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   private gruposSvc = inject(GrupoSolidarioService);
   private auth = inject(Auth);
   private afs = inject(Firestore);
-  private injector = inject(EnvironmentInjector);
 
   // ====== estado usuário atual ======
   currentUserUid: string | null = null;
   currentUserNome: string | null = null;
-  private readonly user$ = user(this.auth); // field initializer — garante injection context
   private subUser?: Subscription;
 
   // cache de nomes para não ficar lendo o mesmo colaborador sempre
   private nomeCache = new Map<string, string>();
+
+  // UIDs dos Analistas vinculados ao Supervisor (extraídos do analistaId dos assessores)
+  private analistasUids: string[] = [];
 
   // ====== abas / UI básica ======
   loading = false;
   aba: Aba = 'pessoas';
 
   searchTerm = '';
+  filtroEnvio: FiltroEnvio = 'todos';
+
   filtroAssessor: string | 'todos' = 'todos';
 
-  /** Conjunto de filtros booleanos ativos (toggle múltiplo). */
-  filtrosAtivos: Record<string, boolean> = {};
+  // ====== filtro por analista do time ======
+  analistas: Analista[] = [];
+  filtroAnalista: string | 'todos' = 'todos';
+
 
   // ====== pessoas ======
   pessoas: PreCadastro[] = [];      // base completa (caixa + encaminhados + membros de grupos)
@@ -85,12 +92,6 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== assessores (time do analista) ======
   assessores: Assessor[] = [];
   assessoresFiltrados: Assessor[] = [];
-
-  // ====== analistas da equipe (apenas para supervisores) ======
-  analistasDaMinhaEquipe: string[] = [];
-
-  // ====== analistaId sincronizado do perfil do Supervisor ======
-  analistaIdSincronizado: string | null = null;
 
   // ====== modal encaminhar PESSOA ======
   showAssessorPessoaModal = false;
@@ -112,36 +113,35 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // CICLO DE VIDA
   // ====================================================
   ngOnInit(): void {
-    this.subUser = this.user$.subscribe((u) => {
-      runInInjectionContext(this.injector, async () => {
-        this.loading = true;
-        try {
-          if (!u) {
-            this.currentUserUid = null;
-            this.currentUserNome = null;
-            this.resetarListas();
-            return;
-          }
-
-          this.currentUserUid = u.uid;
-          this.currentUserNome = await this.resolveUserName(u.uid);
-
-          await this.carregarAnalistasDaMinhaEquipe(u.uid);
-          await this.sincronizarAnalistaId(u.uid);
-          await this.carregarAssessoresDoMeuTime(u.uid);
-          await this.carregarPessoasDoAnalista(u.uid);
-          await this.carregarGruposDoAnalista(u.uid);
-          await this.mesclarPreCadastrosDeGrupos();
-
-          this.aplicarFiltrosPessoas();
-          this.aplicarFiltrosGrupos();
-        } catch (e) {
-          console.error('[TriagemSupervisao] erro ao iniciar:', e);
+    this.subUser = user(this.auth).subscribe(async (u) => {
+      this.loading = true;
+      try {
+        if (!u) {
+          this.currentUserUid = null;
+          this.currentUserNome = null;
           this.resetarListas();
-        } finally {
-          this.loading = false;
+          return;
         }
-      });
+
+        this.currentUserUid = u.uid;
+        this.currentUserNome = await this.resolveUserName(u.uid);
+
+        // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
+        const equipeUids = await this.obterIdsDoMeuTime();
+        await this.carregarAssessoresDoMeuTime(equipeUids);
+
+        await this.carregarPessoasDoAnalista(equipeUids);
+        await this.carregarGruposDoAnalista(equipeUids);
+        await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
+
+        this.aplicarFiltrosPessoas();
+        this.aplicarFiltrosGrupos();
+      } catch (e) {
+        console.error('[TriagemSupervisao] erro ao iniciar:', e);
+        this.resetarListas();
+      } finally {
+        this.loading = false;
+      }
     });
   }
 
@@ -156,11 +156,20 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.gruposView = [];
     this.assessores = [];
     this.assessoresFiltrados = [];
+    this.analistas = [];
+    this.filtroAnalista = 'todos';
   }
 
   setAssessorFilter(uid: string | 'todos') {
     this.filtroAssessor = uid;
     this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosGrupos();
+  }
+
+  setAnalistaFilter(uid: string | 'todos') {
+    this.filtroAnalista = uid;
+    this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosGrupos();
   }
 
 
@@ -216,26 +225,80 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====================================================
-  // CARREGAR ASSESSORES DO MEU TIME
+  // DESCOBERTA DE TIME: [supervisorUid, ...analistasIds]
+  // Busca dupla em paralelo:
+  //  A) Analistas com supervisorId == eu no próprio perfil (ligação direta)
+  //  B) Analistas inferidos pelo analistaId dos assessores vinculados ao supervisor
   // ====================================================
-  private async carregarAssessoresDoMeuTime(meUid: string): Promise<void> {
+  private async obterIdsDoMeuTime(): Promise<string[]> {
+    if (!this.currentUserUid) return [];
     try {
       const ref = collection(this.afs, 'colaboradores');
-      const uidsSet = new Set<string>([meUid, ...this.analistasDaMinhaEquipe]);
-      if (this.analistaIdSincronizado) uidsSet.add(this.analistaIdSincronizado);
-      const uids = Array.from(uidsSet);
 
-      // Para cada UID da equipe: supervisorId, supervisorUid e analistaId (campos variados no Firestore)
-      const snaps = await runInInjectionContext(this.injector, () => {
-        const ps = uids.flatMap(uid => [
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), where('supervisorId', '==', uid))),
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), where('supervisorUid', '==', uid))),
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), where('analistaId', '==', uid))),
-        ]);
-        return Promise.all(ps);
+      // Busca A: analistas que têm supervisorId apontando para mim diretamente
+      const qAnalistaDireto = fsQuery(
+        ref,
+        where('status', '==', 'ativo'),
+        where('papel', '==', 'analista'),
+        where('supervisorId', '==', this.currentUserUid)
+      );
+
+      // Busca B: assessores cujo supervisorId é meu → extrair analistaId deles
+      const qAssessorDoSupervisor = fsQuery(
+        ref,
+        where('status', '==', 'ativo'),
+        where('papel', '==', 'assessor'),
+        where('supervisorId', '==', this.currentUserUid)
+      );
+
+      const [snapAnalistas, snapAssessores] = await Promise.all([
+        getDocs(qAnalistaDireto),
+        getDocs(qAssessorDoSupervisor),
+      ]);
+
+      const analistaIdsSet = new Set<string>();
+
+      // Resultado A: UIDs diretos dos analistas
+      snapAnalistas.docs.forEach(d => analistaIdsSet.add(d.id));
+
+      // Resultado B: analistaId de cada assessor
+      snapAssessores.docs.forEach(d => {
+        const a = d.data() as any;
+        if (a?.analistaId) analistaIdsSet.add(a.analistaId);
       });
 
+      this.analistasUids = Array.from(analistaIdsSet);
+
+      // Resolve os nomes dos analistas para exibir no filtro visual
+      this.analistas = await Promise.all(
+        this.analistasUids.map(async uid => ({
+          uid,
+          nome: await this.resolveUserName(uid),
+        }))
+      );
+
+      return [this.currentUserUid, ...this.analistasUids];
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao obter IDs do time:', e);
+      return [this.currentUserUid];
+    }
+  }
+
+  // ====================================================
+  // CARREGAR ASSESSORES DO MEU TIME
+  // ====================================================
+  private async carregarAssessoresDoMeuTime(teamUids: string[]): Promise<void> {
+    try {
+      const uids = [...new Set(teamUids)].filter(Boolean);
+      if (!uids.length) {
+        this.assessores = [];
+        this.assessoresFiltrados = [];
+        return;
+      }
+
+      const ref = collection(this.afs, 'colaboradores');
       const map = new Map<string, Assessor>();
+
       const pushDoc = (d: any) => {
         const data = d.data() as any;
         map.set(d.id, {
@@ -243,10 +306,30 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           nome: data?.nome || data?.displayName || data?.email || 'Assessor',
           email: data?.email || null,
           rota: data?.rota || null,
+          analistaId: data?.analistaId || null,
         });
       };
 
-      snaps.forEach(snap => snap.docs.forEach(pushDoc));
+      // Chunking para Firestore 'in' (máx 10 valores por query)
+      const chunks: string[][] = [];
+      for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
+
+      for (const chunk of chunks) {
+        const inSup = chunk.length === 1
+          ? where('supervisorId', '==', chunk[0])
+          : where('supervisorId', 'in', chunk);
+        const inAna = chunk.length === 1
+          ? where('analistaId', '==', chunk[0])
+          : where('analistaId', 'in', chunk);
+
+        const [supSnap, anaSnap] = await Promise.all([
+          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inSup)),
+          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inAna)),
+        ]);
+
+        supSnap.docs.forEach(pushDoc);
+        anaSnap.docs.forEach(pushDoc);
+      }
 
       this.assessores = Array.from(map.values()).sort((a, b) =>
         (a.nome || '').localeCompare(b.nome || '')
@@ -256,63 +339,6 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       console.error('[TriagemSupervisao] erro ao carregar assessores:', e);
       this.assessores = [];
       this.assessoresFiltrados = [];
-    }
-  }
-
-  // ====================================================
-  // DESCOBRIR ANALISTAS DA EQUIPE DO SUPERVISOR
-  // ====================================================
-  private async carregarAnalistasDaMinhaEquipe(meUid: string): Promise<void> {
-    try {
-      const ref = collection(this.afs, 'colaboradores');
-      // Dois campos possíveis no Firestore: supervisorId e supervisorUid
-      const [snapById, snapByUid] = await runInInjectionContext(this.injector, () => Promise.all([
-        getDocs(fsQuery(ref, where('papel', '==', 'analista'), where('status', '==', 'ativo'), where('supervisorId', '==', meUid))),
-        getDocs(fsQuery(ref, where('papel', '==', 'analista'), where('status', '==', 'ativo'), where('supervisorUid', '==', meUid))),
-      ]));
-      const ids = new Set<string>();
-      snapById.docs.forEach(d => ids.add(d.id));
-      snapByUid.docs.forEach(d => ids.add(d.id));
-      this.analistasDaMinhaEquipe = Array.from(ids);
-    } catch (e) {
-      console.error('[TriagemSupervisao] erro ao carregar analistas da equipe:', e);
-      this.analistasDaMinhaEquipe = [];
-    }
-  }
-
-  // ====================================================
-  // SINCRONIZAR analistaId NO PERFIL DO SUPERVISOR
-  // ====================================================
-  private async sincronizarAnalistaId(meUid: string): Promise<void> {
-    try {
-      // 1. Verificar se o perfil já tem analistaId
-      const supervisorSnap = await runInInjectionContext(this.injector, () => getDoc(doc(this.afs, 'colaboradores', meUid)));
-      if (!supervisorSnap.exists()) return;
-
-      const supervisorData: any = supervisorSnap.data();
-      if (supervisorData?.analistaId) {
-        this.analistaIdSincronizado = supervisorData.analistaId;
-        return; // já preenchido — nada a fazer
-      }
-
-      // 2. Busca assessores vinculados ao Supervisor (por supervisorId OU supervisorUid)
-      const ref = collection(this.afs, 'colaboradores');
-      const [assessorSnapById, assessorSnapByUid] = await runInInjectionContext(this.injector, () => Promise.all([
-        getDocs(fsQuery(ref, where('papel', '==', 'assessor'), where('supervisorId', '==', meUid), limit(1))),
-        getDocs(fsQuery(ref, where('papel', '==', 'assessor'), where('supervisorUid', '==', meUid), limit(1))),
-      ]));
-      const assessorDoc = (!assessorSnapById.empty ? assessorSnapById : assessorSnapByUid).docs[0];
-      if (!assessorDoc) return;
-
-      const analistaId: string | null = (assessorDoc.data() as any)?.analistaId || null;
-      if (!analistaId) return;
-
-      // 3. Gravar no perfil do Supervisor (somente uma vez, campo estava vazio)
-      await runInInjectionContext(this.injector, () => updateDoc(doc(this.afs, 'colaboradores', meUid), { analistaId }));
-
-      this.analistaIdSincronizado = analistaId;
-    } catch (e) {
-      console.error('[TriagemSupervisao] erro ao sincronizar analistaId:', e);
     }
   }
 
@@ -341,60 +367,24 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     return null;
   }
 
-  private async carregarPessoasDoAnalista(meUid: string): Promise<void> {
+  private async carregarPessoasDoAnalista(uid: string | string[]): Promise<void> {
     try {
+      // listarParaCaixa busca por caixaUid (onde o Admin deposita o lead)
+      // e encaminhamento.assessorUid — cobre todos os cenários de distribuição
+      const base = await this.preSvc.listarParaCaixa(uid);
+
+      // encaminhadosPorUid: cobre todos os UIDs do time (supervisor + analistas)
+      const encaminhados = await this.buscarPreCadastrosEncaminhadosPor(uid);
+
       const mapRows = new Map<string, PreCadastro>();
-      const preRef = collection(this.afs, 'pre_cadastros');
-      const svcAny = this.preSvc as any;
 
-      // 1. Itens criados pelo Supervisor  2. Itens na caixa do Supervisor
-      const [snapCreated, snapCaixa] = await runInInjectionContext(this.injector, () => Promise.all([
-        getDocs(fsQuery(preRef, where('createdByUid', '==', meUid))),
-        getDocs(fsQuery(preRef, where('caixaUid', '==', meUid))),
-      ]));
-      const mergeDoc = (d: any) => {
-        if (d.id && !mapRows.has(d.id))
-          mapRows.set(d.id, { id: d.id, ...d.data() } as PreCadastro);
-      };
-      snapCreated.docs.forEach(mergeDoc);
-      snapCaixa.docs.forEach(mergeDoc);
-
-      // Analistas da equipe — busca via listarParaCaixa + encaminhadosPor
-      const uidsEquipe = new Set<string>([...this.analistasDaMinhaEquipe]);
-      if (this.analistaIdSincronizado) uidsEquipe.add(this.analistaIdSincronizado);
-
-      for (const uid of uidsEquipe) {
-        const [base, encaminhados] = await Promise.all([
-          typeof svcAny.listarParaCaixa === 'function'
-            ? svcAny.listarParaCaixa(uid)
-            : this.preSvc.listarDoAssessor(uid),
-          this.buscarPreCadastrosEncaminhadosPor(uid),
-        ]);
-
-        for (const r of base || []) {
-          if (r?.id) mapRows.set(r.id, r);
-        }
-        for (const e of encaminhados || []) {
-          if (!e?.id) continue;
-          const atual = mapRows.get(e.id);
-          mapRows.set(e.id, { ...(atual as any), ...(e as any) } as PreCadastro);
-        }
+      for (const r of base || []) {
+        if (r?.id) mapRows.set(r.id, r);
       }
-
-      // 3. analistaId == analistaIdSincronizado (campo direto no pre_cadastro)
-      if (this.analistaIdSincronizado) {
-        try {
-          const snapAnalistaId = await runInInjectionContext(this.injector, () => getDocs(fsQuery(
-            preRef,
-            where('analistaId', '==', this.analistaIdSincronizado)
-          )));
-          snapAnalistaId.forEach(d => {
-            if (!mapRows.has(d.id))
-              mapRows.set(d.id, { id: d.id, ...d.data() } as PreCadastro);
-          });
-        } catch (e) {
-          console.error('[TriagemSupervisao] erro ao buscar por analistaId:', e);
-        }
+      for (const e of encaminhados || []) {
+        if (!e?.id) continue;
+        const atual = mapRows.get(e.id);
+        mapRows.set(e.id, { ...(atual as any), ...(e as any) } as PreCadastro);
       }
 
       const merged = Array.from(mapRows.values());
@@ -451,27 +441,31 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
   }
 
-  // =========== busca extra: pré-cadastros que ESTE analista encaminhou ===========
+  // =========== busca extra: pré-cadastros encaminhados por qualquer membro do time ===========
   private async buscarPreCadastrosEncaminhadosPor(
-    uid: string
+    uid: string | string[]
   ): Promise<PreCadastro[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) return [];
     try {
       const ref = collection(this.afs, 'pre_cadastros');
-      const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
-      const snap = await runInInjectionContext(this.injector, () => getDocs(q));
-
       const lista: PreCadastro[] = [];
-      snap.forEach((docSnap) => {
-        const data = docSnap.data() as any;
-        lista.push({ id: docSnap.id, ...data } as PreCadastro);
-      });
+
+      // Chunking para o operador 'in' do Firestore (máx 10 por query)
+      for (let i = 0; i < uids.length; i += 10) {
+        const chunk = uids.slice(i, i + 10);
+        const q = chunk.length === 1
+          ? fsQuery(ref, where('encaminhadoPorUid', '==', chunk[0]))
+          : fsQuery(ref, where('encaminhadoPorUid', 'in', chunk));
+        const snap = await getDocs(q);
+        snap.forEach((docSnap) => {
+          lista.push({ id: docSnap.id, ...docSnap.data() } as PreCadastro);
+        });
+      }
 
       return lista;
     } catch (e) {
-      console.error(
-        '[TriagemSupervisao] erro ao buscar pre_cadastros encaminhados:',
-        e
-      );
+      console.error('[TriagemSupervisao] erro ao buscar pre_cadastros encaminhados:', e);
       return [];
     }
   }
@@ -480,55 +474,54 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // CARREGAR GRUPOS DO ANALISTA
   // (igual Lista: caixa + grupos encaminhados por mim + joinGruposView)
   // ====================================================
+  // =========== busca extra: grupos encaminhados por qualquer membro do time ===========
   private async buscarGruposEncaminhadosPor(
-    uid: string
+    uid: string | string[]
   ): Promise<GrupoSolidario[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) return [];
     try {
       const ref = collection(this.afs, 'grupos_solidarios');
-      const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
-      const snap = await runInInjectionContext(this.injector, () => getDocs(q));
-
       const lista: GrupoSolidario[] = [];
-      snap.forEach((docSnap) => {
-        const data = docSnap.data() as any;
-        lista.push({ id: docSnap.id, ...data } as GrupoSolidario);
-      });
+
+      // Chunking para o operador 'in' do Firestore (máx 10 por query)
+      for (let i = 0; i < uids.length; i += 10) {
+        const chunk = uids.slice(i, i + 10);
+        const q = chunk.length === 1
+          ? fsQuery(ref, where('encaminhadoPorUid', '==', chunk[0]))
+          : fsQuery(ref, where('encaminhadoPorUid', 'in', chunk));
+        const snap = await getDocs(q);
+        snap.forEach((docSnap) => {
+          lista.push({ id: docSnap.id, ...docSnap.data() } as GrupoSolidario);
+        });
+      }
 
       return lista;
     } catch (e) {
-      console.error(
-        '[TriagemSupervisao] erro ao buscar grupos encaminhados:',
-        e
-      );
+      console.error('[TriagemSupervisao] erro ao buscar grupos encaminhados:', e);
       return [];
     }
   }
 
-  private async carregarGruposDoAnalista(meUid: string): Promise<void> {
+  private async carregarGruposDoAnalista(uid: string | string[]): Promise<void> {
     try {
-      const uidsSet = new Set<string>([meUid, ...this.analistasDaMinhaEquipe]);
-      if (this.analistaIdSincronizado) uidsSet.add(this.analistaIdSincronizado);
-      const uids = Array.from(uidsSet);
+      const base = await this.gruposSvc.listarParaCaixaAssessor(uid);
+      // encaminhadosPorUid: cobre todos os UIDs do time (supervisor + analistas)
+      const encaminhadosPorMim = await this.buscarGruposEncaminhadosPor(uid);
+
       const map = new Map<string, GrupoSolidario>();
 
-      for (const uid of uids) {
-        const [base, encaminhadosPorMim] = await Promise.all([
-          this.gruposSvc.listarParaCaixaAssessor(uid),
-          this.buscarGruposEncaminhadosPor(uid),
-        ]);
+      for (const g of base || []) {
+        const id = (g as any).id;
+        if (!id) continue;
+        map.set(id, g);
+      }
 
-        for (const g of base || []) {
-          const id = (g as any).id;
-          if (!id) continue;
-          map.set(id, g);
-        }
-
-        for (const g of encaminhadosPorMim || []) {
-          const id = (g as any).id;
-          if (!id) continue;
-          const atual = map.get(id);
-          map.set(id, { ...(atual as any), ...(g as any) } as GrupoSolidario);
-        }
+      for (const g of encaminhadosPorMim || []) {
+        const id = (g as any).id;
+        if (!id) continue;
+        const atual = map.get(id);
+        map.set(id, { ...(atual as any), ...(g as any) } as GrupoSolidario);
       }
 
       const merged = Array.from(map.values());
@@ -607,37 +600,48 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         }
       }
 
-      // busca em paralelo os pré-cadastros que não estavam em this.pessoas
-      await Promise.all(
-        Array.from(faltando.entries()).map(async ([preId, info]) => {
-          try {
-            const snap = await getDoc(doc(this.afs, 'pre_cadastros', preId));
-            if (!snap.exists()) return;
-
-            const data = snap.data() as any;
-            atuais.set(preId, {
-              id: preId,
-              nomeCompleto: (data.nomeCompleto ?? data.nome ?? null) as any,
-              cpf: (data.cpf ?? null) as any,
-              telefone: (data.telefone ?? null) as any,
-              email: (data.email ?? null) as any,
-              endereco: (data.endereco ?? null) as any,
-              bairro: (data.bairro ?? null) as any,
-              cidade: (data.cidade ?? null) as any,
-              uf: (data.uf ?? null) as any,
-              agendamentoStatus: (data.agendamentoStatus || 'nao_agendado') as any,
-              formalizacao: data.formalizacao,
-              desistencia: data.desistencia,
-              grupoId: info.grupoId,
-              grupoNome: info.grupoNome,
-              papelNoGrupo: 'membro',
-              ...data,
-            } as PreCadastro);
-          } catch (e) {
-            console.error('[Grupos->Pessoas] erro ao buscar pre_cadastro', preId, e);
+      // busca no Firestore os pré-cadastros que não estavam em this.pessoas
+      for (const [preId, info] of faltando.entries()) {
+        try {
+          const snap = await getDoc(doc(this.afs, 'pre_cadastros', preId));
+          if (!snap.exists()) {
+            console.warn(
+              '[Grupos->Pessoas] pre_cadastro não encontrado para membroId =',
+              preId
+            );
+            continue;
           }
-        })
-      );
+
+          const data = snap.data() as any;
+
+          const pre: PreCadastro = {
+            id: preId,
+            nomeCompleto: (data.nomeCompleto ?? data.nome ?? null) as any,
+            cpf: (data.cpf ?? null) as any,
+            telefone: (data.telefone ?? null) as any,
+            email: (data.email ?? null) as any,
+            endereco: (data.endereco ?? null) as any,
+            bairro: (data.bairro ?? null) as any,
+            cidade: (data.cidade ?? null) as any,
+            uf: (data.uf ?? null) as any,
+            agendamentoStatus: (data.agendamentoStatus || 'nao_agendado') as any,
+            formalizacao: data.formalizacao,
+            desistencia: data.desistencia,
+            grupoId: info.grupoId,
+            grupoNome: info.grupoNome,
+            papelNoGrupo: 'membro',
+            ...data,
+          } as PreCadastro;
+
+          atuais.set(preId, pre);
+        } catch (e) {
+          console.error(
+            '[Grupos->Pessoas] erro ao buscar pre_cadastro',
+            preId,
+            e
+          );
+        }
+      }
 
       this.pessoas = Array.from(atuais.values());
       this.pessoasView = [...this.pessoas];
@@ -663,46 +667,63 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     else this.aplicarFiltrosGrupos();
   }
 
-  setEnvioFilter(f: string) {
-    if (f === 'todos') {
-      this.filtrosAtivos = {};
+  setEnvioFilter(f: FiltroEnvio) {
+    //this.filtroEnvio = f;
+    if (this.filtroEnvio === f) {
+      this.filtroEnvio = 'todos';
     } else {
-      this.filtrosAtivos = { ...this.filtrosAtivos, [f]: !this.filtrosAtivos[f] };
+      this.filtroEnvio = f;
     }
-    this.aplicarFiltrosPessoas();
-  }
-
-  nenhumFiltroAtivo(): boolean {
-    return !Object.values(this.filtrosAtivos).some(Boolean);
+      this.aplicarFiltrosPessoas();
   }
 
   private aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // Filtros de aprovação — OR dentro do grupo (apto/inapto)
-    const filtrosAprovacao = (['apto', 'inapto'] as const).filter(f => !!this.filtrosAtivos[f]);
-    if (filtrosAprovacao.length > 0) {
-      list = list.filter((p) => {
-        const status = (p as any).aprovacao?.status || 'nao_verificado';
-        return filtrosAprovacao.includes(status as any);
-      });
+    // filtro encaminhamento
+    // if (this.filtroEnvio !== 'todos') {
+    //   list = list.filter((p) => {
+    //     const enc = !!(p as any).encaminhadoParaUid;
+    //     return this.filtroEnvio === 'encaminhado' ? enc : !enc;
+    //   });
+    // }
+
+    if (this.filtroEnvio !== 'todos') {
+      // 🔵 FILTROS DE ENCAMINHAMENTO
+      if (this.filtroEnvio === 'encaminhado' || this.filtroEnvio === 'nao_encaminhado') {
+        list = list.filter((p) => {
+          const enc = !!(p as any).encaminhadoParaUid;
+          return this.filtroEnvio === 'encaminhado' ? enc : !enc;
+        });
+      }
+      // 🟢 FILTROS DE APROVAÇÃO
+      if (this.filtroEnvio === 'apto' || this.filtroEnvio === 'inapto') {
+
+        list = list.filter((p) => {
+          const status = (p as any).aprovacao?.status || 'nao_verificado';
+          return status === this.filtroEnvio;
+        });
+      }
     }
 
-    // Filtros de encaminhamento — se ambos ativos, cancelam-se (exibir tudo)
-    const temEnc    = !!this.filtrosAtivos['encaminhado'];
-    const temNaoEnc = !!this.filtrosAtivos['nao_encaminhado'];
-    if (temEnc && !temNaoEnc) {
-      list = list.filter((p) => !!(p as any).encaminhadoParaUid);
-    } else if (temNaoEnc && !temEnc) {
-      list = list.filter((p) => !(p as any).encaminhadoParaUid);
-    }
 
-
-    // filtro por assessor (somente quando encaminhado)
-    if (this.filtroAssessor !== 'todos') {
+    // filtro por analista do time (leads na caixa do analista ou encaminhados por ele)
+    if (this.filtroAnalista !== 'todos') {
       list = list.filter((p) =>
-        (p as any).encaminhadoParaUid === this.filtroAssessor
+        (p as any).caixaUid === this.filtroAnalista ||
+        (p as any).encaminhadoPorUid === this.filtroAnalista
       );
+    }
+
+    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
+    if (this.filtroAssessor !== 'todos') {
+      list = list.filter((p) => {
+        const pAny = p as any;
+        return pAny.encaminhadoParaUid          === this.filtroAssessor ||
+               pAny.designadoParaUid            === this.filtroAssessor ||
+               pAny.caixaUid                   === this.filtroAssessor ||
+               pAny.encaminhamento?.assessorUid === this.filtroAssessor;
+      });
     }
 
     const term = this.normalize(this.searchTerm);
@@ -735,8 +756,26 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
   private aplicarFiltrosGrupos() {
     let list = [...this.grupos];
-    const term = this.normalize(this.searchTerm);
 
+    // filtro por analista do time (grupos na caixa do analista ou encaminhados por ele)
+    if (this.filtroAnalista !== 'todos') {
+      list = list.filter((g) =>
+        (g as any).caixaUid === this.filtroAnalista ||
+        (g as any).encaminhadoPorUid === this.filtroAnalista
+      );
+    }
+
+    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
+    if (this.filtroAssessor !== 'todos') {
+      list = list.filter((g) => {
+        const gAny = g as any;
+        return gAny.encaminhadoParaUid === this.filtroAssessor ||
+               gAny.designadoParaUid   === this.filtroAssessor ||
+               gAny.caixaUid           === this.filtroAssessor;
+      });
+    }
+
+    const term = this.normalize(this.searchTerm);
     if (term) {
       list = list.filter((g) => {
         const coord: any = (g as any).coordenadorView || {};
@@ -770,44 +809,37 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     return `https://wa.me/55${d}`;
   }
 
-  encaminhadoLabel(p: PreCadastro): string | null {
-    const encNome =
+  encaminhadoNome(p: PreCadastro): string | null {
+    return (
       (p as any).encaminhadoParaNome ||
       (p as any).encaminhamento?.assessorNome ||
-      null;
-    if (!encNome) return null;
-    return `Encaminhado para ${encNome}`;
+      null
+    );
   }
 
-  getStatusClass(status?: string) {
-  switch ((status || '').toLowerCase()) {
-    case 'apto':
-      return 'bg-success';
-    case 'inapto':
-      return 'bg-danger';
-    case 'nao_verificado':
-      return 'bg-secondary';
-    default:
-      return 'bg-secondary';
+  encaminhadoData(p: PreCadastro): string | null {
+    const rawEm = (p as any).encaminhadoEm ?? (p as any).designadoEm ?? null;
+    const d = this.toJSDate(rawEm);
+    if (!d) return null;
+    const dd  = String(d.getDate()).padStart(2, '0');
+    const mm  = String(d.getMonth() + 1).padStart(2, '0');
+    const hh  = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm} às ${hh}:${min}`;
   }
-}
 
-  // ====================================================
-  // FORMATAÇÃO DE DATA/HORA (Timestamps Firebase)
-  // ====================================================
-  formatarDataHora(data: any): string {
-    if (!data) return '—';
-    let d: Date | null = null;
-    if (typeof data?.toDate === 'function') {
-      try { d = data.toDate(); } catch { return '—'; }
-    } else if (data instanceof Date) {
-      d = data;
-    } else if (typeof data === 'number') {
-      d = new Date(data);
+  // Mantido para o *ngIf do badge "Encaminhado / Não encaminhado"
+  encaminhadoLabel(p: PreCadastro): string | null {
+    return this.encaminhadoNome(p);
+  }
+
+  getStatusClass(status?: string): string {
+    switch ((status || '').toLowerCase()) {
+      case 'apto':        return 'bg-success';
+      case 'inapto':      return 'bg-danger';
+      case 'nao_verificado': return 'bg-secondary';
+      default:            return 'bg-secondary';
     }
-    if (!d || isNaN(d.getTime())) return '—';
-    const pad = (n: number) => String(n).padStart(2, '0');
-    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} às ${pad(d.getHours())}:${pad(d.getMinutes())}`;
   }
 
   // ====================================================

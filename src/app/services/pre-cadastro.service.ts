@@ -1,5 +1,5 @@
 // src/app/services/pre-cadastro.service.ts
-import { inject, Injectable, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import {
   Firestore,
   collection,
@@ -44,7 +44,6 @@ export class PreCadastroService {
   private db = inject(Firestore);
   private auth = inject(Auth);
   private storage = inject(Storage);
-  private injector = inject(EnvironmentInjector);
 
   private colRef: CollectionReference<DocumentData> =
     collection(this.db, 'pre_cadastros') as CollectionReference<DocumentData>;
@@ -141,12 +140,12 @@ export class PreCadastroService {
   async listarPorIds(ids: string[]): Promise<PreCadastro[]> {
     if (!ids?.length) return [];
     const out: PreCadastro[] = [];
-    const chunks: string[][] = [];
-    for (let i = 0; i < ids.length; i += 10) chunks.push(ids.slice(i, i + 10));
-    const snaps = await Promise.all(
-      chunks.map(chunk => getDocs(query(this.colRef, where(documentId(), 'in', chunk))))
-    );
-    snaps.forEach(snap => snap.docs.forEach(d => out.push({ id: d.id, ...(d.data() as any) } as PreCadastro)));
+    for (let i = 0; i < ids.length; i += 10) {
+      const chunk = ids.slice(i, i + 10);
+      const qy = query(this.colRef, where(documentId(), 'in', chunk));
+      const snap = await getDocs(qy);
+      snap.docs.forEach(d => out.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
+    }
     return out;
   }
 
@@ -258,22 +257,32 @@ export class PreCadastroService {
     return snap.docs.map(d => ({ uid: d.id, ...(d.data() as any) })) as UsuarioAssessor[];
   }
 
-  async listarParaCaixa(uid: string): Promise<PreCadastro[]> {
-    if (!uid) throw new Error('uid obrigatório');
+  async listarParaCaixa(uid: string | string[]): Promise<PreCadastro[]> {
+    const uids = [...new Set(Array.isArray(uid) ? uid : [uid])].filter(Boolean);
+    if (!uids.length) throw new Error('uid obrigatório');
+
+    // Firestore 'in' aceita no máximo 10 valores por query
+    const chunks: string[][] = [];
+    for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
 
     const rows: PreCadastro[] = [];
     const tryGet = async (qy: any) => {
       try {
-        const snap = await runInInjectionContext(this.injector, () => getDocs(qy));
+        const snap = await getDocs(qy);
         snap.docs.forEach(d => rows.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
       } catch {}
     };
 
-    await Promise.all([
-      tryGet(query(this.colRef, where('caixaUid', '==', uid))),
-      tryGet(query(this.colRef, where('encaminhamento.assessorUid', '==', uid))),
-      tryGet(query(this.colRef, where('createdByUid', '==', uid))),
-    ]);
+    for (const chunk of chunks) {
+      const eq = (field: string) =>
+        chunk.length === 1
+          ? where(field, '==', chunk[0])
+          : where(field, 'in', chunk);
+
+      await tryGet(query(this.colRef, eq('caixaUid')));
+      await tryGet(query(this.colRef, eq('encaminhamento.assessorUid')));
+      await tryGet(query(this.colRef, eq('createdByUid')));
+    }
 
     const ms = (x: any) => x?.toMillis ? x.toMillis() : x?.toDate ? x.toDate().getTime() : (typeof x === 'number' ? x : 0);
     const map = new Map<string, PreCadastro>();
