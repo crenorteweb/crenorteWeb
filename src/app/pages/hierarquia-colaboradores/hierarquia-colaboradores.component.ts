@@ -16,6 +16,11 @@ import {
   setDoc
 } from 'firebase/firestore';
 
+// Bibliotecas para exportação
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
+
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
   | 'analista' | 'operacional' | 'rh' | 'financeiro' | 'qualidade';
@@ -81,22 +86,34 @@ type PreCadastroResumo = {
   nome?: string;
   nomeCompleto?: string;
   cpf?: string;
+  telefone?: string;
+  bairro?: string;
   cidade?: string;
   uf?: string;
   assessorId?: string | null;
+  createdByUid?: string | null;
+  createdByNome?: string | null;
   encaminhadoPorUid?: string | null;
+  encaminhadoPorNome?: string | null;
+  encaminhadoEm?: any;
   formalizacao?: Formalizacao | null;
   desistencia?: Desistencia | null;
+  agendamentoStatus?: string;
+  agendamentoDataHora?: any;
+  observacoes?: string | null;
+  origem?: string | null;
+  contatoRealizado?: boolean;
+  createdAt?: any;
 };
 
 type ResumoStats = {
-  encaminhadosPorMim: number;
+  agendados: number;
   total: number;
   formalizados: number;
   desistencias: number;
 };
 
-type CategoriaResumo = 'encaminhadosPorMim' | 'total' | 'formalizados' | 'desistencias';
+type CategoriaResumo = 'agendados' | 'total' | 'formalizados' | 'desistencias';
 
 @Component({
   standalone: true,
@@ -227,6 +244,7 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
           data.designadoPara ??
           data.caixaUid ??
           data.assessorId ??
+          data.createdByUid ??
           null;
 
         if (!assessorId) return;
@@ -236,12 +254,24 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
           nome: data.nome,
           nomeCompleto: data.nomeCompleto,
           cpf: data.cpf,
+          telefone: data.telefone || data.contato || null,
+          bairro: data.bairro || null,
           cidade: data.cidade,
           uf: data.uf,
           assessorId,
+          createdByUid: data.createdByUid || null,
+          createdByNome: data.createdByNome || null,
           encaminhadoPorUid: data.encaminhadoPorUid ?? null,
+          encaminhadoPorNome: data.encaminhadoPorNome || data.encaminhamento?.porNome || null,
+          encaminhadoEm: data.encaminhadoEm || data.encaminhamento?.em || data.aprovacao?.em || null,
           formalizacao,
-          desistencia
+          desistencia,
+          agendamentoStatus: data.agendamentoStatus || 'nao_agendado',
+          agendamentoDataHora: data.agendamentoDataHora || null,
+          observacoes: data.observacoes || null,
+          origem: data.origem || null,
+          contatoRealizado: !!data.contatoRealizado,
+          createdAt: data.createdAt || null
         };
 
         if (!map.has(assessorId)) map.set(assessorId, []);
@@ -494,10 +524,17 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
     this.resumoAssessor = a;
 
     // tenta por id do doc, se não achar tenta por uid
-    const lista =
+    const listaRaw =
       this.prePorAssessor.get(a.id) ||
       (a.uid ? this.prePorAssessor.get(a.uid) : null) ||
       [];
+
+    // Ordenar: Mais recentes primeiro
+    const lista = [...listaRaw].sort((x, y) => {
+      const t1 = x.createdAt?.toMillis ? x.createdAt.toMillis() : (x.createdAt instanceof Date ? x.createdAt.getTime() : 0);
+      const t2 = y.createdAt?.toMillis ? y.createdAt.toMillis() : (y.createdAt instanceof Date ? y.createdAt.getTime() : 0);
+      return t2 - t1;
+    });
 
     this.montarResumoAssessor(lista);
     this.viewResumoMode = 'cards';
@@ -517,11 +554,9 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
   }
 
   private montarResumoAssessor(lista: PreCadastroResumo[]) {
-    const meUid = this.currentUserUid;
-
-    const encaminhadosPorMim = meUid
-      ? lista.filter(p => p.encaminhadoPorUid === meUid)
-      : [];
+    const agendados = lista.filter(
+      p => p.agendamentoStatus === 'agendado' || p.agendamentoStatus === 'visitado'
+    );
 
     const formalizados = lista.filter(
       p => p.formalizacao?.status === 'formalizado'
@@ -532,14 +567,14 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
     );
 
     this.resumoStats = {
-      encaminhadosPorMim: encaminhadosPorMim.length,
+      agendados: agendados.length,
       total: lista.length,
       formalizados: formalizados.length,
       desistencias: desistencias.length
     };
 
     this.listasPorCategoria = {
-      encaminhadosPorMim,
+      agendados,
       total: lista,
       formalizados,
       desistencias
@@ -566,8 +601,8 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
 
   private labelCategoria(cat: CategoriaResumo): string {
     switch (cat) {
-      case 'encaminhadosPorMim':
-        return 'Encaminhados por mim';
+      case 'agendados':
+        return 'Agendados';
       case 'total':
         return 'Pré-cadastros totais';
       case 'formalizados':
@@ -577,5 +612,133 @@ export class HierarquiaColaboradoresComponent implements OnInit, OnDestroy {
       default:
         return '';
     }
+  }
+
+  // ============================
+  // EXPORTAÇÃO DE RELATÓRIOS
+  // ============================
+
+  public exportarParaPDF() {
+    if (!this.resumoAssessor || !this.resumoStats) return;
+
+    const pdf = new jsPDF('p', 'pt', 'a4');
+    const assessor = this.resumoAssessor;
+    const stats = this.resumoStats;
+    const dataEmissao = new Date().toLocaleString();
+
+    const isCatView = this.viewResumoMode === 'lista' && !!this.categoriaSelecionada;
+    const lista = isCatView ? this.listaSelecionada : (this.listasPorCategoria['total'] || []);
+    const tituloRelatorio = isCatView
+      ? `Relatório de ${this.categoriaLabelSelecionada}`
+      : 'Relatório de Produção do Assessor';
+    const sufixoArquivo = isCatView
+      ? `${this.categoriaLabelSelecionada.replace(/\s+/g, '_')}_${assessor.nome.replace(/\s+/g, '_')}`
+      : `Producao_${assessor.nome.replace(/\s+/g, '_')}`;
+
+    // Cabeçalho
+    pdf.setFontSize(18);
+    pdf.setTextColor(37, 99, 235);
+    pdf.text(tituloRelatorio, 40, 50);
+
+    pdf.setFontSize(10);
+    pdf.setTextColor(100, 116, 139);
+    pdf.text(`Gerado em: ${dataEmissao}`, 40, 70);
+
+    pdf.setFontSize(12);
+    pdf.setTextColor(15, 23, 42);
+    pdf.text(`Assessor: ${assessor.nome}`, 40, 100);
+    pdf.text(`E-mail: ${assessor.email}`, 40, 115);
+
+    let startDetalhes = 145;
+
+    if (!isCatView) {
+      // Resumo estatístico — apenas na visão geral (cards)
+      pdf.setFontSize(14);
+      pdf.setTextColor(15, 23, 42);
+      pdf.text('Resumo da Carteira', 40, 145);
+
+      const table1 = autoTable(pdf, {
+        startY: 155,
+        head: [['Categoria', 'Quantidade']],
+        body: [
+          ['Total de Pré-cadastros', stats.total],
+          ['Agendados/Visitados', stats.agendados],
+          ['Formalizados (Contratos)', stats.formalizados],
+          ['Desistências', stats.desistencias]
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [37, 99, 235] }
+      });
+
+      startDetalhes = ((table1 as any)?.lastAutoTable?.finalY ?? (pdf as any).lastAutoTable?.finalY ?? 260) + 30;
+    }
+
+    // Título da seção de detalhes
+    pdf.setFontSize(14);
+    pdf.setTextColor(15, 23, 42);
+    const labelDetalhes = isCatView
+      ? `${this.categoriaLabelSelecionada} (${lista.length} registro(s))`
+      : 'Detalhamento dos Registros';
+    pdf.text(labelDetalhes, 40, startDetalhes);
+
+    const bodyRows = lista.map(p => [
+      p.nomeCompleto || p.nome || 'Sem nome',
+      this.cpfMask(p.cpf),
+      p.telefone || '—',
+      p.cidade || '—',
+      this.formatStatus(p),
+      p.createdAt ? new Date(p.createdAt.toDate ? p.createdAt.toDate() : p.createdAt).toLocaleDateString() : '—'
+    ]);
+
+    autoTable(pdf, {
+      startY: startDetalhes + 10,
+      head: [['Nome', 'CPF', 'Telefone', 'Cidade', 'Status', 'Data']],
+      body: bodyRows,
+      theme: 'striped',
+      headStyles: { fillColor: [51, 65, 85] },
+      styles: { fontSize: 8 }
+    });
+
+    pdf.save(`Relatorio_${sufixoArquivo}.pdf`);
+  }
+
+  public exportarParaExcel() {
+    if (!this.resumoAssessor) return;
+
+    const isCatView = this.viewResumoMode === 'lista' && !!this.categoriaSelecionada;
+    const lista = isCatView ? this.listaSelecionada : (this.listasPorCategoria['total'] || []);
+    const nomePlanilha = isCatView ? this.categoriaLabelSelecionada.slice(0, 31) : 'Produção';
+    const sufixoArquivo = isCatView
+      ? `${this.categoriaLabelSelecionada.replace(/\s+/g, '_')}_${this.resumoAssessor.nome.replace(/\s+/g, '_')}`
+      : `Producao_${this.resumoAssessor.nome.replace(/\s+/g, '_')}`;
+
+    const data = lista.map(p => ({
+      'Nome': p.nomeCompleto || p.nome || 'Sem nome',
+      'CPF': this.cpfMask(p.cpf),
+      'Telefone': p.telefone || '—',
+      'Bairro': p.bairro || '—',
+      'Cidade': p.cidade || '—',
+      'UF': p.uf || '—',
+      'Status Agendamento': p.agendamentoStatus || '—',
+      'Formalizado': p.formalizacao?.status === 'formalizado' ? 'Sim' : 'Não',
+      'Desistiu': p.desistencia?.status === 'desistiu' ? 'Sim' : 'Não',
+      'Origem': p.origem || '—',
+      'Cadastrado Em': p.createdAt ? new Date(p.createdAt.toDate ? p.createdAt.toDate() : p.createdAt).toLocaleString() : '—',
+      'Observações': p.observacoes || ''
+    }));
+
+    const ws: XLSX.WorkSheet = XLSX.utils.json_to_sheet(data);
+    const wb: XLSX.WorkBook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, nomePlanilha);
+
+    XLSX.writeFile(wb, `Relatorio_${sufixoArquivo}.xlsx`);
+  }
+
+  private formatStatus(p: PreCadastroResumo): string {
+    if (p.formalizacao?.status === 'formalizado') return 'Formalizado';
+    if (p.desistencia?.status === 'desistiu') return 'Desistência';
+    if (p.agendamentoStatus === 'visitado') return 'Visitado';
+    if (p.agendamentoStatus === 'agendado') return 'Agendado';
+    return 'Pendente';
   }
 }

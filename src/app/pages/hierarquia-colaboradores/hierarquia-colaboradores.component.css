@@ -321,7 +321,6 @@
   border-top: 1px solid rgba(148, 163, 184, 0.25);
   padding-top: 0.5rem;
   display: flex;
-  justify-content: flex-end;
 }
 
 .org-modal__close {
@@ -401,6 +400,47 @@
 
 .resumo-item:hover {
   background: #f1f5f9;
+}
+
+/* Status Badges para Produção no Modal */
+.status-badge {
+  font-size: 0.72rem;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.status-badge--agendado { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+.status-badge--visitado { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.status-badge--formalizado { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; font-weight: 700; }
+.status-badge--desistiu { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+
+/* Badges Negativos (Destaque em Vermelho) */
+.status-badge--nao-agendado { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.status-badge--nao-contatado { background: #fff1f2; color: #be123c; border: 1px solid #fecdd3; }
+
+/* Estilos para Lista Detalhada de Produção */
+.resumo-detalhes-lista li {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+}
+
+.resumo-detalhes-lista li i {
+  color: #64748b;
+  font-size: 0.9rem;
+  width: 18px;
+  text-align: center;
+}
+
+.resumo-detalhes-lista li strong {
+  color: #475569;
+  margin-right: 4px;
 }
 
 .resumo-avatar {
