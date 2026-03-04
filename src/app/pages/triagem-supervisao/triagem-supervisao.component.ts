@@ -72,7 +72,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aba: Aba = 'pessoas';
 
   searchTerm = '';
-  filtroEnvio: FiltroEnvio = 'todos';
+  filtrosEnvio = new Set<string>();
 
   filtroAssessor: string | 'todos' = 'todos';
 
@@ -158,6 +158,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.assessoresFiltrados = [];
     this.analistas = [];
     this.filtroAnalista = 'todos';
+    this.filtrosEnvio = new Set();
   }
 
   setAssessorFilter(uid: string | 'todos') {
@@ -668,42 +669,42 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   setEnvioFilter(f: FiltroEnvio) {
-    //this.filtroEnvio = f;
-    if (this.filtroEnvio === f) {
-      this.filtroEnvio = 'todos';
+    if (f === 'todos') {
+      this.filtrosEnvio = new Set();
     } else {
-      this.filtroEnvio = f;
+      const next = new Set(this.filtrosEnvio);
+      if (next.has(f)) {
+        next.delete(f);
+      } else {
+        next.add(f);
+      }
+      this.filtrosEnvio = next;
     }
-      this.aplicarFiltrosPessoas();
+    this.aplicarFiltrosPessoas();
   }
 
   private aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
     // filtro encaminhamento
-    // if (this.filtroEnvio !== 'todos') {
-    //   list = list.filter((p) => {
-    //     const enc = !!(p as any).encaminhadoParaUid;
-    //     return this.filtroEnvio === 'encaminhado' ? enc : !enc;
-    //   });
-    // }
+    if (this.filtrosEnvio.size > 0) {
+      const temAprovacao = this.filtrosEnvio.has('apto') || this.filtrosEnvio.has('inapto');
+      const temEncaminhamento = this.filtrosEnvio.has('encaminhado') || this.filtrosEnvio.has('nao_encaminhado');
 
-    if (this.filtroEnvio !== 'todos') {
-      // 🔵 FILTROS DE ENCAMINHAMENTO
-      if (this.filtroEnvio === 'encaminhado' || this.filtroEnvio === 'nao_encaminhado') {
-        list = list.filter((p) => {
-          const enc = !!(p as any).encaminhadoParaUid;
-          return this.filtroEnvio === 'encaminhado' ? enc : !enc;
-        });
-      }
-      // 🟢 FILTROS DE APROVAÇÃO
-      if (this.filtroEnvio === 'apto' || this.filtroEnvio === 'inapto') {
+      list = list.filter((p) => {
+        // Grupo aprovação: OR interno — passa se o status bater com qualquer selecionado
+        const passaAprovacao = !temAprovacao ||
+          this.filtrosEnvio.has((p as any).aprovacao?.status || 'nao_verificado');
 
-        list = list.filter((p) => {
-          const status = (p as any).aprovacao?.status || 'nao_verificado';
-          return status === this.filtroEnvio;
-        });
-      }
+        // Grupo encaminhamento: OR interno
+        const enc = !!(p as any).encaminhadoParaUid;
+        const passaEncaminhamento = !temEncaminhamento ||
+          (this.filtrosEnvio.has('encaminhado') && enc) ||
+          (this.filtrosEnvio.has('nao_encaminhado') && !enc);
+
+        // AND entre grupos
+        return passaAprovacao && passaEncaminhamento;
+      });
     }
 
 

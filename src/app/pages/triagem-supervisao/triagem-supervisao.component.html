@@ -51,28 +51,28 @@
     <div class="col-12 col-md-6" *ngIf="aba === 'pessoas'">
       <div class="d-flex flex-wrap gap-2 justify-content-md-end">
         <div class="btn-group btn-group-sm" role="group" aria-label="Encaminhamento">
-          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'todos'"
+          <button type="button" class="btn btn-outline-success" [class.active]="filtrosEnvio.size === 0"
             (click)="setEnvioFilter('todos')">
             Todos
           </button>
           <button type="button"
                   class="btn btn-outline-success"
-                  [class.active]="filtroEnvio === 'apto'"
+                  [class.active]="filtrosEnvio.has('apto')"
                   (click)="setEnvioFilter('apto')">
             Aptos
           </button>
           <button type="button"
                   class="btn btn-outline-danger"
-                  [class.active]="filtroEnvio === 'inapto'"
+                  [class.active]="filtrosEnvio.has('inapto')"
                   (click)="setEnvioFilter('inapto')">
             Inaptos
           </button>
-          <button type="button" class="btn btn-outline-success" [class.active]="filtroEnvio === 'encaminhado'"
+          <button type="button" class="btn btn-outline-success" [class.active]="filtrosEnvio.has('encaminhado')"
             (click)="setEnvioFilter('encaminhado')">
             Encaminhados
           </button>
           <button type="button" class="btn btn-outline-warning text-dark"
-            [class.active]="filtroEnvio === 'nao_encaminhado'" (click)="setEnvioFilter('nao_encaminhado')">
+            [class.active]="filtrosEnvio.has('nao_encaminhado')" (click)="setEnvioFilter('nao_encaminhado')">
             Não encaminhados
           </button>
         </div>
