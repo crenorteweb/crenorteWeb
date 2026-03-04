@@ -297,12 +297,21 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
       .trim();
   }
 
-  onWhatsClick(evt: MouseEvent, tel?: string | null, toggle?: HTMLInputElement) {
+  onWhatsClick(evt: MouseEvent, i: PreCadastro, toggle?: HTMLInputElement) {
     evt.preventDefault();
-    const url = this.whatsHref(tel);
+    const url = this.whatsHref(i.telefone);
     if (url) {
       window.open(url, '_blank', 'noopener,noreferrer');
       if (toggle) toggle.checked = false;
+
+      // Marcar como contato realizado se já não estiver
+      if (!i.contatoRealizado) {
+        this.service.atualizar(i.id, { contatoRealizado: true })
+          .then(() => {
+            this.itens.update(list => list.map(x => x.id === i.id ? { ...x, contatoRealizado: true } : x));
+          })
+          .catch(e => console.error('[Whats] erro ao marcar contato realizado:', e));
+      }
     }
   }
 

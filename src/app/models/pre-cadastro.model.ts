@@ -141,6 +141,5 @@ export interface PreCadastro {
   // NOVOS CAMPOS:
   observacoes?: string | null;
   arquivos?: ArquivoPreCadastro[];   // opcional: meta dos arquivos no próprio doc
-
-
+  contatoRealizado?: boolean;
 }

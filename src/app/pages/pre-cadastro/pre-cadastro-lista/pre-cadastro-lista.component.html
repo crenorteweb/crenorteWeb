@@ -408,7 +408,7 @@
                     <div class="group-title">Visita</div>
                     <div class="actions-grid">
                       <a class="btn btn-outline-success" *ngIf="i.telefone" href=""
-                        (click)="onWhatsClick($event, i.telefone, acToggle)">
+                        (click)="onWhatsClick($event, i, acToggle)">
                         <i class="bi bi-whatsapp me-1"></i> WhatsApp
                       </a>
 
@@ -970,6 +970,9 @@
               (v.agendamentoStatus||'nao_agendado')==='nao_agendado' ? 'Não agendado' :
               (v.agendamentoStatus||'nao_agendado')==='agendado' ? 'Agendado' : 'Visitado'
               }}
+            </span>
+            <span class="badge" [ngClass]="v.contatoRealizado ? 'text-bg-success' : 'text-bg-secondary'">
+              Contato Realizado: {{ v.contatoRealizado ? 'Sim' : 'Não' }}
             </span>
           </div>
         </div>

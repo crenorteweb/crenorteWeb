@@ -350,13 +350,13 @@
       <div *ngIf="viewResumoMode === 'cards'">
         <div class="resumo-grid mb-2">
           <button type="button" class="resumo-card resumo-card--enc"
-            (click)="abrirDetalheCategoria('encaminhadosPorMim')">
-            <div class="resumo-label">Encaminhados por mim</div>
+            (click)="abrirDetalheCategoria('agendados')">
+            <div class="resumo-label">Agendados</div>
             <div class="resumo-valor">
-              {{ resumoStats?.encaminhadosPorMim || 0 }}
+              {{ resumoStats?.agendados || 0 }}
             </div>
             <div class="resumo-helper">
-              Pré-cadastros que eu direcionei
+              Clientes com visita marcada ou realizada
             </div>
           </button>
 
@@ -413,16 +413,96 @@
               <i class="bi bi-person-circle"></i>
             </div>
             <div class="flex-grow-1">
-              <div class="fw-semibold">
-                {{ p.nomeCompleto || p.nome || 'Sem nome' }}
+              <div class="d-flex justify-content-between align-items-start">
+                <div class="fw-semibold">
+                  {{ p.nomeCompleto || p.nome || 'Sem nome' }}
+                </div>
+                <!-- Status Badges -->
+                <div class="d-flex flex-wrap gap-1">
+                  <!-- Agendamento -->
+                  <span class="status-badge status-badge--agendado" *ngIf="p.agendamentoStatus === 'agendado'">
+                    <i class="bi bi-calendar2-week"></i> Agendado
+                  </span>
+                  <span class="status-badge status-badge--visitado" *ngIf="p.agendamentoStatus === 'visitado'">
+                    <i class="bi bi-geo-alt-fill"></i> Visitado
+                  </span>
+                  <span class="status-badge status-badge--nao-agendado" *ngIf="p.agendamentoStatus === 'nao_agendado' || !p.agendamentoStatus">
+                    <i class="bi bi-calendar-x"></i> Não agendado
+                  </span>
+
+                  <!-- Contato -->
+                  <span class="status-badge status-badge--nao-contatado" *ngIf="!p.contatoRealizado">
+                    <i class="bi bi-chat-left-dots"></i> Não contatado
+                  </span>
+                  <span class="status-badge status-badge--visitado" *ngIf="p.contatoRealizado">
+                    <i class="bi bi-chat-left-check-fill"></i> Contato realizado
+                  </span>
+
+                  <!-- Formalização -->
+                  <span class="status-badge status-badge--formalizado" *ngIf="p.formalizacao?.status === 'formalizado'">
+                    <i class="bi bi-patch-check-fill"></i> Formalizado
+                  </span>
+                  <!-- Desistência -->
+                  <span class="status-badge status-badge--desistiu" *ngIf="p.desistencia?.status === 'desistiu'">
+                    <i class="bi bi-x-circle-fill"></i> Desistência
+                  </span>
+                </div>
               </div>
-              <div class="text-muted small">
-                <span *ngIf="p.cpf">
-                  CPF: {{ cpfMask(p.cpf) }}
-                </span>
-                <span *ngIf="p.cidade || p.uf">
-                  • {{ p.cidade || '—' }}<span *ngIf="p.uf">/{{ p.uf }}</span>
-                </span>
+              <ul class="list-unstyled mb-0 mt-2 resumo-detalhes-lista">
+                <li *ngIf="p.cpf">
+                  <i class="bi bi-card-text me-2"></i>
+                  <strong>CPF:</strong> {{ cpfMask(p.cpf) }}
+                </li>
+                <li *ngIf="p.telefone">
+                  <i class="bi bi-telephone me-2"></i>
+                  <strong>Tel:</strong> {{ p.telefone }}
+                </li>
+                <li *ngIf="p.bairro">
+                  <i class="bi bi-geo-alt me-2"></i>
+                  <strong>Bairro:</strong> {{ p.bairro }}
+                </li>
+                <li *ngIf="p.cidade || p.uf">
+                  <i class="bi bi-building me-2"></i>
+                  <strong>Local:</strong> {{ p.cidade || '—' }}<span *ngIf="p.uf">/{{ p.uf }}</span>
+                </li>
+                <li *ngIf="p.origem">
+                  <i class="bi bi-layers me-2"></i>
+                  <strong>Modalidade:</strong> {{ p.origem }}
+                </li>
+
+                <li *ngIf="p.createdByNome" class="text-muted">
+                  <i class="bi bi-person-plus me-2"></i>
+                  <strong>Cadastrado por:</strong> {{ p.createdByNome }}
+                  <span *ngIf="p.createdAt">, em {{ (p.createdAt.toDate ? p.createdAt.toDate() : p.createdAt) | date:'dd/MM/yyyy HH:mm' }}</span>
+                </li>
+                <li *ngIf="p.encaminhadoPorNome" class="text-muted">
+                  <i class="bi bi-reply me-2"></i>
+                  <strong>Encaminhado por:</strong> {{ p.encaminhadoPorNome }}
+                  <span *ngIf="p.encaminhadoEm"> em {{ (p.encaminhadoEm.toDate ? p.encaminhadoEm.toDate() : p.encaminhadoEm) | date:'dd/MM/yyyy HH:mm' }}</span>
+                </li>
+                <li *ngIf="!p.encaminhadoPorNome && p.createdByUid === p.assessorId" class="text-info">
+                  <i class="bi bi-person-check me-2"></i>
+                  <strong>Captação Própria:</strong> Realizada em {{ (p.createdAt.toDate ? p.createdAt.toDate() : p.createdAt) | date:'dd/MM/yyyy HH:mm' }}
+                </li>
+
+                <!-- Datas Importantes -->
+                <li class="text-primary" *ngIf="p.agendamentoDataHora as dt">
+                  <i class="bi bi-calendar-event me-2"></i>
+                  <strong>Visita:</strong> {{ (dt.toDate ? dt.toDate() : dt) | date:'dd/MM/yyyy HH:mm' }}
+                </li>
+                <li class="text-success" *ngIf="p.formalizacao?.em as emF">
+                  <i class="bi bi-check-circle me-2"></i>
+                  <strong>Formalizado em:</strong> {{ (emF.toDate ? emF.toDate() : emF) | date:'dd/MM/yyyy HH:mm' }}
+                </li>
+              </ul>
+              <!-- Observações -->
+              <div class="mt-2 p-2 bg-white rounded border small text-muted" *ngIf="p.observacoes">
+                <i class="bi bi-chat-left-quote me-1"></i>
+                <em>Observações:</em> {{ p.observacoes }}
+              </div>
+              <div class="mt-1 text-danger small" *ngIf="p.desistencia?.observacao">
+                <i class="bi bi-exclamation-triangle me-1"></i>
+                <em>Motivo Desistência:</em> {{ p.desistencia?.observacao }}
               </div>
             </div>
           </div>
@@ -435,7 +515,17 @@
     </div>
 
     <!-- Rodapé -->
-    <div class="org-modal__footer">
+    <div class="org-modal__footer d-flex justify-content-between align-items-center">
+      <div class="d-flex gap-2">
+        <button type="button" class="btn btn-sm btn-outline-danger d-flex align-items-center gap-2"
+          (click)="exportarParaPDF()" [disabled]="!resumoStats">
+          <i class="bi bi-file-pdf"></i> Exportar PDF
+        </button>
+        <button type="button" class="btn btn-sm btn-outline-success d-flex align-items-center gap-2"
+          (click)="exportarParaExcel()" [disabled]="!resumoStats">
+          <i class="bi bi-file-earmark-excel"></i> Exportar Excel
+        </button>
+      </div>
       <button type="button" class="btn btn-sm btn-secondary" (click)="fecharResumoModal()">
         Fechar
       </button>
