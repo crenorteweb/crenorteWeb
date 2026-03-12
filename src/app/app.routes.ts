@@ -59,14 +59,14 @@ export const routes: Routes = [
   {
     path: 'pre-cadastro/novo',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['admin', 'assessor', 'supervisor', 'analista'] as Papel[] },
+    data: { roles: ['admin', 'assessor', 'supervisor', 'analista', 'operacional'] as Papel[] },
     loadComponent: () =>
       import('./pages/pre-cadastro/pre-cadastro-form/pre-cadastro-form.component').then(m => m.PreCadastroFormComponent),
   },
   {
     path: 'pre-cadastro/minha-lista',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['admin', 'assessor', 'supervisor', 'analista'] as Papel[] },
+    data: { roles: ['admin', 'assessor', 'supervisor', 'analista', 'operacional'] as Papel[] },
     loadComponent: () =>
       import('./pages/pre-cadastro/pre-cadastro-lista/pre-cadastro-lista.component').then(m => m.PreCadastroListaComponent),
   },

@@ -80,10 +80,13 @@
           </div>
           <!-- /NOVOS CAMPOS -->
 
-          <!-- <div class="col-12 col-md-6">
+          <div class="col-12 col-md-6">
             <label class="form-label">Origem do Cliente</label>
-            <input class="form-control" name="origem" [(ngModel)]="model.origem" required />
-          </div> -->
+            <select class="form-select" name="origem" [(ngModel)]="model.origem" required>
+              <option [ngValue]="''">— Selecione —</option>
+              <option *ngFor="let o of origensCliente" [ngValue]="o">{{ o }}</option>
+            </select>
+          </div>
 
           <div class="col-12 col-md-6">
             <label class="form-label">Modalidade</label>
