@@ -175,6 +175,22 @@
       <ng-container *ngIf="hasAny(perfil?.papel, ['operacional', 'admin'])">
 
         <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/novo" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-person-plus"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Novo Pré-cadastro</div>
+            <small class="text-muted d-block">Registrar interessado rapidamente</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Minha Lista (Pré-Cadastros)</div>
+            <small class="text-muted d-block">Seus pré-cadastros</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
           <a routerLink="/pre-cadastro/triagem" class="card text-center shadow-sm p-3 text-decoration-none h-100">
             <div class="fs-1 text-success"><i class="bi bi-diagram-3-fill"></i></div>
             <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Central da Triagem</div>

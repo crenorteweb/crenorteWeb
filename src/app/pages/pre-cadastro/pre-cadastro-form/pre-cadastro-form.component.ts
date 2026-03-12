@@ -102,6 +102,19 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   private docPath: string | null = null;
   private docId: string | null = null;
 
+  origensCliente: string[] = [
+    'Indicação de cliente',
+    'Indicação de parceiro',
+    'Visita do assessor',
+    'Planilha CadUnico',
+    'Redes sociais',
+    'Panfleto / material impresso',
+    'Site / portal',
+    'Evento / feira',
+    'Rádio / TV',
+    'Outros',
+  ];
+
   // NOVO: lista de UFs para o select
   ufsBrasil: string[] = [
     'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'

@@ -27,7 +27,7 @@
           (input)="onFiltroDataAteChange($any($event.target).value)">
       </div>
 
-      <!-- Filtro: Status -->
+      <!-- Filtro: Status + Origem -->
       <div class="input-group">
         <span class="input-group-text">Aprovação</span>
         <select class="form-select" [value]="filtroAprovacao()" #selAprov (change)="onChangeAprovacao(selAprov.value)">
@@ -35,6 +35,12 @@
           <option value="nao_verificado">Não verificados</option>
           <option value="apto">Aptos</option>
           <option value="inapto">Inaptos</option>
+        </select>
+        <span class="input-group-text">Origem</span>
+        <select class="form-select" [value]="filtroOrigem()" #selOrigem
+          (change)="onFiltroOrigemChange(selOrigem.value)">
+          <option value="">Todas</option>
+          <option *ngFor="let o of origensOptions()" [value]="o">{{ o }}</option>
         </select>
       </div>
 

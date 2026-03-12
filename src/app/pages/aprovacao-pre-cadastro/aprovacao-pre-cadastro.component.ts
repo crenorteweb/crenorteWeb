@@ -64,6 +64,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     this.currentPage = 1;
   }
 
+  onFiltroOrigemChange(v: string) {
+    this.filtroOrigem.set(v);
+    this.currentPage = 1;
+  }
+
   private fs = inject(Firestore);
   private auth = inject(Auth);
 
@@ -90,6 +95,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   filtroCidade = signal<string>('');
   filtroUf = signal<string>('');
   filtroBairro = signal<string>('');
+  filtroOrigem = signal<string>('');
 
   // ===== Paginação =====
   pageSize = 20;
@@ -148,6 +154,16 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       .sort((a, b) => a.nome.localeCompare(b.nome));
   });
 
+  /** Opções de origem únicas presentes nos dados carregados */
+  origensOptions = computed(() => {
+    const set = new Set<string>();
+    this.preCadastros().forEach(it => {
+      const o = ((it as any).origem || '').trim();
+      if (o) set.add(o);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
   /** Apenas a data de aprovação (sem fallback para createdAt) */
   private aprovacaoEmOf(it: any): Date | null {
     const raw = it?.aprovacao?.em;
@@ -179,6 +195,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const cidade = this.filtroCidade().toLowerCase();
     const uf = this.filtroUf().toLowerCase();
     const bairro = this.filtroBairro().toLowerCase();
+    const origem = this.filtroOrigem();
 
     const statusOf = (x: any) =>
       (x?.aprovacao?.status ?? 'nao_verificado') as 'apto' | 'inapto' | 'nao_verificado';
@@ -208,6 +225,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     if (bairro) {
       base = base.filter(i =>
         ((i as any).bairro || '').toLowerCase().includes(bairro)
+      );
+    }
+
+    if (origem) {
+      base = base.filter(i =>
+        ((i as any).origem || '') === origem
       );
     }
 
