@@ -63,6 +63,13 @@
 
       </div>
 
+      <!-- Filtro: CPF -->
+      <div class="input-group">
+        <span class="input-group-text">CPF</span>
+        <input type="text" class="form-control" placeholder="000.000.000-00"
+          (input)="onFiltroCpfChange($any($event.target).value)">
+      </div>
+
       <!-- Relatório -->
       <button class="btn btn-outline-secondary" (click)="relatorioAberto.set(true)">
         Relatório de Aprovação
