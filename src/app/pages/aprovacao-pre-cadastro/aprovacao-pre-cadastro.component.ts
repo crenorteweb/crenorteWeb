@@ -69,6 +69,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     this.currentPage = 1;
   }
 
+  onFiltroCpfChange(v: string) {
+    this.filtroCpf.set(v.replace(/\D/g, ''));
+    this.currentPage = 1;
+  }
+
   private fs = inject(Firestore);
   private auth = inject(Auth);
 
@@ -96,6 +101,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   filtroUf = signal<string>('');
   filtroBairro = signal<string>('');
   filtroOrigem = signal<string>('');
+  filtroCpf = signal<string>('');
 
   // ===== Paginação =====
   pageSize = 20;
@@ -196,6 +202,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const uf = this.filtroUf().toLowerCase();
     const bairro = this.filtroBairro().toLowerCase();
     const origem = this.filtroOrigem();
+    const cpf = this.filtroCpf().replace(/\D/g, '');
 
     const statusOf = (x: any) =>
       (x?.aprovacao?.status ?? 'nao_verificado') as 'apto' | 'inapto' | 'nao_verificado';
@@ -231,6 +238,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     if (origem) {
       base = base.filter(i =>
         ((i as any).origem || '') === origem
+      );
+    }
+
+    if (cpf) {
+      base = base.filter(i =>
+        ((i as any).cpf || '').replace(/\D/g, '').includes(cpf)
       );
     }
 
