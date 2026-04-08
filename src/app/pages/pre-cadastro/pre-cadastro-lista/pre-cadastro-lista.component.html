@@ -95,12 +95,23 @@
         <div class="row g-3 align-items-end">
 
           <!-- Bairro -->
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-3">
             <label class="form-label mb-1">Bairro</label>
             <select class="form-select" [ngModel]="filtroBairro()" (ngModelChange)="filtroBairro.set($event)">
               <option value="">Todos os bairros</option>
               <option *ngFor="let b of bairrosDisponiveis()" [value]="b">
                 {{ b }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Origem -->
+          <div class="col-12 col-md-3">
+            <label class="form-label mb-1">Origem</label>
+            <select class="form-select" [ngModel]="filtroOrigem()" (ngModelChange)="filtroOrigem.set($event)">
+              <option value="">Todas as origens</option>
+              <option *ngFor="let o of origensDisponiveis()" [value]="o">
+                {{ o }}
               </option>
             </select>
           </div>
