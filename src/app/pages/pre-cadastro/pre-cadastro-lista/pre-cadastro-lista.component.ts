@@ -56,6 +56,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   filtroHasPhone = signal<'todos' | 'sim' | 'nao'>('todos');
   filtroHasEmail = signal<'todos' | 'sim' | 'nao'>('todos');
   filtroBairro = signal<string>('');
+  filtroOrigem = signal<string>('');
   filtroDataIni = signal<string>(''); // yyyy-MM-dd
   filtroDataFim = signal<string>(''); // yyyy-MM-dd
 
@@ -137,6 +138,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 
       // novos filtros também resetam página
       this.filtroGrupo();
+      this.filtroOrigem();
       this.filtroFormalizados();
       this.filtroSomenteAgendados();
       this.filtroSomenteVisitados();
@@ -566,12 +568,22 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   });
 
+  origensDisponiveis = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const x of this.itens()) {
+      const o = (x.origem ?? '').trim();
+      if (o) set.add(o);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  });
+
   filteredItems = computed<PreCadastro[]>(() => {
     const term = this.normalize(this.searchTerm());
     const st = this.filtroStatus();
     const hasPhone = this.filtroHasPhone();
     const hasEmail = this.filtroHasEmail();
     const bairro = this.filtroBairro();
+    const origem = this.filtroOrigem();
     const dataIni = this.filtroDataIni();
     const dataFim = this.filtroDataFim();
     const grupoFilter = this.filtroGrupo();
@@ -637,6 +649,9 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       // Bairro
       if (bairro && (i.bairro ?? '') !== bairro) return false;
 
+      // Origem
+      if (origem && (i.origem ?? '') !== origem) return false;
+
       // Filtro por data de criação
       if (dtIni || dtFim) {
         const created = this.toJSDate(i.createdAt);
@@ -646,6 +661,10 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       }
 
       return true;
+    }).sort((a, b) => {
+      const da = this.toJSDate(a.createdAt)?.getTime() ?? 0;
+      const db = this.toJSDate(b.createdAt)?.getTime() ?? 0;
+      return db - da;
     });
   });
 
