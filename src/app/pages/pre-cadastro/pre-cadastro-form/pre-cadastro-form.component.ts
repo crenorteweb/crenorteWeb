@@ -112,6 +112,7 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
     'Site / portal',
     'Evento / feira',
     'Rádio / TV',
+    'Van Itinerante',
     'Outros',
   ];
 
