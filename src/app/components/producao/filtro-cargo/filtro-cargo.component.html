@@ -1,0 +1,13 @@
+<div class="d-flex flex-wrap gap-2">
+  <button
+    *ngFor="let o of opcoes"
+    type="button"
+    class="btn btn-sm d-flex align-items-center gap-2"
+    [class.btn-success]="atual === o.value"
+    [class.btn-outline-success]="atual !== o.value"
+    (click)="selecionar(o.value)"
+  >
+    <i class="bi" [class]="o.icon"></i>
+    {{ o.label }}
+  </button>
+</div>

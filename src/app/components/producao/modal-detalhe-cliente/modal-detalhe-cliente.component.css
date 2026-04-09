@@ -1,0 +1,52 @@
+/* Overlay — cobre toda a viewport */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1050;
+  padding: 1rem;
+}
+
+/* Painel do modal */
+.modal-panel {
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.75rem;
+  background: #fff;
+  overflow: hidden;
+}
+
+/* Corpo com scroll */
+.modal-body-custom {
+  overflow-y: auto;
+  flex: 1;
+}
+
+/* Cabeçalho */
+.modal-header-custom {
+  flex-shrink: 0;
+}
+
+/* Títulos de seção */
+.secao-titulo {
+  font-weight: 600;
+  color: var(--cor-verde-principal, #008d45);
+  border-bottom: 1px solid rgba(0, 141, 69, 0.2);
+  padding-bottom: 0.25rem;
+  margin-bottom: 0.75rem;
+}
+
+/* Labels dos campos */
+.campo-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #6c757d;
+  font-weight: 600;
+}

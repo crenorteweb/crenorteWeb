@@ -1,0 +1,153 @@
+<!-- Overlay -->
+<div class="modal-overlay" (click)="onOverlayClick()">
+
+  <!-- Painel (click para não fechar ao clicar dentro) -->
+  <div class="modal-panel card shadow-lg" (click)="$event.stopPropagation()">
+
+    <!-- Cabeçalho -->
+    <div class="modal-header-custom d-flex justify-content-between align-items-center p-4 border-bottom">
+      <div>
+        <h5 class="mb-0 fw-bold text-success">
+          <i class="bi bi-person-circle me-2"></i>Detalhes do Cliente
+        </h5>
+        <small class="text-muted">{{ preCadastro?.clienteNome || '—' }}</small>
+      </div>
+      <button type="button" class="btn-close" (click)="fechar.emit()" aria-label="Fechar"></button>
+    </div>
+
+    <!-- Corpo -->
+    <div class="modal-body-custom p-4">
+
+      <!-- Spinner -->
+      <div *ngIf="carregando()" class="text-center py-4">
+        <div class="spinner-border text-success" role="status"></div>
+        <p class="mt-2 text-muted small">Buscando dados do cliente...</p>
+      </div>
+
+      <!-- Aviso sem cadastro completo -->
+      <div *ngIf="semCadastro() && !carregando()" class="alert alert-warning d-flex gap-2 mb-3">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        <span>Cadastro completo não encontrado — exibindo dados do pré-cadastro.</span>
+      </div>
+
+      <ng-container *ngIf="!carregando()">
+
+        <!-- Identificação -->
+        <section class="mb-4">
+          <h6 class="secao-titulo"><i class="bi bi-person me-2"></i>Identificação</h6>
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Nome</span>
+              <div>{{ cliente()?.nome || preCadastro?.clienteNome || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">CPF</span>
+              <div><code>{{ formatarCpf(cliente()?.cpf || preCadastro?.cpf) }}</code></div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Data de Nascimento</span>
+              <div>{{ cliente()?.dataNascimento || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Sexo</span>
+              <div>{{ cliente()?.sexo || '—' }}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Contato -->
+        <section class="mb-4">
+          <h6 class="secao-titulo"><i class="bi bi-telephone me-2"></i>Contato</h6>
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Telefone</span>
+              <div>{{ cliente()?.telefone || preCadastro?.telefone || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">E-mail</span>
+              <div>{{ cliente()?.email || '—' }}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Endereço (só se houver cliente completo) -->
+        <section *ngIf="cliente()" class="mb-4">
+          <h6 class="secao-titulo"><i class="bi bi-geo-alt me-2"></i>Endereço</h6>
+          <div class="row g-2">
+            <div class="col-12 col-sm-8">
+              <span class="campo-label">Logradouro</span>
+              <div>
+                {{ cliente()?.logradouro || '—' }}
+                <span *ngIf="cliente()?.numero">, {{ cliente()?.numero }}</span>
+                <span *ngIf="cliente()?.complemento"> — {{ cliente()?.complemento }}</span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-4">
+              <span class="campo-label">Bairro</span>
+              <div>{{ cliente()?.bairro || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-5">
+              <span class="campo-label">Município</span>
+              <div>{{ cliente()?.municipio || preCadastro?.municipio || '—' }}</div>
+            </div>
+            <div class="col-6 col-sm-3">
+              <span class="campo-label">Estado</span>
+              <div>{{ cliente()?.estado || '—' }}</div>
+            </div>
+            <div class="col-6 col-sm-4">
+              <span class="campo-label">CEP</span>
+              <div>{{ cliente()?.cep || '—' }}</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Situação no pré-cadastro -->
+        <section class="mb-2">
+          <h6 class="secao-titulo"><i class="bi bi-clipboard2 me-2"></i>Situação no Pré-cadastro</h6>
+          <div class="row g-2">
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Status</span>
+              <div>
+                <span
+                  class="badge"
+                  [class.bg-success]="preCadastro?.resultado === 'apto'"
+                  [class.bg-danger]="preCadastro?.resultado === 'inapto'"
+                  [class.bg-secondary]="!preCadastro?.resultado"
+                >
+                  {{ preCadastro?.resultado === 'apto' ? 'Apto'
+                   : preCadastro?.resultado === 'inapto' ? 'Inapto'
+                   : preCadastro?.status || 'Não verificado' }}
+                </span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Assessor</span>
+              <div>{{ preCadastro?.assessorNome || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Analista</span>
+              <div>{{ preCadastro?.analistaNome || '—' }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Data de Encaminhamento</span>
+              <div>{{ formatarHora(preCadastro?.encaminhadoEm) }}</div>
+            </div>
+            <div class="col-12 col-sm-6" *ngIf="preCadastro?.analisadoEm">
+              <span class="campo-label">Data da Análise</span>
+              <div>{{ formatarHora(preCadastro?.analisadoEm) }}</div>
+            </div>
+          </div>
+        </section>
+
+      </ng-container>
+    </div>
+
+    <!-- Rodapé -->
+    <div class="p-3 border-top d-flex justify-content-end">
+      <button type="button" class="btn btn-outline-secondary btn-sm" (click)="fechar.emit()">
+        <i class="bi bi-x-circle me-1"></i>Fechar
+      </button>
+    </div>
+
+  </div>
+</div>
