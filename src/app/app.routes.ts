@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './guards/auth.guard';
 import { roleGuard } from './guards/role.guard';
+import { producaoGuard } from './guards/producao.guard';
 import type { Papel } from './models/colaborador.model';
 import { AgendamentosListaComponent } from './pages/agendamentos/agendamentos-lista/agendamentos-lista.component';
 import { ListagemAgendamentosComponent } from './pages/listagem-agendamentos/listagem-agendamentos.component';
@@ -109,8 +110,7 @@ export const routes: Routes = [
   // === Módulo de Produção ===
   {
     path: 'producao',
-    canActivate: [authGuard, roleGuard],
-    data: { roles: ['admin', 'supervisor'] as Papel[] },
+    canActivate: [authGuard, producaoGuard],
     title: 'Produção',
     loadComponent: () =>
       import('./pages/producao/producao.component').then(m => m.ProducaoComponent),

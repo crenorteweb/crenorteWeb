@@ -9,8 +9,8 @@ import {
   CollectionReference,
   DocumentData,
 } from '@angular/fire/firestore';
-import { PreCadastro } from '../models/pre-cadastro.model';
-import { Colaborador } from '../models/colaborador.model';
+import { from, Observable } from 'rxjs';
+import { PreCadastro, CargoFiltro } from '../models/producao.model';
 
 @Injectable({ providedIn: 'root' })
 export class ProducaoService {
@@ -22,115 +22,154 @@ export class ProducaoService {
   private readonly colabRef: CollectionReference<DocumentData> =
     collection(this.db, 'colaboradores') as CollectionReference<DocumentData>;
 
-  /** Verifica se um Timestamp/Date cai no mesmo dia calendário que `date` (hora local) */
-  private isOnDate(timestamp: any, date: Date): boolean {
-    if (!timestamp) return false;
+  // ── Utilitários ───────────────────────────────────────────────────────────
+
+  private getTime(ts: any): number {
+    if (!ts) return 0;
     try {
-      const d: Date = timestamp?.toDate ? timestamp.toDate() : new Date(timestamp);
+      return ts?.toDate ? ts.toDate().getTime() : new Date(ts).getTime();
+    } catch { return 0; }
+  }
+
+  /** Verifica se um Timestamp cai no dia indicado (YYYY-MM-DD, fuso local) */
+  private isOnDate(ts: any, dateStr: string): boolean {
+    if (!ts) return false;
+    try {
+      const d: Date = ts?.toDate ? ts.toDate() : new Date(ts);
       if (isNaN(d.getTime())) return false;
-      return (
-        d.getFullYear() === date.getFullYear() &&
-        d.getMonth() === date.getMonth() &&
-        d.getDate() === date.getDate()
-      );
-    } catch {
-      return false;
-    }
+      const [y, m, day] = dateStr.split('-').map(Number);
+      return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === day;
+    } catch { return false; }
   }
 
-  /** Mapeia um snapshot para Colaborador garantindo que uid e id venham do ID do documento */
-  private mapColab(docs: any[]): Colaborador[] {
-    return docs.map(d => ({
-      ...(d.data() as any),
-      id: d.id,
-      uid: (d.data() as any).uid || d.id,
-    })) as Colaborador[];
-  }
-
-  /**
-   * Busca o nome de colaboradores a partir de uma lista de UIDs.
-   * Retorna um Map<uid, nome> para enriquecimento de dados no cliente.
-   */
-  async buscarNomesPorUids(uids: string[]): Promise<Map<string, string>> {
+  /** Busca nomes de colaboradores em lote por UIDs (IDs dos documentos) */
+  private async fetchNomesByUids(uids: string[]): Promise<Map<string, string>> {
     const map = new Map<string, string>();
     const unique = [...new Set(uids)].filter(Boolean);
     if (!unique.length) return map;
 
     for (let i = 0; i < unique.length; i += 10) {
       const chunk = unique.slice(i, i + 10);
-      const qy =
-        chunk.length === 1
-          ? query(this.colabRef, where(documentId(), '==', chunk[0]))
-          : query(this.colabRef, where(documentId(), 'in', chunk));
+      const qy = chunk.length === 1
+        ? query(this.colabRef, where(documentId(), '==', chunk[0]))
+        : query(this.colabRef, where(documentId(), 'in', chunk));
       const snap = await getDocs(qy);
       snap.docs.forEach(d => {
         const nome: string = (d.data() as any).nome || '';
         if (nome) map.set(d.id, nome);
       });
     }
-
     return map;
   }
 
-  /** Lista colaboradores ativos por papel */
-  async buscarColaboradoresPorPapel(papel: string): Promise<Colaborador[]> {
-    const qy = query(
-      this.colabRef,
-      where('papel', '==', papel),
-      where('status', '==', 'ativo')
+  /** Mapeia dado bruto do Firestore para PreCadastro do módulo */
+  private mapRaw(raw: any, nomes?: Map<string, string>): PreCadastro {
+    const assessorUid: string = raw.createdByUid || '';
+    const assessorNome: string = nomes?.get(assessorUid)
+      || (raw.createdByNome && raw.createdByNome !== 'Assessor' ? raw.createdByNome : '')
+      || nomes?.get(assessorUid)
+      || raw.createdByNome
+      || '';
+
+    return {
+      id: raw.id,
+      clienteNome: raw.nomeCompleto || raw.clienteNome,
+      cpf: raw.cpf,
+      telefone: raw.telefone,
+      municipio: raw.cidade || raw.bairro || raw.municipio,
+      status: raw.aprovacao?.status,
+      assessorId: assessorUid,
+      assessorNome,
+      analistaId: raw.aprovacao?.porUid || raw.analistaId,
+      analistaNome: raw.aprovacao?.porNome || raw.analistaNome,
+      resultado: raw.aprovacao?.status === 'apto' ? 'apto'
+               : raw.aprovacao?.status === 'inapto' ? 'inapto'
+               : undefined,
+      criadoEm: raw.createdAt,
+      encaminhadoEm: raw.encaminhamento?.em || raw.createdAt,
+      analisadoEm: raw.aprovacao?.em,
+    };
+  }
+
+  // ── API pública (Observable) ──────────────────────────────────────────────
+
+  buscarPorAssessor(assessorId: string, data: string): Observable<PreCadastro[]> {
+    return from(this._assessor(assessorId, data));
+  }
+
+  buscarPorAnalista(analistaId: string, data: string): Observable<PreCadastro[]> {
+    return from(this._analista(analistaId, data));
+  }
+
+  buscarPorSupervisor(supervisorId: string, data: string): Observable<PreCadastro[]> {
+    return from(this._supervisor(supervisorId, data));
+  }
+
+  // ── Implementações privadas ───────────────────────────────────────────────
+
+  private async _assessor(uid: string, data: string): Promise<PreCadastro[]> {
+    const snap = await getDocs(
+      query(this.preCadRef, where('createdByUid', '==', uid))
     );
-    const snap = await getDocs(qy);
-    return this.mapColab(snap.docs);
+    const filtered = snap.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) }))
+      .filter(r => this.isOnDate(r.createdAt, data));
+
+    const result = filtered.map(r => this.mapRaw(r));
+    result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    return result;
   }
 
-  /**
-   * Produção do Assessor: pré-cadastros criados pelo assessor na data.
-   * Filtragem por data é feita no cliente para evitar índice composto no Firestore.
-   */
-  async buscarProducaoAssessor(uid: string, date: Date): Promise<PreCadastro[]> {
-    const qy = query(this.preCadRef, where('createdByUid', '==', uid));
-    const snap = await getDocs(qy);
-    const all = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
-    return all.filter(p => this.isOnDate((p as any).createdAt, date));
-  }
-
-  /**
-   * Produção do Analista: pré-cadastros analisados (aprovacao.porUid) na data.
-   */
-  async buscarProducaoAnalista(uid: string, date: Date): Promise<PreCadastro[]> {
-    const qy = query(this.preCadRef, where('aprovacao.porUid', '==', uid));
-    const snap = await getDocs(qy);
-    const all = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
-    return all.filter(p => this.isOnDate(p.aprovacao?.em, date));
-  }
-
-  /**
-   * Produção do Supervisor: pré-cadastros criados pelos assessores sob este supervisor na data.
-   * Passo 1: busca assessores com supervisorId == supervisorUid.
-   * Passo 2: busca pré-cadastros criados por esses assessores (chunks de 10 por limitação do Firestore).
-   */
-  async buscarProducaoSupervisor(supervisorUid: string, date: Date): Promise<PreCadastro[]> {
-    const assessoresQy = query(
-      this.colabRef,
-      where('supervisorId', '==', supervisorUid),
-      where('papel', '==', 'assessor')
+  private async _analista(uid: string, data: string): Promise<PreCadastro[]> {
+    const snap = await getDocs(
+      query(this.preCadRef, where('aprovacao.porUid', '==', uid))
     );
-    const assessoresSnap = await getDocs(assessoresQy);
+    const filtered = snap.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) }))
+      .filter(r => this.isOnDate(r.aprovacao?.em, data));
+
+    // Enriquece nomes dos assessores via colaboradores
+    const uids = filtered.map(r => r.createdByUid).filter(Boolean);
+    const nomes = await this.fetchNomesByUids(uids);
+
+    const result = filtered.map(r => this.mapRaw(r, nomes));
+    result.sort((a, b) => this.getTime(b.analisadoEm) - this.getTime(a.analisadoEm));
+    return result;
+  }
+
+  private async _supervisor(supervisorUid: string, data: string): Promise<PreCadastro[]> {
+    // Passo 1 — assessores sob este supervisor
+    const assessoresSnap = await getDocs(
+      query(
+        this.colabRef,
+        where('supervisorId', '==', supervisorUid),
+        where('papel', '==', 'assessor')
+      )
+    );
+
+    const nomes = new Map<string, string>();
+    assessoresSnap.docs.forEach(d => {
+      const nome: string = (d.data() as any).nome || '';
+      if (nome) nomes.set(d.id, nome);
+    });
+
     const assessorUids = assessoresSnap.docs.map(d => d.id);
-
     if (!assessorUids.length) return [];
 
-    const all: PreCadastro[] = [];
+    // Passo 2 — pre_cadastros dos assessores (chunks de 10)
+    const all: any[] = [];
     for (let i = 0; i < assessorUids.length; i += 10) {
       const chunk = assessorUids.slice(i, i + 10);
-      const qy =
-        chunk.length === 1
-          ? query(this.preCadRef, where('createdByUid', '==', chunk[0]))
-          : query(this.preCadRef, where('createdByUid', 'in', chunk));
+      const qy = chunk.length === 1
+        ? query(this.preCadRef, where('createdByUid', '==', chunk[0]))
+        : query(this.preCadRef, where('createdByUid', 'in', chunk));
       const snap = await getDocs(qy);
-      snap.docs.forEach(d => all.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
+      snap.docs.forEach(d => all.push({ id: d.id, ...(d.data() as any) }));
     }
 
-    return all.filter(p => this.isOnDate((p as any).createdAt, date));
+    const filtered = all.filter(r => this.isOnDate(r.createdAt, data));
+    const result = filtered.map(r => this.mapRaw(r, nomes));
+    result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    return result;
   }
 }

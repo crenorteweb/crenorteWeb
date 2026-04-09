@@ -1,0 +1,16 @@
+<div class="input-group">
+  <input
+    type="date"
+    class="form-control"
+    [(ngModel)]="data"
+    (ngModelChange)="onChange()"
+  />
+  <button
+    type="button"
+    class="btn btn-outline-success"
+    (click)="resetar()"
+    title="Ir para hoje"
+  >
+    <i class="bi bi-calendar-check"></i>
+  </button>
+</div>

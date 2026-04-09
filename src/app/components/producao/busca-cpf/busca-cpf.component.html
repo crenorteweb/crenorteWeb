@@ -1,0 +1,30 @@
+<div class="d-flex align-items-center gap-2 flex-wrap">
+  <div class="input-group" style="max-width: 280px;">
+    <span class="input-group-text"><i class="bi bi-search"></i></span>
+    <input
+      type="text"
+      class="form-control"
+      placeholder="Buscar por CPF..."
+      [(ngModel)]="termo"
+      (ngModelChange)="onInput()"
+    />
+    <button
+      *ngIf="termo"
+      type="button"
+      class="btn btn-outline-secondary"
+      (click)="limpar()"
+      title="Limpar busca"
+    >
+      <i class="bi bi-x"></i>
+    </button>
+  </div>
+
+  <span
+    class="badge"
+    [class.bg-success]="!buscaAtiva"
+    [class.bg-warning]="buscaAtiva"
+    [class.text-dark]="buscaAtiva"
+  >
+    {{ contador }}
+  </span>
+</div>
