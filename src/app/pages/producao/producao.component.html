@@ -283,7 +283,7 @@
 
                 <!-- Analista -->
                 <ng-container *ngIf="cargoStr === 'analista'">
-                  <td class="small">{{ item.createdByNome || '—' }}</td>
+                  <td class="small">{{ getNomeCriador(item) }}</td>
                   <td><span [class]="getBadgeClasse(item)">{{ getResultado(item) }}</span></td>
                   <td class="small text-muted">{{ getHorarioPrincipal(item) }}</td>
                 </ng-container>

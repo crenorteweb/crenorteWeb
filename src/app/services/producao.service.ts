@@ -5,6 +5,7 @@ import {
   query,
   where,
   getDocs,
+  documentId,
   CollectionReference,
   DocumentData,
 } from '@angular/fire/firestore';
@@ -44,6 +45,31 @@ export class ProducaoService {
       id: d.id,
       uid: (d.data() as any).uid || d.id,
     })) as Colaborador[];
+  }
+
+  /**
+   * Busca o nome de colaboradores a partir de uma lista de UIDs.
+   * Retorna um Map<uid, nome> para enriquecimento de dados no cliente.
+   */
+  async buscarNomesPorUids(uids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const unique = [...new Set(uids)].filter(Boolean);
+    if (!unique.length) return map;
+
+    for (let i = 0; i < unique.length; i += 10) {
+      const chunk = unique.slice(i, i + 10);
+      const qy =
+        chunk.length === 1
+          ? query(this.colabRef, where(documentId(), '==', chunk[0]))
+          : query(this.colabRef, where(documentId(), 'in', chunk));
+      const snap = await getDocs(qy);
+      snap.docs.forEach(d => {
+        const nome: string = (d.data() as any).nome || '';
+        if (nome) map.set(d.id, nome);
+      });
+    }
+
+    return map;
   }
 
   /** Lista colaboradores ativos por papel */
