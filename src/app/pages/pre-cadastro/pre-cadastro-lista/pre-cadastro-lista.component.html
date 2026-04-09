@@ -28,6 +28,10 @@
       <a routerLink="/agendamentos" class="btn btn-outline-success">
         <i class="bi bi-calendar2-week me-1"></i> Meus agendamentos
       </a>
+      <button *ngIf="currentUserPapel() === 'admin'" type="button"
+        class="btn btn-outline-success" (click)="abrirImportacao()">
+        <i class="bi bi-file-earmark-excel me-1"></i> Importar via Excel
+      </button>
     </div>
   </div>
 
@@ -1102,3 +1106,9 @@
     </div>
   </div>
 </div>
+
+<!-- Modal de importação via Excel (visível apenas para admin) -->
+<app-importacao-excel
+  #importacaoModal
+  (importacaoConcluida)="onImportacaoConcluida()">
+</app-importacao-excel>

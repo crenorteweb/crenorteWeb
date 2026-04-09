@@ -1,0 +1,203 @@
+:root {
+  --crn-green: #008d45;
+  --crn-green-light: #18a85b;
+}
+
+/* Detalhe de cor do header */
+.imp-kicker {
+  width: 6px;
+  height: 36px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--crn-green), var(--crn-green-light));
+  flex-shrink: 0;
+}
+
+/* ===== Indicador de etapas ===== */
+.imp-steps {
+  align-items: center;
+}
+
+.imp-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.imp-step__num {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #6c757d;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: background 0.2s, color 0.2s;
+}
+
+.imp-step__label {
+  font-size: 0.7rem;
+  color: #6c757d;
+  white-space: nowrap;
+}
+
+.imp-step--active .imp-step__num {
+  background: var(--crn-green);
+  color: #fff;
+}
+
+.imp-step--active .imp-step__label {
+  color: var(--crn-green);
+  font-weight: 600;
+}
+
+.imp-step--done .imp-step__num {
+  background: #d1e7dd;
+  color: var(--crn-green);
+}
+
+.imp-step--done .imp-step__num::after {
+  content: '✓';
+}
+
+.imp-step--done .imp-step__num {
+  font-size: 0;
+}
+
+.imp-step--done .imp-step__num::after {
+  font-size: 0.85rem;
+}
+
+.imp-step__line {
+  flex: 1;
+  height: 2px;
+  background: #dee2e6;
+  margin-bottom: 18px;
+  min-width: 20px;
+}
+
+/* ===== Zona de upload ===== */
+.imp-dropzone {
+  border: 2px dashed #ced4da;
+  border-radius: 1rem;
+  padding: 2.5rem 1.5rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  background: #f8f9fa;
+}
+
+.imp-dropzone--over {
+  border-color: var(--crn-green);
+  background: #f0faf5;
+}
+
+.imp-dropzone--filled {
+  border-color: var(--crn-green);
+  background: #f0faf5;
+}
+
+.imp-dropzone__icon {
+  font-size: 2.5rem;
+  color: #adb5bd;
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.imp-dropzone--filled .imp-dropzone__icon,
+.imp-dropzone--over .imp-dropzone__icon {
+  color: var(--crn-green);
+}
+
+/* ===== Info de colunas ===== */
+.imp-info {
+  background: #f8f9fa;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+/* ===== Estatísticas de resumo ===== */
+.imp-stat {
+  border-radius: 0.75rem;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.imp-stat--total { background: #f8f9fa; }
+.imp-stat--ok    { background: #d1e7dd; }
+.imp-stat--error { background: #f8d7da; }
+.imp-stat--warn  { background: #fff3cd; }
+
+.imp-stat__num {
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.imp-stat__label {
+  font-size: 0.75rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+/* ===== Lista de erros ===== */
+.imp-error-list {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #f5c2c7;
+  border-radius: 0.5rem;
+  background: #fff;
+}
+
+.imp-error-item {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid #f5c2c7;
+}
+
+.imp-error-item:last-child {
+  border-bottom: none;
+}
+
+/* ===== Tabela de preview ===== */
+.imp-table-wrapper {
+  max-height: 350px;
+  overflow: auto;
+  border: 1px solid #dee2e6;
+  border-radius: 0.5rem;
+}
+
+.imp-table {
+  margin-bottom: 0;
+  font-size: 0.825rem;
+}
+
+.imp-table thead th {
+  position: sticky;
+  top: 0;
+  background: #f8f9fa;
+  z-index: 1;
+  white-space: nowrap;
+  border-bottom: 2px solid #dee2e6;
+}
+
+.imp-table__truncate {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Animação de loading ===== */
+.imp-loading-icon {
+  animation: imp-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes imp-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.08); opacity: 0.8; }
+}

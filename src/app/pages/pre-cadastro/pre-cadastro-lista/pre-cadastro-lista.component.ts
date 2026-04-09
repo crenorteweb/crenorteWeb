@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, effect, OnInit, OnDestroy } from '@angular/core';
+import { Component, inject, signal, computed, effect, OnInit, OnDestroy, ViewChild } from '@angular/core';
 import { CommonModule, DatePipe } from '@angular/common';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -24,12 +24,15 @@ import {
 import { GrupoSolidario, MembroGrupoView } from '../../../models/grupo-solidario.model';
 import { GrupoSolidarioService } from '../../../services/grupo-solidario.service';
 
+// ===== Importação via Excel =====
+import { ImportacaoExcelComponent } from '../importacao-excel/importacao-excel.component';
+
 type PreCadastroEdit = PreCadastro & { id: string };
 
 @Component({
   selector: 'app-pre-cadastro-lista',
   standalone: true,
-  imports: [CommonModule, RouterModule, DatePipe, FormsModule, HeaderComponent],
+  imports: [CommonModule, RouterModule, DatePipe, FormsModule, HeaderComponent, ImportacaoExcelComponent],
   templateUrl: './pre-cadastro-lista.component.html',
   styleUrls: ['./pre-cadastro-lista.component.css']
 })
@@ -44,8 +47,11 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   // ===== NOVO: service de grupos
   private gruposSvc = inject(GrupoSolidarioService);
 
+  @ViewChild('importacaoModal') importacaoModal?: ImportacaoExcelComponent;
+
   loading = signal(true);
   itens = signal<PreCadastro[]>([]);
+  currentUserPapel = signal<string>('');
   private sub?: Subscription;
 
   // ====== UI STATE ======
@@ -169,6 +175,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
         }
         this.currentUserUid = u.uid;
         this.currentUserNome = await this.resolveUserName(u.uid);
+        await this.resolveUserPapel(u.uid);
 
         // ==== Pessoas (pré-cadastros) ====
         let rows: PreCadastro[] = [];
@@ -341,6 +348,38 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 
   ufTitle(uf?: string | null): string {
     return (uf || '').toUpperCase();
+  }
+
+  // ===== Importação via Excel =====
+
+  abrirImportacao(): void {
+    this.importacaoModal?.abrirModal();
+  }
+
+  async onImportacaoConcluida(): Promise<void> {
+    if (!this.currentUserUid) return;
+    try {
+      const svcAny = this.service as any;
+      let rows: PreCadastro[];
+      if (typeof svcAny.listarParaCaixa === 'function') {
+        rows = await svcAny.listarParaCaixa(this.currentUserUid);
+      } else {
+        rows = await this.service.listarDoAssessor(this.currentUserUid);
+      }
+      this.itens.set(rows ?? []);
+    } catch (err) {
+      console.error('[PreCadastro] Erro ao recarregar após importação:', err);
+    }
+  }
+
+  private async resolveUserPapel(uid: string): Promise<void> {
+    try {
+      const snap = await getDoc(doc(this.afs, 'colaboradores', uid));
+      const papel = (snap.data() as any)?.papel ?? '';
+      this.currentUserPapel.set(String(papel).trim().toLowerCase());
+    } catch {
+      this.currentUserPapel.set('');
+    }
   }
 
   // 🔹 Resolve nome do usuário a partir do perfil (coleção "colaboradores")

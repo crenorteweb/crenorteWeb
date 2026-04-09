@@ -1,0 +1,350 @@
+<!-- Modal Bootstrap -->
+<div class="modal fade" tabindex="-1" role="dialog" aria-labelledby="importacaoModalTitulo"
+  #importacaoModalEl>
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+
+      <!-- Header -->
+      <div class="modal-header border-0 pb-0">
+        <div class="d-flex align-items-center gap-2">
+          <div class="imp-kicker"></div>
+          <div>
+            <h5 class="modal-title mb-0 fw-bold" id="importacaoModalTitulo">
+              <i class="bi bi-file-earmark-excel text-success me-1"></i>
+              Importar Clientes via Excel
+            </h5>
+            <p class="text-muted small mb-0">
+              <ng-container [ngSwitch]="etapa()">
+                <span *ngSwitchCase="'upload'">Envie a planilha Excel com os dados dos clientes</span>
+                <span *ngSwitchCase="'preview'">Revise os dados antes de confirmar a importação</span>
+                <span *ngSwitchCase="'importando'">Importando registros para o sistema…</span>
+                <span *ngSwitchCase="'concluido'">Importação finalizada</span>
+              </ng-container>
+            </p>
+          </div>
+        </div>
+        <button type="button" class="btn-close" (click)="fecharModal()"
+          [disabled]="etapa() === 'importando'" aria-label="Fechar"></button>
+      </div>
+
+      <!-- Indicador de etapas -->
+      <div class="modal-body pb-0 pt-3">
+        <div class="imp-steps d-flex gap-1 mb-4">
+          <div class="imp-step" [class.imp-step--active]="etapa() === 'upload'"
+            [class.imp-step--done]="etapa() !== 'upload'">
+            <span class="imp-step__num">1</span>
+            <span class="imp-step__label">Upload</span>
+          </div>
+          <div class="imp-step__line"></div>
+          <div class="imp-step" [class.imp-step--active]="etapa() === 'preview'"
+            [class.imp-step--done]="etapa() === 'importando' || etapa() === 'concluido'">
+            <span class="imp-step__num">2</span>
+            <span class="imp-step__label">Preview</span>
+          </div>
+          <div class="imp-step__line"></div>
+          <div class="imp-step" [class.imp-step--active]="etapa() === 'importando'"
+            [class.imp-step--done]="etapa() === 'concluido'">
+            <span class="imp-step__num">3</span>
+            <span class="imp-step__label">Importando</span>
+          </div>
+          <div class="imp-step__line"></div>
+          <div class="imp-step" [class.imp-step--active]="etapa() === 'concluido'">
+            <span class="imp-step__num">4</span>
+            <span class="imp-step__label">Concluído</span>
+          </div>
+        </div>
+
+        <!-- ================= ETAPA 1: UPLOAD ================= -->
+        <div *ngIf="etapa() === 'upload'">
+
+          <!-- Alerta de erro -->
+          <div *ngIf="erro()" class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+            <span>{{ erro() }}</span>
+          </div>
+
+          <!-- Botão download modelo -->
+          <div class="d-flex justify-content-end mb-3">
+            <button type="button" class="btn btn-outline-success btn-sm" (click)="downloadTemplate()">
+              <i class="bi bi-download me-1"></i> Baixar modelo de planilha
+            </button>
+          </div>
+
+          <!-- Zona drag-and-drop -->
+          <div class="imp-dropzone" [class.imp-dropzone--over]="isDragOver()"
+            [class.imp-dropzone--filled]="arquivo() !== null"
+            (dragover)="onDragOver($event)" (dragleave)="onDragLeave($event)" (drop)="onDrop($event)">
+
+            <ng-container *ngIf="arquivo() === null">
+              <i class="bi bi-cloud-upload imp-dropzone__icon"></i>
+              <p class="mb-1 fw-semibold">Arraste e solte o arquivo aqui</p>
+              <p class="text-muted small mb-3">ou clique no botão abaixo para selecionar</p>
+              <label class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-folder2-open me-1"></i> Selecionar arquivo
+                <input type="file" accept=".xlsx,.xls" (change)="onFileSelected($event)" hidden>
+              </label>
+              <p class="text-muted small mt-2 mb-0">Formatos aceitos: .xlsx, .xls</p>
+            </ng-container>
+
+            <ng-container *ngIf="arquivo() as arq">
+              <i class="bi bi-file-earmark-excel-fill imp-dropzone__icon text-success"></i>
+              <p class="mb-1 fw-semibold">{{ arq.name }}</p>
+              <p class="text-muted small mb-3">{{ (arq.size / 1024).toFixed(1) }} KB</p>
+              <button type="button" class="btn btn-sm btn-outline-danger" (click)="removerArquivo()">
+                <i class="bi bi-x me-1"></i> Remover arquivo
+              </button>
+            </ng-container>
+          </div>
+
+          <!-- Formato esperado -->
+          <div class="imp-info mt-3">
+            <p class="fw-semibold mb-1 small"><i class="bi bi-info-circle me-1"></i>Colunas esperadas (nesta ordem):</p>
+            <div class="d-flex flex-wrap gap-1">
+              <span class="badge bg-secondary-subtle text-secondary" *ngFor="let col of ['nome','cpf','telefone','bairro','uf','municipio','origem','cadunico']">
+                {{ col }}
+              </span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- ================= ETAPA 2: PREVIEW ================= -->
+        <div *ngIf="etapa() === 'preview'">
+
+          <!-- Alerta de erro (ex.: falha no admin check) -->
+          <div *ngIf="erro()" class="alert alert-danger d-flex align-items-start gap-2 mb-3">
+            <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
+            <span>{{ erro() }}</span>
+          </div>
+
+          <!-- Resumo -->
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-md-3">
+              <div class="imp-stat imp-stat--total">
+                <span class="imp-stat__num">{{ linhas().length }}</span>
+                <span class="imp-stat__label">Total de linhas</span>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="imp-stat imp-stat--ok">
+                <span class="imp-stat__num">{{ linhasValidas().length }}</span>
+                <span class="imp-stat__label">Válidas</span>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="imp-stat imp-stat--error">
+                <span class="imp-stat__num">{{ linhasInvalidas().length }}</span>
+                <span class="imp-stat__label">Com erros</span>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="imp-stat imp-stat--warn" *ngIf="linhasValidas().length === 0">
+                <span class="imp-stat__num text-warning"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                <span class="imp-stat__label">Nada a importar</span>
+              </div>
+              <div class="imp-stat imp-stat--ok" *ngIf="linhasValidas().length > 0">
+                <span class="imp-stat__num">
+                  <i class="bi bi-check-circle-fill text-success"></i>
+                </span>
+                <span class="imp-stat__label">Pronto para importar</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alerta quando há erros -->
+          <div *ngIf="linhasInvalidas().length > 0" class="alert alert-warning small mb-3">
+            <strong>{{ linhasInvalidas().length }} linha(s) com erro</strong> não serão importadas.
+            Você pode importar apenas as <strong>{{ linhasValidas().length }} linha(s) válidas</strong>
+            ou cancelar para corrigir a planilha.
+            <button type="button" class="btn btn-link btn-sm p-0 ms-2"
+              (click)="mostrarDetalhesErros.set(!mostrarDetalhesErros())">
+              {{ mostrarDetalhesErros() ? 'Ocultar erros' : 'Ver detalhes dos erros' }}
+            </button>
+          </div>
+
+          <!-- Lista de erros -->
+          <div *ngIf="mostrarDetalhesErros() && linhasInvalidas().length > 0" class="mb-3">
+            <div class="imp-error-list">
+              <div *ngFor="let l of linhasInvalidas()" class="imp-error-item">
+                <div class="d-flex align-items-start gap-2">
+                  <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ l.index }}</span>
+                  <div>
+                    <span class="fw-semibold small">{{ l.nome || '(sem nome)' }}</span>
+                    <ul class="mb-0 ps-3 small text-danger">
+                      <li *ngFor="let e of l.erros">{{ e }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela de preview -->
+          <div class="imp-table-wrapper">
+            <table class="imp-table table table-sm">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Nome</th>
+                  <th>CPF</th>
+                  <th>Telefone</th>
+                  <th>Bairro</th>
+                  <th>UF</th>
+                  <th>Município</th>
+                  <th>Origem</th>
+                  <th>Modalidade</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let l of linhas()" [class.table-success]="l.valida"
+                  [class.table-danger]="!l.valida">
+                  <td class="text-muted small">{{ l.index }}</td>
+                  <td>{{ l.nome }}</td>
+                  <td class="text-nowrap">{{ l.cpfNumeros | slice:0:3 }}.{{ l.cpfNumeros | slice:3:6 }}.{{ l.cpfNumeros | slice:6:9 }}-{{ l.cpfNumeros | slice:9:11 }}</td>
+                  <td class="text-nowrap">{{ l.telefone }}</td>
+                  <td>{{ l.bairro }}</td>
+                  <td>{{ l.uf }}</td>
+                  <td>{{ l.municipio }}</td>
+                  <td>{{ l.origem }}</td>
+                  <td>
+                    <span class="badge" [class.bg-success-subtle]="l.modalidade === 'cadunico'"
+                      [class.text-success]="l.modalidade === 'cadunico'"
+                      [class.bg-primary-subtle]="l.modalidade === 'grupo_solidario'"
+                      [class.text-primary]="l.modalidade === 'grupo_solidario'">
+                      {{ l.modalidade === 'cadunico' ? 'Cadúnico' : 'Grupo Solidário' }}
+                    </span>
+                  </td>
+                  <td>
+                    <span *ngIf="l.valida" class="badge bg-success-subtle text-success">
+                      <i class="bi bi-check-circle me-1"></i>Válida
+                    </span>
+                    <span *ngIf="!l.valida" class="badge bg-danger-subtle text-danger"
+                      [title]="l.erros.join('; ')">
+                      <i class="bi bi-x-circle me-1"></i>Erro
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+
+        <!-- ================= ETAPA 3: IMPORTANDO ================= -->
+        <div *ngIf="etapa() === 'importando'" class="text-center py-4">
+          <div class="imp-loading-icon mb-3">
+            <i class="bi bi-cloud-arrow-up-fill text-success" style="font-size: 3rem;"></i>
+          </div>
+          <h6 class="fw-bold mb-1">Importando registros…</h6>
+          <p class="text-muted small mb-3">
+            Não feche esta janela. Por favor aguarde.
+          </p>
+          <div class="progress mb-2" style="height: 10px; max-width: 400px; margin: 0 auto;">
+            <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
+              role="progressbar"
+              [style.width.%]="progressoPct()"
+              [attr.aria-valuenow]="progresso().atual"
+              [attr.aria-valuemin]="0"
+              [attr.aria-valuemax]="progresso().total">
+            </div>
+          </div>
+          <p class="text-muted small">
+            {{ progresso().atual }} de {{ progresso().total }} registros
+            ({{ progressoPct() }}%)
+          </p>
+        </div>
+
+        <!-- ================= ETAPA 4: CONCLUÍDO ================= -->
+        <div *ngIf="etapa() === 'concluido' && resultado() as res" class="py-2">
+
+          <!-- Sucesso total -->
+          <div *ngIf="res.totalErros === 0" class="text-center py-3">
+            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+            <h5 class="fw-bold mt-2 mb-1">Importação concluída!</h5>
+            <p class="text-muted">
+              <strong>{{ res.importados }}</strong> registro(s) importado(s) com sucesso.
+            </p>
+          </div>
+
+          <!-- Sucesso parcial / com erros -->
+          <div *ngIf="res.totalErros > 0">
+            <div class="row g-3 mb-4">
+              <div class="col-6">
+                <div class="imp-stat imp-stat--ok text-center">
+                  <i class="bi bi-check-circle-fill text-success" style="font-size: 1.75rem;"></i>
+                  <div class="fw-bold fs-4 mt-1">{{ res.importados }}</div>
+                  <div class="small text-muted">Importados com sucesso</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="imp-stat imp-stat--error text-center">
+                  <i class="bi bi-x-circle-fill text-danger" style="font-size: 1.75rem;"></i>
+                  <div class="fw-bold fs-4 mt-1">{{ res.totalErros }}</div>
+                  <div class="small text-muted">Não importados (com erro)</div>
+                </div>
+              </div>
+            </div>
+
+            <h6 class="fw-bold mb-2">Detalhes dos registros não importados:</h6>
+            <div class="imp-error-list">
+              <div *ngFor="let d of res.detalhesErro" class="imp-error-item">
+                <div class="d-flex align-items-start gap-2">
+                  <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ d.linha }}</span>
+                  <div>
+                    <span class="fw-semibold small">{{ d.nome || '(sem nome)' }}</span>
+                    <ul class="mb-0 ps-3 small text-danger">
+                      <li *ngFor="let e of d.erros">{{ e }}</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div><!-- /modal-body -->
+
+      <!-- Footer -->
+      <div class="modal-footer border-0 pt-0">
+
+        <!-- Etapa: upload -->
+        <ng-container *ngIf="etapa() === 'upload'">
+          <button type="button" class="btn btn-light" (click)="fecharModal()">Cancelar</button>
+          <button type="button" class="btn btn-success" (click)="processarArquivo()"
+            [disabled]="!arquivo() || processando()">
+            <span *ngIf="processando()" class="spinner-border spinner-border-sm me-1" role="status"></span>
+            <i *ngIf="!processando()" class="bi bi-arrow-right-circle me-1"></i>
+            {{ processando() ? 'Processando…' : 'Avançar' }}
+          </button>
+        </ng-container>
+
+        <!-- Etapa: preview -->
+        <ng-container *ngIf="etapa() === 'preview'">
+          <button type="button" class="btn btn-light" (click)="voltarParaUpload()">
+            <i class="bi bi-arrow-left me-1"></i> Voltar
+          </button>
+          <button type="button" class="btn btn-light" (click)="fecharModal()">Cancelar</button>
+          <button type="button" class="btn btn-success"
+            [disabled]="linhasValidas().length === 0"
+            (click)="confirmarImportacao()">
+            <i class="bi bi-cloud-arrow-up me-1"></i>
+            Importar {{ linhasValidas().length }} registro(s) válido(s)
+          </button>
+        </ng-container>
+
+        <!-- Etapa: importando — nenhuma ação disponível -->
+
+        <!-- Etapa: concluído -->
+        <ng-container *ngIf="etapa() === 'concluido'">
+          <button type="button" class="btn btn-success" (click)="fecharModal()">
+            <i class="bi bi-check me-1"></i> Fechar
+          </button>
+        </ng-container>
+
+      </div>
+
+    </div>
+  </div>
+</div>

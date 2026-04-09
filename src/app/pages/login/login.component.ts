@@ -20,7 +20,14 @@ import { AuthService } from '../../services/auth.service';
       </div>
       <div class="mb-3">
         <label class="form-label">Senha</label>
-        <input type="password" class="form-control" formControlName="senha" autocomplete="current-password" />
+        <div class="input-group">
+          <input [type]="senhaVisivel() ? 'text' : 'password'" class="form-control"
+            formControlName="senha" autocomplete="current-password" />
+          <button type="button" class="btn btn-outline-secondary" (click)="senhaVisivel.set(!senhaVisivel())"
+            [attr.aria-label]="senhaVisivel() ? 'Ocultar senha' : 'Mostrar senha'">
+            <i [class]="senhaVisivel() ? 'bi bi-eye-slash' : 'bi bi-eye'"></i>
+          </button>
+        </div>
       </div>
       <button class="btn btn-success w-100" [disabled]="form.invalid || loading()">
         {{ loading() ? 'Entrando…' : 'Entrar' }}
@@ -38,6 +45,7 @@ export class LoginComponent {
 
   loading = signal(false);
   erro = signal<string | null>(null);
+  senhaVisivel = signal(false);
 
   form = this.fb.group({
     email: ['', [Validators.required, Validators.email]],
