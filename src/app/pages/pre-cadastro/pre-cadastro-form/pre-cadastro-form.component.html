@@ -39,7 +39,14 @@
           <div class="col-12 col-md-6">
             <label class="form-label">CPF</label>
             <input class="form-control" name="cpf" [(ngModel)]="model.cpf" required placeholder="000.000.000-00"
-              inputmode="numeric" />
+              inputmode="numeric" (blur)="onCpfBlur()" />
+            <div *ngIf="cpfChecandoDuplicata()" class="form-text text-muted mt-1">
+              <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+              Verificando CPF...
+            </div>
+            <div *ngIf="cpfJaCadastrado() && !cpfChecandoDuplicata()" class="invalid-feedback d-block mt-1">
+              Este CPF já está cadastrado no sistema.
+            </div>
           </div>
 
           <div class="col-12 col-md-6">

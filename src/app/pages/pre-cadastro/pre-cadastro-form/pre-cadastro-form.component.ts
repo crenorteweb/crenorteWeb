@@ -82,6 +82,8 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   private fluxoModalRef: any | null = null;
 
   loading = signal(false);
+  cpfJaCadastrado = signal(false);
+  cpfChecandoDuplicata = signal(false);
 
   // mensagens de feedback (sucesso/erro)
   msg = signal<string | null>(null);
@@ -361,6 +363,33 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
       return;
     }
     this.showMsg('success', 'CPF válido! ✅', 2500);
+  }
+
+  async onCpfBlur() {
+    const cpf = this.limpar(this.model.cpf);
+    this.cpfJaCadastrado.set(false);
+    if (!this.cpfValido(cpf, true)) return;
+    await this.verificarCpfDuplicado(cpf);
+  }
+
+  private async verificarCpfDuplicado(cpf: string): Promise<void> {
+    this.cpfChecandoDuplicata.set(true);
+    this.cpfJaCadastrado.set(false);
+    try {
+      const encontrados = await this.service.buscarPorCpf(cpf);
+      const duplicatas = encontrados.filter(d => {
+        if (this.editMode) {
+          const currentId = this.docId ?? this.lastPreCadastroId;
+          return d.id !== currentId;
+        }
+        return true;
+      });
+      this.cpfJaCadastrado.set(duplicatas.length > 0);
+    } catch (e) {
+      console.error('[PreCadastro] Erro ao verificar CPF duplicado:', e);
+    } finally {
+      this.cpfChecandoDuplicata.set(false);
+    }
   }
 
   private cpfValido(cpf: unknown, strict = false): boolean {
@@ -826,6 +855,14 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
     this.msgType.set(null);
 
     try {
+      if (!this.editMode && payloadBase.cpf) {
+        await this.verificarCpfDuplicado(payloadBase.cpf);
+        if (this.cpfJaCadastrado()) {
+          this.showMsg('danger', 'CPF já cadastrado no sistema. Verifique os dados antes de continuar.', 7000);
+          return;
+        }
+      }
+
       if (this.editMode) {
         let ref;
         if (this.docPath) {

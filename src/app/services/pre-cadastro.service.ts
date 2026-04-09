@@ -137,6 +137,13 @@ export class PreCadastroService {
   /**
    * NOVO: Busca por uma lista de IDs (para espelhar pessoas de grupos).
    */
+  async buscarPorCpf(cpf: string): Promise<PreCadastro[]> {
+    if (!cpf) return [];
+    const qy = query(this.colRef, where('cpf', '==', cpf));
+    const snap = await getDocs(qy);
+    return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+  }
+
   async listarPorIds(ids: string[]): Promise<PreCadastro[]> {
     if (!ids?.length) return [];
     const out: PreCadastro[] = [];
