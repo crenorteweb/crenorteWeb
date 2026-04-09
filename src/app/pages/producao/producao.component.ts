@@ -182,7 +182,7 @@ export class ProducaoComponent {
   private getCabecalhos(): string[] {
     const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município'];
     if (this.cargoStr === 'assessor') return [...base, 'Status', 'Horário'];
-    if (this.cargoStr === 'analista') return [...base, 'Resultado', 'Horário da Análise'];
+    if (this.cargoStr === 'analista') return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
     return [...base, 'Assessor Responsável', 'Horário de Encaminhamento'];
   }
 
@@ -197,7 +197,7 @@ export class ProducaoComponent {
       if (this.cargoStr === 'assessor')
         return [...base, this.getResultado(item), this.getHorarioPrincipal(item)];
       if (this.cargoStr === 'analista')
-        return [...base, this.getResultado(item), this.getHorarioPrincipal(item)];
+        return [...base, item.createdByNome || '—', this.getResultado(item), this.getHorarioPrincipal(item)];
       return [...base, this.getAssessorResponsavel(item), this.getHorarioPrincipal(item)];
     });
   }

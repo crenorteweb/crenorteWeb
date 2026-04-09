@@ -256,6 +256,7 @@
                   <th>Horário</th>
                 </ng-container>
                 <ng-container *ngIf="cargoStr === 'analista'">
+                  <th>Cadastrado por</th>
                   <th>Resultado</th>
                   <th>Horário da Análise</th>
                 </ng-container>
@@ -282,6 +283,7 @@
 
                 <!-- Analista -->
                 <ng-container *ngIf="cargoStr === 'analista'">
+                  <td class="small">{{ item.createdByNome || '—' }}</td>
                   <td><span [class]="getBadgeClasse(item)">{{ getResultado(item) }}</span></td>
                   <td class="small text-muted">{{ getHorarioPrincipal(item) }}</td>
                 </ng-container>
