@@ -286,21 +286,17 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====================================================
-  // CARREGAR ASSESSORES DO MEU TIME
+  // CARREGAR TODOS OS ASSESSORES ATIVOS DO SISTEMA
   // ====================================================
-  private async carregarAssessoresDoMeuTime(teamUids: string[]): Promise<void> {
+  private async carregarAssessoresDoMeuTime(_teamUids: string[]): Promise<void> {
     try {
-      const uids = [...new Set(teamUids)].filter(Boolean);
-      if (!uids.length) {
-        this.assessores = [];
-        this.assessoresFiltrados = [];
-        return;
-      }
-
       const ref = collection(this.afs, 'colaboradores');
-      const map = new Map<string, Assessor>();
+      const snap = await getDocs(
+        fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'))
+      );
 
-      const pushDoc = (d: any) => {
+      const map = new Map<string, Assessor>();
+      snap.docs.forEach((d) => {
         const data = d.data() as any;
         map.set(d.id, {
           uid: d.id,
@@ -309,28 +305,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           rota: data?.rota || null,
           analistaId: data?.analistaId || null,
         });
-      };
-
-      // Chunking para Firestore 'in' (máx 10 valores por query)
-      const chunks: string[][] = [];
-      for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
-
-      for (const chunk of chunks) {
-        const inSup = chunk.length === 1
-          ? where('supervisorId', '==', chunk[0])
-          : where('supervisorId', 'in', chunk);
-        const inAna = chunk.length === 1
-          ? where('analistaId', '==', chunk[0])
-          : where('analistaId', 'in', chunk);
-
-        const [supSnap, anaSnap] = await Promise.all([
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inSup)),
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inAna)),
-        ]);
-
-        supSnap.docs.forEach(pushDoc);
-        anaSnap.docs.forEach(pushDoc);
-      }
+      });
 
       this.assessores = Array.from(map.values()).sort((a, b) =>
         (a.nome || '').localeCompare(b.nome || '')
