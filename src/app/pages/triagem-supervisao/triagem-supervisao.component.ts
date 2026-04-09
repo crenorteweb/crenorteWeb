@@ -130,8 +130,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         const equipeUids = await this.obterIdsDoMeuTime();
         await this.carregarAssessoresDoMeuTime(equipeUids);
 
-        await this.carregarPessoasDoAnalista(equipeUids);
-        await this.carregarGruposDoAnalista(equipeUids);
+        // Inclui UIDs de todos os assessores para que pré-cadastros criados/na caixa
+        // deles também apareçam e possam ser encaminhados pelo supervisor
+        const assessorUids = this.assessores.map(a => a.uid);
+        const todosUids = [...new Set([...equipeUids, ...assessorUids])];
+
+        await this.carregarPessoasDoAnalista(todosUids);
+        await this.carregarGruposDoAnalista(todosUids);
         await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
 
         this.aplicarFiltrosPessoas();
@@ -226,81 +231,52 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====================================================
-  // DESCOBERTA DE TIME: [supervisorUid, ...analistasIds]
-  // Busca dupla em paralelo:
-  //  A) Analistas com supervisorId == eu no próprio perfil (ligação direta)
-  //  B) Analistas inferidos pelo analistaId dos assessores vinculados ao supervisor
+  // DESCOBERTA DE TODOS OS ANALISTAS E ADMINS ATIVOS DO SISTEMA
   // ====================================================
   private async obterIdsDoMeuTime(): Promise<string[]> {
     if (!this.currentUserUid) return [];
     try {
       const ref = collection(this.afs, 'colaboradores');
 
-      // Busca A: analistas que têm supervisorId apontando para mim diretamente
-      const qAnalistaDireto = fsQuery(
-        ref,
-        where('status', '==', 'ativo'),
-        where('papel', '==', 'analista'),
-        where('supervisorId', '==', this.currentUserUid)
-      );
-
-      // Busca B: assessores cujo supervisorId é meu → extrair analistaId deles
-      const qAssessorDoSupervisor = fsQuery(
-        ref,
-        where('status', '==', 'ativo'),
-        where('papel', '==', 'assessor'),
-        where('supervisorId', '==', this.currentUserUid)
-      );
-
-      const [snapAnalistas, snapAssessores] = await Promise.all([
-        getDocs(qAnalistaDireto),
-        getDocs(qAssessorDoSupervisor),
+      const [snapAnalistas, snapAdmins] = await Promise.all([
+        getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'analista'))),
+        getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'admin'))),
       ]);
 
-      const analistaIdsSet = new Set<string>();
+      const todosUids = [
+        ...snapAnalistas.docs.map(d => d.id),
+        ...snapAdmins.docs.map(d => d.id),
+      ];
 
-      // Resultado A: UIDs diretos dos analistas
-      snapAnalistas.docs.forEach(d => analistaIdsSet.add(d.id));
+      this.analistasUids = todosUids;
 
-      // Resultado B: analistaId de cada assessor
-      snapAssessores.docs.forEach(d => {
-        const a = d.data() as any;
-        if (a?.analistaId) analistaIdsSet.add(a.analistaId);
-      });
-
-      this.analistasUids = Array.from(analistaIdsSet);
-
-      // Resolve os nomes dos analistas para exibir no filtro visual
+      // Resolve os nomes de analistas e admins para exibir no filtro visual
       this.analistas = await Promise.all(
-        this.analistasUids.map(async uid => ({
+        todosUids.map(async uid => ({
           uid,
           nome: await this.resolveUserName(uid),
         }))
       );
 
-      return [this.currentUserUid, ...this.analistasUids];
+      return [this.currentUserUid, ...todosUids];
     } catch (e) {
-      console.error('[TriagemSupervisao] erro ao obter IDs do time:', e);
+      console.error('[TriagemSupervisao] erro ao obter IDs dos analistas/admins:', e);
       return [this.currentUserUid];
     }
   }
 
   // ====================================================
-  // CARREGAR ASSESSORES DO MEU TIME
+  // CARREGAR TODOS OS ASSESSORES ATIVOS DO SISTEMA
   // ====================================================
-  private async carregarAssessoresDoMeuTime(teamUids: string[]): Promise<void> {
+  private async carregarAssessoresDoMeuTime(_teamUids: string[]): Promise<void> {
     try {
-      const uids = [...new Set(teamUids)].filter(Boolean);
-      if (!uids.length) {
-        this.assessores = [];
-        this.assessoresFiltrados = [];
-        return;
-      }
-
       const ref = collection(this.afs, 'colaboradores');
-      const map = new Map<string, Assessor>();
+      const snap = await getDocs(
+        fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'))
+      );
 
-      const pushDoc = (d: any) => {
+      const map = new Map<string, Assessor>();
+      snap.docs.forEach((d) => {
         const data = d.data() as any;
         map.set(d.id, {
           uid: d.id,
@@ -309,28 +285,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           rota: data?.rota || null,
           analistaId: data?.analistaId || null,
         });
-      };
-
-      // Chunking para Firestore 'in' (máx 10 valores por query)
-      const chunks: string[][] = [];
-      for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
-
-      for (const chunk of chunks) {
-        const inSup = chunk.length === 1
-          ? where('supervisorId', '==', chunk[0])
-          : where('supervisorId', 'in', chunk);
-        const inAna = chunk.length === 1
-          ? where('analistaId', '==', chunk[0])
-          : where('analistaId', 'in', chunk);
-
-        const [supSnap, anaSnap] = await Promise.all([
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inSup)),
-          getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'), inAna)),
-        ]);
-
-        supSnap.docs.forEach(pushDoc);
-        anaSnap.docs.forEach(pushDoc);
-      }
+      });
 
       this.assessores = Array.from(map.values()).sort((a, b) =>
         (a.nome || '').localeCompare(b.nome || '')

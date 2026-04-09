@@ -92,32 +92,17 @@
     </div>
   </div>
 
-  <!-- Filtro de Caixa do Time — visível somente quando há analistas vinculados -->
-  <div class="row mt-2" *ngIf="analistas.length">
+  <!-- Filtro por analista/admin -->
+  <div class="row mt-2">
     <div class="col-12">
       <div class="d-flex flex-wrap align-items-center gap-2">
-        <span class="small text-muted fw-semibold">Caixa do time:</span>
-        <div class="btn-group btn-group-sm" role="group" aria-label="Filtro por analista">
-          <button type="button" class="btn btn-outline-secondary"
-            [class.active]="filtroAnalista === 'todos'"
-            (click)="setAnalistaFilter('todos')">
-            Todo o time
-          </button>
-          <button type="button" class="btn btn-outline-secondary"
-            [class.active]="filtroAnalista === currentUserUid"
-            (click)="setAnalistaFilter(currentUserUid!)">
-            Minha caixa
-          </button>
-          <button type="button" class="btn btn-outline-secondary"
-            *ngFor="let a of analistas"
-            [class.active]="filtroAnalista === a.uid"
-            (click)="setAnalistaFilter(a.uid)">
-            {{ a.nome }}
-          </button>
-        </div>
-        <span class="small text-muted" *ngIf="filtroAnalista !== 'todos'">
-          — filtrando por caixa específica
-        </span>
+        <span class="small text-muted fw-semibold">Analisado por:</span>
+        <select class="form-select form-select-sm w-auto"
+          [(ngModel)]="filtroAnalista"
+          (ngModelChange)="setAnalistaFilter($event)">
+          <option value="todos">Todos</option>
+          <option *ngFor="let a of analistas" [value]="a.uid">{{ a.nome }}</option>
+        </select>
       </div>
     </div>
   </div>
