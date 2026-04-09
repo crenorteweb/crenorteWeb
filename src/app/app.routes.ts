@@ -106,6 +106,16 @@ export const routes: Routes = [
         .then(m => m.TriagemSupervisaoComponent),
   },
 
+  // === Módulo de Produção ===
+  {
+    path: 'producao',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin', 'supervisor'] as Papel[] },
+    title: 'Produção',
+    loadComponent: () =>
+      import('./pages/producao/producao.component').then(m => m.ProducaoComponent),
+  },
+
   // === novo modulo ===
 
   {

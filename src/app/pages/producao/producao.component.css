@@ -1,0 +1,44 @@
+h2 {
+  color: var(--cor-verde-principal, #008d45);
+}
+
+.producao-logo {
+  height: 42px;
+  object-fit: contain;
+}
+
+/* Cabeçalho da tabela na cor verde Crenorte */
+.table thead tr {
+  background-color: var(--cor-verde-principal, #008d45);
+  color: #fff;
+}
+
+.table thead th {
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: none;
+}
+
+/* Linhas zebradas mais suaves */
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+  background-color: rgba(0, 141, 69, 0.04);
+}
+
+/* Hover com tom verde muito claro */
+.table-hover > tbody > tr:hover > * {
+  background-color: rgba(0, 141, 69, 0.08);
+}
+
+/* Cards de resumo — arredondamento consistente */
+.card {
+  border-radius: 0.75rem;
+}
+
+.card-header {
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+}
+
+/* Ícone de estado vazio */
+.bi-inbox {
+  opacity: 0.35;
+}

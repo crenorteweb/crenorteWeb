@@ -1,0 +1,307 @@
+<app-header></app-header>
+
+<div class="container-fluid py-4 px-3 px-md-4">
+
+  <!-- Cabeçalho da página -->
+  <div class="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-2">
+    <div>
+      <h2 class="mb-0">Módulo de Produção</h2>
+      <small class="text-muted">Acompanhamento da produção diária por colaborador</small>
+    </div>
+    <img src="../../../assets/img/logo2-crenorte.png" alt="Logo CRENORTE" class="producao-logo" />
+  </div>
+
+  <!-- ===== FILTROS ===== -->
+  <div class="card shadow-sm mb-4">
+    <div class="card-body">
+      <div class="row g-3 align-items-end">
+
+        <!-- Cargo -->
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-briefcase me-1 text-success"></i>Cargo
+          </label>
+          <select
+            class="form-select"
+            [(ngModel)]="cargoStr"
+            (ngModelChange)="onCargoChange($event)"
+          >
+            <option value="">— Selecione o cargo —</option>
+            <option *ngFor="let c of cargoOptions" [value]="c.value">{{ c.label }}</option>
+          </select>
+        </div>
+
+        <!-- Colaborador -->
+        <div class="col-12 col-md-4">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-person me-1 text-success"></i>Colaborador
+          </label>
+
+          <div *ngIf="loadingColab()" class="form-control d-flex align-items-center gap-2">
+            <span class="spinner-border spinner-border-sm text-success" role="status"></span>
+            <span class="text-muted small">Carregando colaboradores...</span>
+          </div>
+
+          <select
+            *ngIf="!loadingColab()"
+            class="form-select"
+            [(ngModel)]="colaboradorUidStr"
+            (ngModelChange)="onColaboradorChange($event)"
+            [disabled]="!cargoStr || colaboradores().length === 0"
+          >
+            <option value="">
+              {{
+                !cargoStr
+                  ? '— Selecione o cargo primeiro —'
+                  : colaboradores().length === 0
+                  ? '— Nenhum colaborador encontrado —'
+                  : '— Selecione o colaborador —'
+              }}
+            </option>
+            <option *ngFor="let c of colaboradores()" [value]="c.uid">{{ c.nome }}</option>
+          </select>
+        </div>
+
+        <!-- Data -->
+        <div class="col-12 col-md-3">
+          <label class="form-label fw-semibold">
+            <i class="bi bi-calendar3 me-1 text-success"></i>Data
+          </label>
+          <div class="input-group">
+            <input
+              type="date"
+              class="form-control"
+              [(ngModel)]="dataSelecionadaStr"
+              (ngModelChange)="onDataChange()"
+            />
+            <button
+              class="btn btn-outline-success"
+              type="button"
+              (click)="resetarData()"
+              title="Ir para hoje"
+            >
+              <i class="bi bi-calendar-check"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Botão Buscar -->
+        <div class="col-12 col-md-2">
+          <button
+            class="btn btn-success w-100"
+            type="button"
+            [disabled]="!cargoStr || !colaboradorUidStr || loadingDados()"
+            (click)="buscarDados()"
+          >
+            <span *ngIf="loadingDados()" class="spinner-border spinner-border-sm me-1" role="status"></span>
+            <i *ngIf="!loadingDados()" class="bi bi-search me-1"></i>
+            {{ loadingDados() ? 'Buscando...' : 'Buscar' }}
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Alerta de erro -->
+  <div *ngIf="msgErro()" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ msgErro() }}
+    <button type="button" class="btn-close" (click)="msgErro.set(null)" aria-label="Fechar"></button>
+  </div>
+
+  <!-- Spinner de carregamento -->
+  <div *ngIf="loadingDados()" class="text-center py-5">
+    <div class="spinner-border text-success" style="width:3rem;height:3rem;" role="status"></div>
+    <p class="mt-3 text-muted">Buscando dados de produção...</p>
+  </div>
+
+  <!-- Conteúdo principal (após carregar) -->
+  <ng-container *ngIf="!loadingDados() && jaCarregou()">
+
+    <!-- ===== CARDS RESUMO — Analista ===== -->
+    <div *ngIf="cargoStr === 'analista'" class="row g-3 mb-4">
+
+      <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-success bg-opacity-10 p-3">
+              <i class="bi bi-clipboard2-check fs-4 text-success"></i>
+            </div>
+            <div>
+              <div class="text-muted small">Total Analisados</div>
+              <div class="fw-bold fs-2 text-success">{{ totalRegistros }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-primary bg-opacity-10 p-3">
+              <i class="bi bi-check-circle fs-4 text-primary"></i>
+            </div>
+            <div>
+              <div class="text-muted small">Aptos</div>
+              <div class="fw-bold fs-2 text-primary">{{ totalAptos }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 col-sm-4">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-danger bg-opacity-10 p-3">
+              <i class="bi bi-x-circle fs-4 text-danger"></i>
+            </div>
+            <div>
+              <div class="text-muted small">Inaptos</div>
+              <div class="fw-bold fs-2 text-danger">{{ totalInaptos }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ===== CARDS RESUMO — Supervisor ===== -->
+    <div *ngIf="cargoStr === 'supervisor'" class="row g-3 mb-4">
+      <div class="col-12 col-sm-5 col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-success bg-opacity-10 p-3">
+              <i class="bi bi-people fs-4 text-success"></i>
+            </div>
+            <div>
+              <div class="text-muted small">Total Encaminhados no Dia</div>
+              <div class="fw-bold fs-2 text-success">{{ totalRegistros }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== CARDS RESUMO — Assessor ===== -->
+    <div *ngIf="cargoStr === 'assessor'" class="row g-3 mb-4">
+      <div class="col-12 col-sm-5 col-md-4">
+        <div class="card border-0 shadow-sm">
+          <div class="card-body d-flex align-items-center gap-3">
+            <div class="rounded-circle bg-success bg-opacity-10 p-3">
+              <i class="bi bi-person-check fs-4 text-success"></i>
+            </div>
+            <div>
+              <div class="text-muted small">Pré-cadastros no Dia</div>
+              <div class="fw-bold fs-2 text-success">{{ totalRegistros }}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== ESTADO VAZIO ===== -->
+    <div *ngIf="dados().length === 0" class="text-center py-5">
+      <i class="bi bi-inbox fs-1 text-muted"></i>
+      <p class="mt-3 text-muted fs-5 mb-1">Nenhum registro encontrado para este dia.</p>
+      <small class="text-muted">Tente selecionar outra data ou verifique o colaborador selecionado.</small>
+    </div>
+
+    <!-- ===== TABELA ===== -->
+    <div *ngIf="dados().length > 0" class="card shadow-sm">
+
+      <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span class="fw-semibold text-success">
+          <i class="bi bi-table me-2"></i>
+          {{ colaboradorSel()?.nome }}
+          <span class="text-muted fw-normal mx-1">—</span>
+          {{ formatarDataExibicao() }}
+          <span class="badge bg-success ms-2">{{ dados().length }} registro(s)</span>
+        </span>
+
+        <!-- Botões de exportação -->
+        <div class="d-flex gap-2">
+          <button
+            class="btn btn-outline-danger btn-sm"
+            type="button"
+            (click)="exportarPDF()"
+            title="Exportar PDF"
+          >
+            <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+          </button>
+          <button
+            class="btn btn-outline-success btn-sm"
+            type="button"
+            (click)="exportarExcel()"
+            title="Exportar Excel"
+          >
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
+          </button>
+        </div>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover table-striped mb-0 align-middle">
+
+            <thead>
+              <tr>
+                <th class="text-center" style="width:48px">#</th>
+                <th>Nome do Cliente</th>
+                <th>CPF</th>
+                <th>Telefone</th>
+                <th>Município</th>
+                <!-- Colunas específicas por cargo -->
+                <ng-container *ngIf="cargoStr === 'assessor'">
+                  <th>Status</th>
+                  <th>Horário</th>
+                </ng-container>
+                <ng-container *ngIf="cargoStr === 'analista'">
+                  <th>Resultado</th>
+                  <th>Horário da Análise</th>
+                </ng-container>
+                <ng-container *ngIf="cargoStr === 'supervisor'">
+                  <th>Assessor Responsável</th>
+                  <th>Horário</th>
+                </ng-container>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr *ngFor="let item of dados(); let i = index">
+                <td class="text-center text-muted small">{{ i + 1 }}</td>
+                <td class="fw-semibold">{{ item.nomeCompleto || '—' }}</td>
+                <td><code class="small">{{ item.cpf || '—' }}</code></td>
+                <td class="small">{{ item.telefone || '—' }}</td>
+                <td class="small">{{ item.cidade || item.bairro || '—' }}</td>
+
+                <!-- Assessor -->
+                <ng-container *ngIf="cargoStr === 'assessor'">
+                  <td><span [class]="getBadgeClasse(item)">{{ getResultado(item) }}</span></td>
+                  <td class="small text-muted">{{ getHorarioPrincipal(item) }}</td>
+                </ng-container>
+
+                <!-- Analista -->
+                <ng-container *ngIf="cargoStr === 'analista'">
+                  <td><span [class]="getBadgeClasse(item)">{{ getResultado(item) }}</span></td>
+                  <td class="small text-muted">{{ getHorarioPrincipal(item) }}</td>
+                </ng-container>
+
+                <!-- Supervisor -->
+                <ng-container *ngIf="cargoStr === 'supervisor'">
+                  <td class="small">{{ getAssessorResponsavel(item) }}</td>
+                  <td class="small text-muted">{{ getHorarioPrincipal(item) }}</td>
+                </ng-container>
+              </tr>
+            </tbody>
+
+          </table>
+        </div>
+      </div>
+
+    </div>
+    <!-- /tabela -->
+
+  </ng-container>
+  <!-- /conteúdo principal -->
+
+</div>
