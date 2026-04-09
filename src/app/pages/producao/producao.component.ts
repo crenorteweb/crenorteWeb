@@ -34,13 +34,14 @@ export class ProducaoComponent {
   dataSelecionadaStr: string = this.hoje();
 
   // ===== Estado reativo =====
-  colaboradores   = signal<Colaborador[]>([]);
-  colaboradorSel  = signal<Colaborador | null>(null);
-  dados           = signal<PreCadastro[]>([]);
-  loadingColab    = signal(false);
-  loadingDados    = signal(false);
-  msgErro         = signal<string | null>(null);
-  jaCarregou      = signal(false);
+  colaboradores      = signal<Colaborador[]>([]);
+  colaboradorSel     = signal<Colaborador | null>(null);
+  dados              = signal<PreCadastro[]>([]);
+  nomesCriadorPorUid = signal<Map<string, string>>(new Map());
+  loadingColab       = signal(false);
+  loadingDados       = signal(false);
+  msgErro            = signal<string | null>(null);
+  jaCarregou         = signal(false);
 
   // ===== Helpers de data =====
   private hoje(): string {
@@ -117,6 +118,10 @@ export class ProducaoComponent {
         result = await this.service.buscarProducaoAssessor(uid, date);
       } else if (cargo === 'analista') {
         result = await this.service.buscarProducaoAnalista(uid, date);
+        // Enriquece com nomes reais da coleção colaboradores pelo createdByUid
+        const uids = result.map(r => (r as any).createdByUid).filter(Boolean);
+        const nomes = await this.service.buscarNomesPorUids(uids);
+        this.nomesCriadorPorUid.set(nomes);
       } else {
         result = await this.service.buscarProducaoSupervisor(uid, date);
       }
@@ -169,6 +174,18 @@ export class ProducaoComponent {
     return (item as any).createdByNome || '—';
   }
 
+  /** Retorna o nome de quem cadastrou o CPF (visão analista).
+   *  Prioriza a busca direta na coleção colaboradores via createdByUid,
+   *  com fallback para o campo denormalizado createdByNome. */
+  getNomeCriador(item: PreCadastro): string {
+    const uid: string = (item as any).createdByUid || '';
+    if (uid) {
+      const nome = this.nomesCriadorPorUid().get(uid);
+      if (nome) return nome;
+    }
+    return (item as any).createdByNome || '—';
+  }
+
   // ===== Exportação =====
   private nomeArquivo(ext: string): string {
     const cargo = this.cargoStr || 'cargo';
@@ -197,7 +214,7 @@ export class ProducaoComponent {
       if (this.cargoStr === 'assessor')
         return [...base, this.getResultado(item), this.getHorarioPrincipal(item)];
       if (this.cargoStr === 'analista')
-        return [...base, item.createdByNome || '—', this.getResultado(item), this.getHorarioPrincipal(item)];
+        return [...base, this.getNomeCriador(item), this.getResultado(item), this.getHorarioPrincipal(item)];
       return [...base, this.getAssessorResponsavel(item), this.getHorarioPrincipal(item)];
     });
   }
