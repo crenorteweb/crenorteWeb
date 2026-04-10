@@ -52,3 +52,4 @@ export interface Cliente {
 }
 
 export type CargoFiltro = 'assessor' | 'analista' | 'supervisor' | 'geral';
+export type ResultadoFiltro = 'todos' | 'apto' | 'inapto' | 'nao_analisado';

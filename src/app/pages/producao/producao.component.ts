@@ -1,11 +1,11 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { catchError, finalize } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
 
 import { HeaderComponent } from '../shared/header/header.component';
 import { ProducaoService } from '../../services/producao.service';
-import { CargoFiltro, Colaborador, PreCadastro } from '../../models/producao.model';
+import { CargoFiltro, Colaborador, PreCadastro, ResultadoFiltro } from '../../models/producao.model';
 
 import { FiltroCargo } from '../../components/producao/filtro-cargo/filtro-cargo.component';
 import { FiltroColaborador } from '../../components/producao/filtro-colaborador/filtro-colaborador.component';
@@ -44,11 +44,30 @@ export class ProducaoComponent {
 
   // ── Dados ─────────────────────────────────────────────────────────────────
   registrosOriginais = signal<PreCadastro[]>([]);
-  registrosFiltrados = signal<PreCadastro[]>([]);
+  termoBusca         = signal('');
+  filtroResultado    = signal<ResultadoFiltro>('todos');
   clienteSelecionado = signal<PreCadastro | null>(null);
   carregando         = signal(false);
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
+
+  registrosFiltrados = computed(() => {
+    let lista = this.registrosOriginais();
+
+    const fr = this.filtroResultado();
+    if (fr !== 'todos') {
+      lista = lista.filter(r =>
+        fr === 'nao_analisado' ? !r.resultado : r.resultado === fr
+      );
+    }
+
+    const digits = this.termoBusca().replace(/\D/g, '');
+    if (digits) {
+      lista = lista.filter(r => (r.cpf || '').replace(/\D/g, '').includes(digits));
+    }
+
+    return lista;
+  });
 
   // ── Handlers de filtro ────────────────────────────────────────────────────
 
@@ -56,7 +75,8 @@ export class ProducaoComponent {
     this.cargo.set(cargo);
     this.colaborador.set(null);
     this.registrosOriginais.set([]);
-    this.registrosFiltrados.set([]);
+    this.termoBusca.set('');
+    this.filtroResultado.set('todos');
     this.jaCarregou.set(false);
     this.erro.set(null);
     if (cargo === 'geral' && this.data()) this.buscar();
@@ -73,16 +93,7 @@ export class ProducaoComponent {
   }
 
   onTermoBusca(termo: string) {
-    const digits = termo.replace(/\D/g, '');
-    if (!digits) {
-      this.registrosFiltrados.set(this.registrosOriginais());
-    } else {
-      this.registrosFiltrados.set(
-        this.registrosOriginais().filter(r =>
-          (r.cpf || '').replace(/\D/g, '').includes(digits)
-        )
-      );
-    }
+    this.termoBusca.set(termo);
   }
 
   // ── Busca principal ───────────────────────────────────────────────────────
@@ -99,7 +110,8 @@ export class ProducaoComponent {
     this.carregando.set(true);
     this.erro.set(null);
     this.registrosOriginais.set([]);
-    this.registrosFiltrados.set([]);
+    this.filtroResultado.set('todos');
+    this.termoBusca.set('');
 
     const obs$ =
       cargo === 'assessor'  ? this.svc.buscarPorAssessor(uid, data)  :
@@ -118,7 +130,6 @@ export class ProducaoComponent {
       }),
     ).subscribe(registros => {
       this.registrosOriginais.set(registros);
-      this.registrosFiltrados.set(registros);
     });
   }
 
@@ -137,5 +148,15 @@ export class ProducaoComponent {
   get nomeColaborador(): string {
     if (this.cargo() === 'geral') return 'Todos os Analistas';
     return this.colaborador()?.nome || '';
+  }
+
+  contarResultado(fr: ResultadoFiltro): number {
+    return this.registrosOriginais().filter(r =>
+      fr === 'nao_analisado' ? !r.resultado : r.resultado === fr
+    ).length;
+  }
+
+  get mostrarFiltroNaoAnalisado(): boolean {
+    return this.cargo() === 'assessor' || this.cargo() === 'supervisor';
   }
 }
