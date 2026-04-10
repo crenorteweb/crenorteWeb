@@ -13,10 +13,13 @@ export interface LinhaImportacao {
   modalidade: 'cadunico' | 'grupo_solidario';
   erros: string[];
   valida: boolean;
+  duplicadaNaPlanilha?: boolean; // CPF repetido na própria planilha (não é erro de validação)
 }
 
 export interface ResultadoImportacao {
   importados: number;
   totalErros: number;
+  duplicadasPlanilha: number;
   detalhesErro: Array<{ linha: number; nome: string; erros: string[] }>;
+  linhasImportadas: LinhaImportacao[];
 }

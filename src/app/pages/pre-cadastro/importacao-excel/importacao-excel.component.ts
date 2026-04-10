@@ -42,8 +42,9 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
   processando = signal(false);
   mostrarDetalhesErros = signal(false);
 
-  linhasValidas = computed(() => this.linhas().filter((l) => l.valida));
-  linhasInvalidas = computed(() => this.linhas().filter((l) => !l.valida));
+  linhasValidas    = computed(() => this.linhas().filter((l) => l.valida));
+  linhasInvalidas  = computed(() => this.linhas().filter((l) => !l.valida && !l.duplicadaNaPlanilha));
+  linhasDuplicadas = computed(() => this.linhas().filter((l) => !!l.duplicadaNaPlanilha));
   progressoPct = computed(() => {
     const p = this.progresso();
     return p.total > 0 ? Math.round((p.atual / p.total) * 100) : 0;
@@ -174,5 +175,12 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
 
   voltarParaUpload(): void {
     this.reiniciar();
+  }
+
+  downloadCadastrados(): void {
+    const res = this.resultado();
+    if (res?.linhasImportadas?.length) {
+      this.svc.exportarCadastrados(res.linhasImportadas);
+    }
   }
 }

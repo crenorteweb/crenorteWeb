@@ -163,14 +163,9 @@ export class ImportacaoExcelService {
     return linhas.map((l) => {
       if (!l.valida || l.cpfNumeros.length !== 11) return l;
 
-      // Duplicata na planilha
+      // Duplicata na planilha — mantém apenas a 1ª ocorrência, sem contar como erro de validação
       if (cpfsVistosPlanilha.has(l.cpfNumeros)) {
-        const primeiraLinha = cpfsVistosPlanilha.get(l.cpfNumeros)!;
-        return {
-          ...l,
-          erros: [...l.erros, `CPF duplicado na planilha (primeira ocorrência na linha ${primeiraLinha})`],
-          valida: false,
-        };
+        return { ...l, duplicadaNaPlanilha: true, valida: false };
       }
       cpfsVistosPlanilha.set(l.cpfNumeros, l.index);
 
@@ -207,11 +202,12 @@ export class ImportacaoExcelService {
 
     const linhasValidas = linhas.filter((l) => l.valida);
     const detalhesErro = linhas
-      .filter((l) => !l.valida)
+      .filter((l) => !l.valida && !l.duplicadaNaPlanilha)
       .map((l) => ({ linha: l.index, nome: l.nome, erros: l.erros }));
+    const duplicadasPlanilha = linhas.filter((l) => l.duplicadaNaPlanilha).length;
 
     if (linhasValidas.length === 0) {
-      return { importados: 0, totalErros: detalhesErro.length, detalhesErro };
+      return { importados: 0, totalErros: detalhesErro.length, duplicadasPlanilha, detalhesErro, linhasImportadas: [] };
     }
 
     const colRef = collection(this.db, 'pre_cadastros');
@@ -251,7 +247,36 @@ export class ImportacaoExcelService {
       onProgress?.(importados, linhasValidas.length);
     }
 
-    return { importados, totalErros: detalhesErro.length, detalhesErro };
+    return { importados, totalErros: detalhesErro.length, duplicadasPlanilha, detalhesErro, linhasImportadas: linhasValidas };
+  }
+
+  /** Gera e faz download de uma planilha com os registros importados com sucesso. */
+  exportarCadastrados(linhas: LinhaImportacao[]): void {
+    const wb = XLSX.utils.book_new();
+
+    const linhas_ = [
+      ['Nome', 'CPF', 'Telefone', 'Bairro', 'UF', 'Município', 'Origem', 'Modalidade'],
+      ...linhas.map(l => [
+        l.nome,
+        l.cpfNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'),
+        l.telefoneNumeros,
+        l.bairro,
+        l.uf,
+        l.municipio,
+        l.origem,
+        l.modalidade === 'cadunico' ? 'Cadúnico' : 'Grupo Solidário',
+      ]),
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet(linhas_);
+    ws['!cols'] = [
+      { wch: 30 }, { wch: 16 }, { wch: 16 },
+      { wch: 20 }, { wch: 6 }, { wch: 22 }, { wch: 18 }, { wch: 18 },
+    ];
+    XLSX.utils.book_append_sheet(wb, ws, 'Cadastrados');
+
+    const hoje = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(wb, `clientes_cadastrados_${hoje}.xlsx`);
   }
 
   /** Gera e faz download de um arquivo Excel modelo com instruções. */
