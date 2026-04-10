@@ -40,16 +40,25 @@ export class BotoesExportacao {
     return `producao_${this.cargo}_${nome}_${this.data}.${ext}`;
   }
 
+  get registrosAptos(): PreCadastro[] {
+    return this.registros.filter(r => r.resultado === 'apto');
+  }
+
+  get mostrarBotoesAptos(): boolean {
+    return (this.cargo === 'analista' || this.cargo === 'geral') && this.registrosAptos.length > 0;
+  }
+
   private getCabecalhos(): string[] {
     const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município'];
     if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário'];
     if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
     if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário'];
+    if (this.cargo === 'geral')      return [...base, 'Assessor', 'Analista', 'Resultado', 'Horário da Análise'];
     return base;
   }
 
-  private getLinhas(): string[][] {
-    return this.registros.map(r => {
+  private getLinhas(lista = this.registros): string[][] {
+    return lista.map(r => {
       const base = [
         r.clienteNome || '—',
         r.cpf || '—',
@@ -62,16 +71,18 @@ export class BotoesExportacao {
         return [...base, r.assessorNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm)];
       if (this.cargo === 'supervisor')
         return [...base, r.assessorNome || '—', this.formatarHora(r.encaminhadoEm)];
+      if (this.cargo === 'geral')
+        return [...base, r.assessorNome || '—', r.analistaNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm)];
       return base;
     });
   }
 
   // ── Exportação ────────────────────────────────────────────────────────────
 
-  exportarPDF() {
+  private gerarPDF(lista: PreCadastro[], subtitulo = '') {
     const doc = new jsPDF();
     const cargoLabel: Record<string, string> = {
-      assessor: 'Assessor', analista: 'Analista', supervisor: 'Supervisor',
+      assessor: 'Assessor', analista: 'Analista', supervisor: 'Supervisor', geral: 'Geral (Analistas)',
     };
     const agora = new Date().toLocaleString('pt-BR');
 
@@ -81,7 +92,8 @@ export class BotoesExportacao {
 
     doc.setFontSize(12);
     doc.setTextColor(40, 40, 40);
-    doc.text(`Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}`, 14, 27);
+    const titulo = `Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}${subtitulo ? ' · ' + subtitulo : ''}`;
+    doc.text(titulo, 14, 27);
 
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
@@ -90,7 +102,7 @@ export class BotoesExportacao {
 
     autoTable(doc, {
       head: [this.getCabecalhos()],
-      body: this.getLinhas(),
+      body: this.getLinhas(lista),
       startY: 48,
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
@@ -101,13 +113,13 @@ export class BotoesExportacao {
     const finalY = (doc as any).lastAutoTable?.finalY ?? 100;
     doc.setFontSize(8);
     doc.setTextColor(120);
-    doc.text(`Total: ${this.registros.length} | Gerado em: ${agora}`, 14, finalY + 9);
+    doc.text(`Total: ${lista.length} | Gerado em: ${agora}`, 14, finalY + 9);
 
     doc.save(this.nomeArquivo('pdf'));
   }
 
-  exportarExcel() {
-    const wsData = [this.getCabecalhos(), ...this.getLinhas()];
+  private gerarExcel(lista: PreCadastro[], sufixo = '') {
+    const wsData = [this.getCabecalhos(), ...this.getLinhas(lista)];
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [
       { wch: 32 }, { wch: 16 }, { wch: 16 },
@@ -115,6 +127,12 @@ export class BotoesExportacao {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produção');
-    XLSX.writeFile(wb, this.nomeArquivo('xlsx'));
+    const nome = this.nomeArquivo('xlsx').replace('.xlsx', `${sufixo}.xlsx`);
+    XLSX.writeFile(wb, nome);
   }
+
+  exportarPDF()       { this.gerarPDF(this.registros); }
+  exportarExcel()     { this.gerarExcel(this.registros); }
+  exportarPDFAptos()  { this.gerarPDF(this.registrosAptos, 'Aptos'); }
+  exportarExcelAptos(){ this.gerarExcel(this.registrosAptos, '_aptos'); }
 }

@@ -51,4 +51,4 @@ export interface Cliente {
   status?: string;
 }
 
-export type CargoFiltro = 'assessor' | 'analista' | 'supervisor';
+export type CargoFiltro = 'assessor' | 'analista' | 'supervisor' | 'geral';

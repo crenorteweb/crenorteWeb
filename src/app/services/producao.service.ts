@@ -110,6 +110,10 @@ export class ProducaoService {
     return from(this._supervisor(supervisorId, data));
   }
 
+  buscarTodosAnalisados(data: string): Observable<PreCadastro[]> {
+    return from(this._todosAnalisados(data));
+  }
+
   // ── Implementações privadas ───────────────────────────────────────────────
 
   private async _assessor(uid: string, data: string): Promise<PreCadastro[]> {
@@ -175,6 +179,24 @@ export class ProducaoService {
     const filtered = all.filter(r => this.isOnDate(r.createdAt, data));
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    return result;
+  }
+
+  private async _todosAnalisados(data: string): Promise<PreCadastro[]> {
+    const snap = await getDocs(
+      query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto']))
+    );
+    const filtered = snap.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) }))
+      .filter(r => this.isOnDate(r.aprovacao?.em, data));
+
+    const assessorUids = [...new Set(
+      filtered.map(r => r.createdByUid).filter(Boolean) as string[]
+    )];
+    const nomes = await this.fetchNomesByUids(assessorUids);
+
+    const result = filtered.map(r => this.mapRaw(r, nomes));
+    result.sort((a, b) => this.getTime(b.analisadoEm) - this.getTime(a.analisadoEm));
     return result;
   }
 }

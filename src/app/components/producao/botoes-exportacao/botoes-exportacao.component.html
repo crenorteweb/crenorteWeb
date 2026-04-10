@@ -1,4 +1,4 @@
-<div *ngIf="registros.length > 0" class="d-flex gap-2">
+<div *ngIf="registros.length > 0" class="d-flex gap-2 flex-wrap">
   <button
     type="button"
     class="btn btn-outline-danger btn-sm"
@@ -15,4 +15,23 @@
   >
     <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
   </button>
+
+  <ng-container *ngIf="mostrarBotoesAptos">
+    <button
+      type="button"
+      class="btn btn-danger btn-sm"
+      (click)="exportarPDFAptos()"
+      title="Exportar PDF somente dos aptos"
+    >
+      <i class="bi bi-file-earmark-pdf me-1"></i>PDF (Aptos)
+    </button>
+    <button
+      type="button"
+      class="btn btn-success btn-sm"
+      (click)="exportarExcelAptos()"
+      title="Exportar Excel somente dos aptos"
+    >
+      <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel (Aptos)
+    </button>
+  </ng-container>
 </div>

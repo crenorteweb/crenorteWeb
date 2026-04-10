@@ -59,6 +59,7 @@ export class ProducaoComponent {
     this.registrosFiltrados.set([]);
     this.jaCarregou.set(false);
     this.erro.set(null);
+    if (cargo === 'geral' && this.data()) this.buscar();
   }
 
   onColaborador(colab: Colaborador) {
@@ -68,7 +69,7 @@ export class ProducaoComponent {
 
   onData(data: string) {
     this.data.set(data);
-    if (this.colaborador()) this.buscar();
+    if (this.colaborador() || this.cargo() === 'geral') this.buscar();
   }
 
   onTermoBusca(termo: string) {
@@ -90,9 +91,10 @@ export class ProducaoComponent {
     const cargo = this.cargo();
     const colab = this.colaborador();
     const data  = this.data();
-    if (!cargo || !colab || !data) return;
+    if (!cargo || !data) return;
+    if (cargo !== 'geral' && !colab) return;
 
-    const uid = colab.uid || colab.id;
+    const uid = colab?.uid || colab?.id || '';
 
     this.carregando.set(true);
     this.erro.set(null);
@@ -102,6 +104,7 @@ export class ProducaoComponent {
     const obs$ =
       cargo === 'assessor'  ? this.svc.buscarPorAssessor(uid, data)  :
       cargo === 'analista'  ? this.svc.buscarPorAnalista(uid, data)  :
+      cargo === 'geral'     ? this.svc.buscarTodosAnalisados(data)   :
                               this.svc.buscarPorSupervisor(uid, data);
 
     obs$.pipe(
@@ -132,6 +135,7 @@ export class ProducaoComponent {
   // ── Helper ────────────────────────────────────────────────────────────────
 
   get nomeColaborador(): string {
+    if (this.cargo() === 'geral') return 'Todos os Analistas';
     return this.colaborador()?.nome || '';
   }
 }

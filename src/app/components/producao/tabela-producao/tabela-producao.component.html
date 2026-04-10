@@ -30,6 +30,13 @@
           <th>Assessor Responsável</th>
           <th>Horário</th>
         </ng-container>
+
+        <ng-container *ngIf="cargo === 'geral'">
+          <th>Assessor</th>
+          <th>Analista</th>
+          <th>Resultado</th>
+          <th>Horário da Análise</th>
+        </ng-container>
       </tr>
     </thead>
 
@@ -60,6 +67,13 @@
         <ng-container *ngIf="cargo === 'supervisor'">
           <td class="small">{{ item.assessorNome || '—' }}</td>
           <td class="small text-muted">{{ formatarHora(item.encaminhadoEm) }}</td>
+        </ng-container>
+
+        <ng-container *ngIf="cargo === 'geral'">
+          <td class="small">{{ item.assessorNome || '—' }}</td>
+          <td class="small">{{ item.analistaNome || '—' }}</td>
+          <td><span [class]="getBadgeClasse(item)">{{ getResultado(item) }}</span></td>
+          <td class="small text-muted">{{ formatarHora(item.analisadoEm) }}</td>
         </ng-container>
       </tr>
     </tbody>

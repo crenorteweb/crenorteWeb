@@ -15,6 +15,7 @@ export class FiltroCargo {
     { value: 'assessor',  label: 'Assessor',  icon: 'bi-person-badge' },
     { value: 'analista',  label: 'Analista',  icon: 'bi-clipboard2-check' },
     { value: 'supervisor', label: 'Supervisor', icon: 'bi-people' },
+    { value: 'geral',     label: 'Geral (Analistas)', icon: 'bi-bar-chart-line' },
   ];
 
   atual: CargoFiltro | null = null;
