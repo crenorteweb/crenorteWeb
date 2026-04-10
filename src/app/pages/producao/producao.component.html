@@ -100,6 +100,9 @@
           </div>
         </div>
 
+        <!-- Filtros de resultado e origem -->
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+
         <!-- Filtro de resultado -->
         <div class="d-flex gap-2 flex-wrap">
           <button
@@ -140,6 +143,24 @@
             Não analisados <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'nao_analisado'" [class.text-dark]="true" [class.bg-warning]="filtroResultado() !== 'nao_analisado'">{{ contarResultado('nao_analisado') }}</span>
           </button>
         </div>
+
+        <!-- Filtro de origem -->
+        <div *ngIf="origensDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+            <i class="bi bi-geo-alt me-1"></i>Origem
+          </label>
+          <select
+            class="form-select form-select-sm"
+            style="min-width: 160px"
+            [ngModel]="filtroOrigem()"
+            (ngModelChange)="filtroOrigem.set($event)"
+          >
+            <option value="">Todas</option>
+            <option *ngFor="let o of origensDisponiveis()" [value]="o">{{ o }}</option>
+          </select>
+        </div>
+
+        </div><!-- /filtros -->
 
       </div>
 

@@ -77,6 +77,7 @@ export class ProducaoService {
       cpf: raw.cpf,
       telefone: raw.telefone,
       municipio: raw.cidade || raw.bairro || raw.municipio,
+      origem: raw.origem || '',
       status: raw.aprovacao?.status,
       assessorId: assessorUid,
       assessorNome,

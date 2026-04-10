@@ -1,5 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { catchError, finalize } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
 
@@ -21,6 +22,7 @@ import { ModalDetalheCliente } from '../../components/producao/modal-detalhe-cli
   standalone: true,
   imports: [
     CommonModule,
+    FormsModule,
     HeaderComponent,
     FiltroCargo,
     FiltroColaborador,
@@ -46,10 +48,20 @@ export class ProducaoComponent {
   registrosOriginais = signal<PreCadastro[]>([]);
   termoBusca         = signal('');
   filtroResultado    = signal<ResultadoFiltro>('todos');
+  filtroOrigem       = signal<string>('');
   clienteSelecionado = signal<PreCadastro | null>(null);
   carregando         = signal(false);
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
+
+  origensDisponiveis = computed(() => {
+    const set = new Set<string>();
+    this.registrosOriginais().forEach(r => {
+      const o = (r.origem || '').trim();
+      if (o) set.add(o);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
 
   registrosFiltrados = computed(() => {
     let lista = this.registrosOriginais();
@@ -59,6 +71,11 @@ export class ProducaoComponent {
       lista = lista.filter(r =>
         fr === 'nao_analisado' ? !r.resultado : r.resultado === fr
       );
+    }
+
+    const origem = this.filtroOrigem().trim();
+    if (origem) {
+      lista = lista.filter(r => (r.origem || '').trim() === origem);
     }
 
     const digits = this.termoBusca().replace(/\D/g, '');
@@ -77,6 +94,7 @@ export class ProducaoComponent {
     this.registrosOriginais.set([]);
     this.termoBusca.set('');
     this.filtroResultado.set('todos');
+    this.filtroOrigem.set('');
     this.jaCarregou.set(false);
     this.erro.set(null);
     if (cargo === 'geral' && this.data()) this.buscar();
@@ -111,6 +129,7 @@ export class ProducaoComponent {
     this.erro.set(null);
     this.registrosOriginais.set([]);
     this.filtroResultado.set('todos');
+    this.filtroOrigem.set('');
     this.termoBusca.set('');
 
     const obs$ =
