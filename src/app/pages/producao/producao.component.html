@@ -63,9 +63,9 @@
   <!-- Conteúdo após carregar -->
   <ng-container *ngIf="!carregando() && jaCarregou()">
 
-    <!-- Cards de resumo (usa registrosOriginais — não afetado pela busca) -->
+    <!-- Cards de resumo (usa registrosPorOrigem — reflete filtro de origem, não a busca por CPF) -->
     <app-cards-resumo
-      [registros]="registrosOriginais()"
+      [registros]="registrosPorOrigem()"
       [cargo]="cargo()"
     ></app-cards-resumo>
 
@@ -112,7 +112,7 @@
               : 'btn btn-outline-secondary btn-sm'"
             (click)="filtroResultado.set('todos')"
           >
-            Todos <span class="badge bg-white text-dark ms-1">{{ registrosOriginais().length }}</span>
+            Todos <span class="badge bg-white text-dark ms-1">{{ registrosPorOrigem().length }}</span>
           </button>
           <button
             type="button"

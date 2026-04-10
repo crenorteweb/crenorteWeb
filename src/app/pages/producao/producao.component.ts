@@ -54,6 +54,13 @@ export class ProducaoComponent {
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
 
+  /** Registros filtrados apenas por origem (sem busca CPF) — alimenta os cards de resumo */
+  registrosPorOrigem = computed(() => {
+    const origem = this.filtroOrigem().trim();
+    if (!origem) return this.registrosOriginais();
+    return this.registrosOriginais().filter(r => (r.origem || '').trim() === origem);
+  });
+
   origensDisponiveis = computed(() => {
     const set = new Set<string>();
     this.registrosOriginais().forEach(r => {
@@ -64,18 +71,13 @@ export class ProducaoComponent {
   });
 
   registrosFiltrados = computed(() => {
-    let lista = this.registrosOriginais();
+    let lista = this.registrosPorOrigem();
 
     const fr = this.filtroResultado();
     if (fr !== 'todos') {
       lista = lista.filter(r =>
         fr === 'nao_analisado' ? !r.resultado : r.resultado === fr
       );
-    }
-
-    const origem = this.filtroOrigem().trim();
-    if (origem) {
-      lista = lista.filter(r => (r.origem || '').trim() === origem);
     }
 
     const digits = this.termoBusca().replace(/\D/g, '');
@@ -170,7 +172,7 @@ export class ProducaoComponent {
   }
 
   contarResultado(fr: ResultadoFiltro): number {
-    return this.registrosOriginais().filter(r =>
+    return this.registrosPorOrigem().filter(r =>
       fr === 'nao_analisado' ? !r.resultado : r.resultado === fr
     ).length;
   }
