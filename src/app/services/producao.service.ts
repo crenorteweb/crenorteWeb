@@ -183,12 +183,25 @@ export class ProducaoService {
   }
 
   private async _todosAnalisados(data: string): Promise<PreCadastro[]> {
-    const snap = await getDocs(
-      query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto']))
-    );
-    const filtered = snap.docs
+    const [snapAnalisados, snapNaCaixa] = await Promise.all([
+      getDocs(query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto']))),
+      getDocs(query(this.preCadRef, where('caixaAtual', '==', 'analista'))),
+    ]);
+
+    const analisados = snapAnalisados.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r => this.isOnDate(r.aprovacao?.em, data));
+
+    const idsAnalisados = new Set(analisados.map(r => r.id));
+
+    const naoAnalisados = snapNaCaixa.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) }))
+      .filter(r =>
+        !idsAnalisados.has(r.id) &&
+        this.isOnDate(r.encaminhamento?.em ?? r.createdAt, data)
+      );
+
+    const filtered = [...analisados, ...naoAnalisados];
 
     const assessorUids = [...new Set(
       filtered.map(r => r.createdByUid).filter(Boolean) as string[]
@@ -196,7 +209,10 @@ export class ProducaoService {
     const nomes = await this.fetchNomesByUids(assessorUids);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
-    result.sort((a, b) => this.getTime(b.analisadoEm) - this.getTime(a.analisadoEm));
+    result.sort((a, b) =>
+      this.getTime(b.analisadoEm ?? b.encaminhadoEm) -
+      this.getTime(a.analisadoEm ?? a.encaminhadoEm)
+    );
     return result;
   }
 }
