@@ -85,6 +85,11 @@ export class ProducaoService {
       resultado: raw.aprovacao?.status === 'apto' ? 'apto'
                : raw.aprovacao?.status === 'inapto' ? 'inapto'
                : undefined,
+      motivoInapto: raw.aprovacao?.motivo || raw.motivoInapto,
+      contatoRealizado: raw.contatoRealizado,
+      observacaoAssessor: raw.observacao || raw.observacaoAssessor,
+      agendamento: raw.agendamento,
+      formalizado: raw.formalizado,
       criadoEm: raw.createdAt,
       encaminhadoEm: raw.encaminhamento?.em || raw.createdAt,
       analisadoEm: raw.aprovacao?.em,

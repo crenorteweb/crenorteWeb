@@ -23,6 +23,11 @@ export interface PreCadastro {
   supervisorId?: string;
   supervisorNome?: string;
   resultado?: 'apto' | 'inapto';
+  motivoInapto?: string;
+  contatoRealizado?: boolean;
+  observacaoAssessor?: string;
+  agendamento?: any;
+  formalizado?: boolean;
   criadoEm?: any;
   encaminhadoEm?: any;
   analisadoEm?: any;

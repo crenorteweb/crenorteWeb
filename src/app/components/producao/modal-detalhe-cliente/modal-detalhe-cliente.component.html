@@ -136,6 +136,42 @@
               <span class="campo-label">Data da Análise</span>
               <div>{{ formatarHora(preCadastro?.analisadoEm) }}</div>
             </div>
+            <div class="col-12" *ngIf="preCadastro?.resultado === 'inapto' && preCadastro?.motivoInapto">
+              <span class="campo-label">Motivo do Status Inapto</span>
+              <div>{{ preCadastro?.motivoInapto }}</div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Entrou em Contato</span>
+              <div>
+                <span
+                  class="badge"
+                  [class.bg-success]="preCadastro?.contatoRealizado === true"
+                  [class.bg-secondary]="preCadastro?.contatoRealizado !== true"
+                >
+                  {{ preCadastro?.contatoRealizado === true ? 'Sim' : preCadastro?.contatoRealizado === false ? 'Não' : '—' }}
+                </span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Formalizado</span>
+              <div>
+                <span
+                  class="badge"
+                  [class.bg-success]="preCadastro?.formalizado === true"
+                  [class.bg-secondary]="preCadastro?.formalizado !== true"
+                >
+                  {{ preCadastro?.formalizado === true ? 'Sim' : preCadastro?.formalizado === false ? 'Não' : '—' }}
+                </span>
+              </div>
+            </div>
+            <div class="col-12 col-sm-6" *ngIf="preCadastro?.agendamento">
+              <span class="campo-label">Agendamento</span>
+              <div>{{ formatarHora(preCadastro?.agendamento) }}</div>
+            </div>
+            <div class="col-12" *ngIf="preCadastro?.observacaoAssessor">
+              <span class="campo-label">Observação do Assessor</span>
+              <div class="text-wrap">{{ preCadastro?.observacaoAssessor }}</div>
+            </div>
           </div>
         </section>
 

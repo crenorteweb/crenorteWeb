@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { HeaderComponent } from '../shared/header/header.component';
 
 import {
-  Firestore, collection, query, where, onSnapshot, updateDoc, doc,
-  serverTimestamp, getDocs, Unsubscribe, setDoc, getDoc
+  Firestore, collection, query, where, updateDoc, doc,
+  serverTimestamp, getDocs, setDoc, getDoc
 } from '@angular/fire/firestore';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import jsPDF from 'jspdf';
@@ -146,8 +146,8 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   motivoInapto = signal<string>('');
 
   // ===== unsubscribers =====
-  private unsubsAss: Unsubscribe[] = [];
-  private unsubsPre: Unsubscribe[] = [];
+  private unsubsAss: (() => void)[] = [];
+  private unsubsPre: (() => void)[] = [];
 
   // ======= Derivados =======
 
@@ -349,78 +349,68 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
         return;
       }
       this.currentUser.set({ uid: u.uid, nome: u.displayName ?? undefined });
-      this.listenTodosOsAssessoresEETodosPreCadastros();
+      this.carregarTudo();
     });
   }
   ngOnDestroy(): void { this.clearAllUnsubs(); }
 
   // ================== Assinaturas ==================
 
-  /** Ouve TODOS os assessores ativos e depois ouve TODOS os pré-cadastros (sem filtro por autor). */
-  private listenTodosOsAssessoresEETodosPreCadastros() {
+  /** Busca assessores e pré-cadastros em paralelo (sem listeners em tempo real). */
+  async carregarTudo(): Promise<void> {
+    if (this.loading()) return;
     this.loading.set(true);
-    this.clearAssUnsubs();
 
-    const refColab = collection(this.fs, 'colaboradores');
-    const qAss = query(refColab, where('papel', '==', 'assessor'), where('status', '==', 'ativo'));
+    try {
+      const qAss = query(
+        collection(this.fs, 'colaboradores'),
+        where('papel', '==', 'assessor'),
+        where('status', '==', 'ativo')
+      );
 
-    const unsubAss = onSnapshot(qAss, (snap) => {
-      const rows = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Colaborador));
+      const [snapAss, snap1, snap2] = await Promise.all([
+        getDocs(qAss),
+        getDocs(collection(this.fs, 'pre_cadastros')),
+        getDocs(collection(this.fs, 'pre-cadastros')),
+      ]);
+
+      // Assessores
+      const rows = snapAss.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Colaborador));
       rows.forEach(r => { if (!r.uid) r.uid = r.id; });
       this.assessores.set(rows);
-
       rows.forEach(a => this.setNome(a.uid!, a.nome));
-      this.listenPreCadastrosTodos();
-    }, (err) => {
-      console.error('[Aprovacao] erro ao ouvir assessores:', err);
-      this.assessores.set([]);
-      this.listenPreCadastrosTodos();
-    });
 
-    this.unsubsAss.push(unsubAss);
-  }
-
-  /** Ouve TODAS as docs em pre_cadastros e pre-cadastros (root). */
-  private listenPreCadastrosTodos() {
-    this.clearPreUnsubs();
-
-    const acc = new Map<string, any>();
-    const handleSnap = async (snap: any, colName: 'pre_cadastros' | 'pre-cadastros') => {
-      let changed = false;
+      // Pré-cadastros
+      const acc = new Map<string, any>();
       const needNames = new Set<string>();
 
-      snap.forEach((d: any) => {
-        const raw = d.data() as any;
-        const item = { id: d.id, ...raw, __col: colName };
-        const prev = acc.get(item.id);
-        if (!prev) { acc.set(item.id, item); changed = true; }
-        else { acc.set(item.id, { ...prev, ...item, __col: colName }); changed = true; }
+      const processSnap = (snap: any, colName: 'pre_cadastros' | 'pre-cadastros') => {
+        snap.forEach((d: any) => {
+          const raw = d.data() as any;
+          const item = { id: d.id, ...raw, __col: colName };
+          const prev = acc.get(item.id);
+          acc.set(item.id, prev ? { ...prev, ...item, __col: colName } : item);
 
-        const created = item?.createdByUid as string | undefined;
-        const encUid = item?.encaminhamento?.assessorUid as string | undefined;
-        if (created) needNames.add(created);
-        if (encUid) needNames.add(encUid);
+          const created = item?.createdByUid as string | undefined;
+          const encUid = item?.encaminhamento?.assessorUid as string | undefined;
+          if (created) needNames.add(created);
+          if (encUid) needNames.add(encUid);
+          if (encUid) this.setSelected(item.id, encUid);
+        });
+      };
 
-        if (encUid) this.setSelected(item.id, encUid);
-      });
+      processSnap(snap1, 'pre_cadastros');
+      processSnap(snap2, 'pre-cadastros');
 
-      if (changed) {
-        const arr = Array.from(acc.values());
-        this.preCadastros.set(arr);
-        this.rebuildTotaisPorAutor(arr);
-        // hidrata nomes que ainda não temos
-        await this.preloadColabNames(Array.from(needNames));
-      }
+      const arr = Array.from(acc.values());
+      this.preCadastros.set(arr);
+      this.rebuildTotaisPorAutor(arr);
+      await this.preloadColabNames(Array.from(needNames));
+    } catch (e) {
+      console.error('[Aprovacao] erro ao carregar:', e);
+    } finally {
       this.loading.set(false);
-    };
-
-    const ref1 = collection(this.fs, 'pre_cadastros');
-    const u1 = onSnapshot(ref1, (snap) => handleSnap(snap, 'pre_cadastros'));
-    this.unsubsPre.push(u1);
-
-    const ref2 = collection(this.fs, 'pre-cadastros');
-    const u2 = onSnapshot(ref2, (snap) => handleSnap(snap, 'pre-cadastros'));
-    this.unsubsPre.push(u2);
+    }
   }
 
   // ===== Nomes helpers =====

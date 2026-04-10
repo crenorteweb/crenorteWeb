@@ -280,16 +280,17 @@ export class PreCadastroService {
       } catch {}
     };
 
-    for (const chunk of chunks) {
+    await Promise.all(chunks.map(chunk => {
       const eq = (field: string) =>
         chunk.length === 1
           ? where(field, '==', chunk[0])
           : where(field, 'in', chunk);
-
-      await tryGet(query(this.colRef, eq('caixaUid')));
-      await tryGet(query(this.colRef, eq('encaminhamento.assessorUid')));
-      await tryGet(query(this.colRef, eq('createdByUid')));
-    }
+      return Promise.all([
+        tryGet(query(this.colRef, eq('caixaUid'))),
+        tryGet(query(this.colRef, eq('encaminhamento.assessorUid'))),
+        tryGet(query(this.colRef, eq('createdByUid'))),
+      ]);
+    }));
 
     const ms = (x: any) => x?.toMillis ? x.toMillis() : x?.toDate ? x.toDate().getTime() : (typeof x === 'number' ? x : 0);
     const map = new Map<string, PreCadastro>();

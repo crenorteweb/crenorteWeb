@@ -31,6 +31,7 @@ type Aba = 'pessoas' | 'grupos';
 
 type FiltroEnvio = 'todos' | 'encaminhado' | 'nao_encaminhado' | 'apto' | 'inapto';
 
+type ColaboradorItem = { uid: string; nome: string; papel: string };
 
 type Assessor = {
   uid: string;
@@ -74,7 +75,19 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   searchTerm = '';
   filtrosEnvio = new Set<string>();
 
-  filtroAssessor: string | 'todos' = 'todos';
+  // ====== filtro por quem cadastrou (autocomplete + select) ======
+  colaboradoresList: ColaboradorItem[] = [];
+  filtroCriadorInput = '';
+  filtroCriadorUid: string | null = null;
+  filtroCriadorSelectUid = '';
+  sugestoesCriador: ColaboradorItem[] = [];
+  mostrarSugestoes = false;
+
+  // ====== paginação ======
+  paginaPessoas = 1;
+  tamanhoPaginaPessoas = 25;
+  paginaGrupos = 1;
+  tamanhoPaginaGrupos = 10;
 
   // ====== filtro por analista do time ======
   analistas: Analista[] = [];
@@ -92,6 +105,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== assessores (time do analista) ======
   assessores: Assessor[] = [];
   assessoresFiltrados: Assessor[] = [];
+
+  // ====== datasets base (estado "todos") para evitar re-fetch =====
+  private pessoasTodos: PreCadastro[] = [];
+  private gruposTodos: GrupoSolidario[] = [];
+
+  // indica busca em andamento ao trocar filtro de assessor
+  loadingFiltro = false;
 
   // ====== modal encaminhar PESSOA ======
   showAssessorPessoaModal = false;
@@ -128,16 +148,25 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
         // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
         const equipeUids = await this.obterIdsDoMeuTime();
-        await this.carregarAssessoresDoMeuTime(equipeUids);
+        await Promise.all([
+          this.carregarAssessoresDoMeuTime(equipeUids),
+          this.carregarColaboradores(),
+        ]);
 
         // Inclui UIDs de todos os assessores para que pré-cadastros criados/na caixa
         // deles também apareçam e possam ser encaminhados pelo supervisor
         const assessorUids = this.assessores.map(a => a.uid);
         const todosUids = [...new Set([...equipeUids, ...assessorUids])];
 
-        await this.carregarPessoasDoAnalista(todosUids);
-        await this.carregarGruposDoAnalista(todosUids);
+        await Promise.all([
+          this.carregarPessoasDoAnalista(todosUids),
+          this.carregarGruposDoAnalista(todosUids),
+        ]);
         await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
+
+        // Salva snapshot do estado "todos" para restaurar sem nova query
+        this.pessoasTodos = [...this.pessoas];
+        this.gruposTodos  = [...this.grupos];
 
         this.aplicarFiltrosPessoas();
         this.aplicarFiltrosGrupos();
@@ -164,12 +193,87 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.analistas = [];
     this.filtroAnalista = 'todos';
     this.filtrosEnvio = new Set();
+    this.filtroCriadorInput = '';
+    this.filtroCriadorUid = null;
+    this.filtroCriadorSelectUid = '';
+    this.sugestoesCriador = [];
+    this.mostrarSugestoes = false;
+    this.paginaPessoas = 1;
+    this.paginaGrupos = 1;
   }
 
-  setAssessorFilter(uid: string | 'todos') {
-    this.filtroAssessor = uid;
+  // ====================================================
+  // FILTRO POR QUEM CADASTROU — autocomplete
+  // ====================================================
+
+  onCriadorInputChange(): void {
+    const term = this.normalize(this.filtroCriadorInput);
+    if (!term) {
+      this.sugestoesCriador = [];
+      if (this.filtroCriadorUid !== null) {
+        this.limparCriador();
+      }
+      return;
+    }
+    this.mostrarSugestoes = true;
+    this.sugestoesCriador = this.colaboradoresList
+      .filter(c => this.normalize(c.nome).includes(term))
+      .slice(0, 8);
+  }
+
+  async selecionarCriador(c: ColaboradorItem): Promise<void> {
+    this.filtroCriadorInput = c.nome;
+    this.filtroCriadorUid = c.uid;
+    this.filtroCriadorSelectUid = c.uid;
+    this.sugestoesCriador = [];
+    this.mostrarSugestoes = false;
+    await this._buscarPorCriador(c.uid);
+  }
+
+  async selecionarCriadorPorSelect(uid: string): Promise<void> {
+    if (!uid) {
+      this.limparCriador();
+      return;
+    }
+    const colab = this.colaboradoresList.find(c => c.uid === uid);
+    this.filtroCriadorUid = uid;
+    this.filtroCriadorInput = colab?.nome ?? '';
+    this.filtroCriadorSelectUid = uid;
+    this.sugestoesCriador = [];
+    this.mostrarSugestoes = false;
+    await this._buscarPorCriador(uid);
+  }
+
+  private async _buscarPorCriador(uid: string): Promise<void> {
+    this.loadingFiltro = true;
+    try {
+      await Promise.all([
+        this.carregarPessoasPorCriador(uid),
+        this.carregarGruposPorCriador(uid),
+      ]);
+      this.aplicarFiltrosPessoas();
+      this.aplicarFiltrosGrupos();
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao buscar cadastros do criador:', e);
+    } finally {
+      this.loadingFiltro = false;
+    }
+  }
+
+  limparCriador(): void {
+    this.filtroCriadorInput = '';
+    this.filtroCriadorUid = null;
+    this.filtroCriadorSelectUid = '';
+    this.sugestoesCriador = [];
+    this.mostrarSugestoes = false;
+    this.pessoas = [...this.pessoasTodos];
+    this.grupos  = [...this.gruposTodos];
     this.aplicarFiltrosPessoas();
     this.aplicarFiltrosGrupos();
+  }
+
+  onCriadorBlur(): void {
+    setTimeout(() => { this.mostrarSugestoes = false; }, 150);
   }
 
   setAnalistaFilter(uid: string | 'todos') {
@@ -271,12 +375,28 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   private async carregarAssessoresDoMeuTime(_teamUids: string[]): Promise<void> {
     try {
       const ref = collection(this.afs, 'colaboradores');
-      const snap = await getDocs(
-        fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'))
-      );
+
+      // Busca assessores e admins ativos em paralelo
+      const [snapAssessores, snapAdmins] = await Promise.all([
+        getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'assessor'))),
+        getDocs(fsQuery(ref, where('status', '==', 'ativo'), where('papel', '==', 'admin'))),
+      ]);
 
       const map = new Map<string, Assessor>();
-      snap.docs.forEach((d) => {
+
+      // Processa admins primeiro (aparecem no topo da lista)
+      snapAdmins.docs.forEach((d) => {
+        const data = d.data() as any;
+        map.set(d.id, {
+          uid: d.id,
+          nome: `[Admin] ${data?.nome || data?.email || 'Admin'}`,
+          email: data?.email || null,
+          rota: data?.rota || null,
+          analistaId: data?.analistaId || null,
+        });
+      });
+
+      snapAssessores.docs.forEach((d) => {
         const data = d.data() as any;
         map.set(d.id, {
           uid: d.id,
@@ -495,6 +615,75 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
 
   // ====================================================
+  // BUSCA POR CRIADOR (createdByUid)
+  // ====================================================
+
+  private async carregarPessoasPorCriador(uid: string): Promise<void> {
+    try {
+      const colRef = collection(this.afs, 'pre_cadastros');
+      const q = fsQuery(
+        colRef,
+        where('createdByUid', '==', uid),
+        limit(500)
+      );
+      const snap = await getDocs(q);
+      const norm = snap.docs.map(d => {
+        const r = { id: d.id, ...d.data() } as any;
+        const formalizacao = r.formalizacao || {};
+        const desistencia  = r.desistencia  || {};
+        return {
+          ...r,
+          agendamentoStatus: r.agendamentoStatus || 'nao_agendado',
+          formalizacao: { status: formalizacao.status || 'nao_formalizado', ...formalizacao },
+          desistencia:  { status: desistencia.status  || 'nao_desistiu',    ...desistencia  },
+        } as PreCadastro;
+      });
+      this.pessoas = norm;
+      this.pessoasView = [...norm];
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao buscar pessoas por criador:', e);
+      this.pessoas = [];
+      this.pessoasView = [];
+    }
+  }
+
+  private async carregarGruposPorCriador(uid: string): Promise<void> {
+    try {
+      const colRef = collection(this.afs, 'grupos_solidarios');
+      const q = fsQuery(colRef, where('createdByUid', '==', uid));
+      const snap = await getDocs(q);
+      const grupos = snap.docs.map(d => ({ id: d.id, ...d.data() } as GrupoSolidario));
+      const join = await this.gruposSvc.joinGruposView(grupos);
+      this.grupos = join || [];
+      this.gruposView = [...this.grupos];
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao buscar grupos por criador:', e);
+      this.grupos = [];
+      this.gruposView = [];
+    }
+  }
+
+  private async carregarColaboradores(): Promise<void> {
+    try {
+      const ref = collection(this.afs, 'colaboradores');
+      const snap = await getDocs(fsQuery(ref, where('status', '==', 'ativo')));
+      this.colaboradoresList = snap.docs
+        .map(d => {
+          const data = d.data() as any;
+          return {
+            uid: d.id,
+            nome: data?.nome || data?.email || 'Usuário',
+            papel: data?.papel || '',
+          };
+        })
+        .sort((a, b) => a.nome.localeCompare(b.nome));
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao carregar colaboradores:', e);
+      this.colaboradoresList = [];
+    }
+  }
+
+  // ====================================================
   // Mesclar pré-cadastros de GRUPOS na aba PESSOAS
   // (cópia da lógica do módulo Lista, adaptada aqui)
   // ====================================================
@@ -671,15 +860,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       );
     }
 
-    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
-    if (this.filtroAssessor !== 'todos') {
-      list = list.filter((p) => {
-        const pAny = p as any;
-        return pAny.encaminhadoParaUid          === this.filtroAssessor ||
-               pAny.designadoParaUid            === this.filtroAssessor ||
-               pAny.caixaUid                   === this.filtroAssessor ||
-               pAny.encaminhamento?.assessorUid === this.filtroAssessor;
-      });
+    // filtro por quem cadastrou
+    if (this.filtroCriadorUid) {
+      list = list.filter((p) => (p as any).createdByUid === this.filtroCriadorUid);
     }
 
     const term = this.normalize(this.searchTerm);
@@ -707,6 +890,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       return db - da;
     });
 
+    this.paginaPessoas = 1;
     this.pessoasView = list;
   }
 
@@ -721,14 +905,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       );
     }
 
-    // filtro por assessor — verifica todos os campos onde o UID do destinatário pode estar
-    if (this.filtroAssessor !== 'todos') {
-      list = list.filter((g) => {
-        const gAny = g as any;
-        return gAny.encaminhadoParaUid === this.filtroAssessor ||
-               gAny.designadoParaUid   === this.filtroAssessor ||
-               gAny.caixaUid           === this.filtroAssessor;
-      });
+    // filtro por quem cadastrou
+    if (this.filtroCriadorUid) {
+      list = list.filter((g) => (g as any).createdByUid === this.filtroCriadorUid);
     }
 
     const term = this.normalize(this.searchTerm);
@@ -744,7 +923,51 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       });
     }
 
+    this.paginaGrupos = 1;
     this.gruposView = list;
+  }
+
+  // ====================================================
+  // PAGINAÇÃO
+  // ====================================================
+
+  get pessoasPaginadas(): PreCadastro[] {
+    const start = (this.paginaPessoas - 1) * this.tamanhoPaginaPessoas;
+    return this.pessoasView.slice(start, start + this.tamanhoPaginaPessoas);
+  }
+
+  get totalPaginasPessoas(): number {
+    return Math.max(1, Math.ceil(this.pessoasView.length / this.tamanhoPaginaPessoas));
+  }
+
+  get gruposPaginados(): GrupoSolidario[] {
+    const start = (this.paginaGrupos - 1) * this.tamanhoPaginaGrupos;
+    return this.gruposView.slice(start, start + this.tamanhoPaginaGrupos);
+  }
+
+  get totalPaginasGrupos(): number {
+    return Math.max(1, Math.ceil(this.gruposView.length / this.tamanhoPaginaGrupos));
+  }
+
+  paginasVisiveis(atual: number, total: number): (number | '...')[] {
+    if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+    const pages: (number | '...')[] = [];
+    for (let i = 1; i <= total; i++) {
+      if (i === 1 || i === total || (i >= atual - 2 && i <= atual + 2)) {
+        pages.push(i);
+      } else if (pages[pages.length - 1] !== '...') {
+        pages.push('...');
+      }
+    }
+    return pages;
+  }
+
+  irParaPaginaPessoas(p: number | '...'): void {
+    if (typeof p === 'number') this.paginaPessoas = p;
+  }
+
+  irParaPaginaGrupos(p: number | '...'): void {
+    if (typeof p === 'number') this.paginaGrupos = p;
   }
 
   // ====================================================

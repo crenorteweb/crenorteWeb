@@ -77,15 +77,59 @@
           </button>
         </div>
         <br>
-        <!-- Filtro por assessor -->
-        <select class="form-select form-select-sm w-auto" [(ngModel)]="filtroAssessor"
-          (ngModelChange)="setAssessorFilter($event)">
-          <option value="todos">Todos os assessores</option>
-          <option *ngFor="let a of assessores" [value]="a.uid">{{ a.nome }}</option>
-        </select>
+        <!-- Filtro por quem cadastrou: select + autocomplete -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
+
+          <!-- Select direto -->
+          <select class="form-select form-select-sm" style="max-width:220px;"
+            [(ngModel)]="filtroCriadorSelectUid"
+            (ngModelChange)="selecionarCriadorPorSelect($event)"
+            [disabled]="loadingFiltro">
+            <option value="">Todos</option>
+            <option *ngFor="let c of colaboradoresList" [value]="c.uid">
+              {{ c.nome }} ({{ c.papel }})
+            </option>
+          </select>
+
+          <!-- Autocomplete por digitação -->
+          <div class="position-relative" style="min-width: 200px;">
+            <div class="input-group input-group-sm">
+              <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+              <input type="text" class="form-control form-control-sm"
+                placeholder="Ou digite o nome…"
+                [(ngModel)]="filtroCriadorInput"
+                (ngModelChange)="onCriadorInputChange()"
+                (focus)="mostrarSugestoes = sugestoesCriador.length > 0"
+                (blur)="onCriadorBlur()"
+                [disabled]="loadingFiltro"
+                autocomplete="off">
+              <button *ngIf="filtroCriadorInput" type="button"
+                class="btn btn-outline-secondary btn-sm px-2"
+                (click)="limparCriador()" title="Limpar">
+                <i class="bi bi-x"></i>
+              </button>
+            </div>
+            <!-- Dropdown de sugestões -->
+            <ul *ngIf="mostrarSugestoes && sugestoesCriador.length > 0"
+              class="dropdown-menu show w-100 shadow-sm"
+              style="z-index:1050; max-height:220px; overflow-y:auto;">
+              <li *ngFor="let c of sugestoesCriador">
+                <button class="dropdown-item d-flex align-items-center gap-2" type="button"
+                  (mousedown)="selecionarCriador(c)">
+                  <span class="badge bg-secondary-subtle text-secondary"
+                    style="font-size:.7rem">{{ c.papel }}</span>
+                  {{ c.nome }}
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <span *ngIf="loadingFiltro"
+            class="spinner-border spinner-border-sm text-success" role="status"></span>
+        </div>
 
         <button type="button" class="btn btn-sm btn-outline-dark"
-          (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); setAssessorFilter('todos')">
+          (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); limparCriador()">
           Limpar filtros
         </button>
       </div>
@@ -127,21 +171,33 @@
   <!-- ABA PESSOAS (estilo lista) -->
   <!-- ========================= -->
   <div class="container-fluid" *ngIf="aba === 'pessoas'">
-    <!-- Controles superiores (simples) -->
+    <!-- Controles superiores -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
       <div class="text-muted small">
-        Mostrando {{ pessoasView.length }} registro(s)
+        Página {{ paginaPessoas }} de {{ totalPaginasPessoas }}
+        ({{ pessoasView.length }} registro(s) no total)
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0">Por página:</label>
+        <select class="form-select form-select-sm w-auto"
+          [(ngModel)]="tamanhoPaginaPessoas"
+          (ngModelChange)="paginaPessoas = 1">
+          <option [value]="10">10</option>
+          <option [value]="25">25</option>
+          <option [value]="50">50</option>
+          <option [value]="100">100</option>
+        </select>
       </div>
     </div>
 
     <!-- Lista de pessoas em card + list-group (estilo Central de Triagem) -->
-    <div class="card mb-4">
+    <div class="card mb-2">
       <div class="list-group list-group-flush">
         <div class="list-group-item" *ngIf="!pessoasView.length">
           Nenhum pré-cadastro encontrado na sua triagem.
         </div>
 
-        <div class="list-group-item" *ngFor="let p of pessoasView">
+        <div class="list-group-item" *ngFor="let p of pessoasPaginadas">
           <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
             <!-- ESQUERDA: identificação e dados -->
             <div>
@@ -175,7 +231,7 @@
                 </span>
                 <br>
                 <span *ngIf="p.cpf">
-                  Modalidade: {{ p.modalidade }}
+                  Modalidade: {{ p.modalidade }}<ng-container *ngIf="p.origem"> • Origem: {{ p.origem }}</ng-container>
                 </span>
                 <br>
                 <span>
@@ -229,27 +285,56 @@
         </div>
       </div>
     </div>
+
+    <!-- Paginação — Pessoas -->
+    <nav *ngIf="totalPaginasPessoas > 1" class="d-flex justify-content-center mb-4">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="paginaPessoas === 1">
+          <button class="page-link" (click)="paginaPessoas = paginaPessoas - 1"
+            [disabled]="paginaPessoas === 1">‹</button>
+        </li>
+        <li class="page-item" *ngFor="let p of paginasVisiveis(paginaPessoas, totalPaginasPessoas)"
+          [class.active]="p === paginaPessoas" [class.disabled]="p === '...'">
+          <button class="page-link" (click)="irParaPaginaPessoas(p)">{{ p }}</button>
+        </li>
+        <li class="page-item" [class.disabled]="paginaPessoas === totalPaginasPessoas">
+          <button class="page-link" (click)="paginaPessoas = paginaPessoas + 1"
+            [disabled]="paginaPessoas === totalPaginasPessoas">›</button>
+        </li>
+      </ul>
+    </nav>
   </div>
 
   <!-- ========================= -->
   <!-- ABA GRUPOS (estilo Central) -->
   <!-- ========================= -->
   <div class="container-fluid" *ngIf="aba === 'grupos'">
-    <!-- Controles superiores (simples) -->
+    <!-- Controles superiores -->
     <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
       <div class="text-muted small">
-        Mostrando {{ gruposView.length }} grupo(s)
+        Página {{ paginaGrupos }} de {{ totalPaginasGrupos }}
+        ({{ gruposView.length }} grupo(s) no total)
+      </div>
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted mb-0">Por página:</label>
+        <select class="form-select form-select-sm w-auto"
+          [(ngModel)]="tamanhoPaginaGrupos"
+          (ngModelChange)="paginaGrupos = 1">
+          <option [value]="5">5</option>
+          <option [value]="10">10</option>
+          <option [value]="25">25</option>
+        </select>
       </div>
     </div>
 
     <!-- Lista de grupos em card estilo Central de Triagem -->
-    <div class="card mb-4">
+    <div class="card mb-2">
       <div class="p-4" *ngIf="!gruposView.length">
         Nenhum grupo solidário encontrado na sua triagem.
       </div>
 
       <div *ngIf="gruposView.length">
-        <div class="triagem-card px-4 py-3 border-bottom" *ngFor="let g of gruposView">
+        <div class="triagem-card px-4 py-3 border-bottom" *ngFor="let g of gruposPaginados">
           <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
             <!-- ESQUERDA: nome + localidade + coordenador + integrantes -->
             <div>
@@ -296,6 +381,24 @@
         </div>
       </div>
     </div>
+
+    <!-- Paginação — Grupos -->
+    <nav *ngIf="totalPaginasGrupos > 1" class="d-flex justify-content-center mb-4">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="paginaGrupos === 1">
+          <button class="page-link" (click)="paginaGrupos = paginaGrupos - 1"
+            [disabled]="paginaGrupos === 1">‹</button>
+        </li>
+        <li class="page-item" *ngFor="let p of paginasVisiveis(paginaGrupos, totalPaginasGrupos)"
+          [class.active]="p === paginaGrupos" [class.disabled]="p === '...'">
+          <button class="page-link" (click)="irParaPaginaGrupos(p)">{{ p }}</button>
+        </li>
+        <li class="page-item" [class.disabled]="paginaGrupos === totalPaginasGrupos">
+          <button class="page-link" (click)="paginaGrupos = paginaGrupos + 1"
+            [disabled]="paginaGrupos === totalPaginasGrupos">›</button>
+        </li>
+      </ul>
+    </nav>
   </div>
 </div>
 

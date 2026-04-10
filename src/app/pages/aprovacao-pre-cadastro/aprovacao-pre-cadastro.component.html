@@ -70,6 +70,13 @@
           (input)="onFiltroCpfChange($any($event.target).value)">
       </div>
 
+      <!-- Atualizar -->
+      <button class="btn btn-outline-secondary" (click)="carregarTudo()" [disabled]="loading()">
+        <span *ngIf="loading()" class="spinner-border spinner-border-sm me-1" role="status"></span>
+        <i *ngIf="!loading()" class="bi bi-arrow-clockwise me-1"></i>
+        Atualizar
+      </button>
+
       <!-- Relatório -->
       <button class="btn btn-outline-secondary" (click)="relatorioAberto.set(true)">
         Relatório de Aprovação
