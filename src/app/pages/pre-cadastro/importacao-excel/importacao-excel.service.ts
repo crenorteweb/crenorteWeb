@@ -254,9 +254,17 @@ export class ImportacaoExcelService {
   exportarCadastrados(linhas: LinhaImportacao[]): void {
     const wb = XLSX.utils.book_new();
 
+    // Garante que apenas a 1ª ocorrência de cada CPF entre na planilha
+    const cpfsVistos = new Set<string>();
+    const unicas = linhas.filter(l => {
+      if (cpfsVistos.has(l.cpfNumeros)) return false;
+      cpfsVistos.add(l.cpfNumeros);
+      return true;
+    });
+
     const linhas_ = [
       ['Nome', 'CPF', 'Telefone', 'Bairro', 'UF', 'Município', 'Origem', 'Modalidade'],
-      ...linhas.map(l => [
+      ...unicas.map(l => [
         l.nome,
         l.cpfNumeros.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4'),
         l.telefoneNumeros,
