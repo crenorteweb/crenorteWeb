@@ -78,7 +78,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   private auth = inject(Auth);
 
   // ======= Estado base =======
-  loading = signal(true);
+  loading = signal(false);
   preCadastros = signal<PreCadastro[]>([]);
   assessores = signal<Colaborador[]>([]);
   currentUser = signal<{ uid: string; nome?: string; papel?: string } | null>(null);
@@ -337,8 +337,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     return { total: list.length, pendentes, grupos };
   });
 
-  // ===== Lifecycle =====
-  ngOnInit(): void {
+  constructor() {
     onAuthStateChanged(this.auth, (u) => {
       if (!u) {
         this.currentUser.set(null);
@@ -352,6 +351,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       this.carregarTudo();
     });
   }
+
+  // ===== Lifecycle =====
+  ngOnInit(): void { }
   ngOnDestroy(): void { this.clearAllUnsubs(); }
 
   // ================== Assinaturas ==================
