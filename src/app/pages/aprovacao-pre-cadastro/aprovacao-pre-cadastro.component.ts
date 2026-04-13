@@ -530,6 +530,14 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
       updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
     ]);
+
+    // Atualiza o signal localmente para refletir na UI sem esperar o onSnapshot
+    this.preCadastros.update(list =>
+      list.map(it => it.id === item.id
+        ? { ...it as any, aprovacao: { ...(it as any).aprovacao, status: 'apto', porNome, porUid: cu.uid } }
+        : it
+      )
+    );
   }
 
   abrirModalInapto(item: PreCadastro) {
@@ -568,6 +576,14 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       updateDoc(doc(this.fs, 'pre_cadastros', id), patch).catch(() => { }),
       updateDoc(doc(this.fs, 'pre-cadastros', id), patch).catch(() => { }),
     ]);
+
+    // Atualiza o signal localmente para refletir na UI sem esperar o onSnapshot
+    this.preCadastros.update(list =>
+      list.map(it => it.id === id
+        ? { ...it as any, aprovacao: { ...(it as any).aprovacao, status: 'inapto', motivo: obs, observacao: obs } }
+        : it
+      )
+    );
 
     this.fecharModalInapto();
   }
