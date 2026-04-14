@@ -42,7 +42,7 @@ export class ProducaoService {
     } catch { return false; }
   }
 
-  /** Busca nomes de colaboradores em lote por UIDs (IDs dos documentos) */
+  /** Busca nomes de colaboradores em lote por IDs de documento (assessores) */
   private async fetchNomesByUids(uids: string[]): Promise<Map<string, string>> {
     const map = new Map<string, string>();
     const unique = [...new Set(uids)].filter(Boolean);
@@ -57,6 +57,31 @@ export class ProducaoService {
       snap.docs.forEach(d => {
         const nome: string = (d.data() as any).nome || '';
         if (nome) map.set(d.id, nome);
+      });
+    }
+    return map;
+  }
+
+  /**
+   * Busca nomes de colaboradores pelo campo `uid` (Firebase Auth UID).
+   * Necessário para analistas cujo document ID difere do Auth UID.
+   */
+  private async fetchNomesByAuthUid(authUids: string[]): Promise<Map<string, string>> {
+    const map = new Map<string, string>();
+    const unique = [...new Set(authUids)].filter(Boolean);
+    if (!unique.length) return map;
+
+    for (let i = 0; i < unique.length; i += 10) {
+      const chunk = unique.slice(i, i + 10);
+      const qy = chunk.length === 1
+        ? query(this.colabRef, where('uid', '==', chunk[0]))
+        : query(this.colabRef, where('uid', 'in', chunk));
+      const snap = await getDocs(qy);
+      snap.docs.forEach(d => {
+        const data = d.data() as any;
+        const nome: string = data.nome || '';
+        const uid: string  = data.uid  || '';
+        if (nome && uid) map.set(uid, nome);
       });
     }
     return map;
@@ -83,7 +108,12 @@ export class ProducaoService {
       assessorId: assessorUid,
       assessorNome,
       analistaId: raw.aprovacao?.porUid || raw.analistaId,
-      analistaNome: raw.aprovacao?.porNome || raw.analistaNome,
+      analistaNome: (() => {
+        const uid  = raw.aprovacao?.porUid || raw.analistaId || '';
+        const nome = raw.aprovacao?.porNome || raw.analistaNome || '';
+        // Se porNome foi salvo erroneamente como o próprio UID, ignora e usa o mapa
+        return (nome && nome !== uid ? nome : '') || nomes?.get(uid) || '';
+      })(),
       resultado: raw.aprovacao?.status === 'apto' ? 'apto'
                : raw.aprovacao?.status === 'inapto' ? 'inapto'
                : undefined,
@@ -205,10 +235,15 @@ export class ProducaoService {
 
     const filtered = [...analisados, ...naoAnalisados];
 
-    const assessorUids = [...new Set(
-      filtered.map(r => r.createdByUid).filter(Boolean) as string[]
-    )];
-    const nomes = await this.fetchNomesByUids(assessorUids);
+    const assessorUids = [...new Set(filtered.map(r => r.createdByUid).filter(Boolean) as string[])];
+    const analistaUids = [...new Set(filtered.map(r => r.aprovacao?.porUid).filter(Boolean) as string[])];
+
+    const [nomesAssessores, nomesAnalistas] = await Promise.all([
+      this.fetchNomesByUids(assessorUids),
+      this.fetchNomesByAuthUid(analistaUids),
+    ]);
+
+    const nomes = new Map([...nomesAssessores, ...nomesAnalistas]);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) =>
