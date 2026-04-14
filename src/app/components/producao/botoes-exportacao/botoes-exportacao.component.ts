@@ -49,7 +49,7 @@ export class BotoesExportacao {
   }
 
   private getCabecalhos(): string[] {
-    const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município'];
+    const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'Bairro'];
     if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário'];
     if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
     if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário'];
@@ -64,6 +64,7 @@ export class BotoesExportacao {
         r.cpf || '—',
         r.telefone || '—',
         r.municipio || '—',
+        r.bairro || '—',
       ];
       if (this.cargo === 'assessor')
         return [...base, r.status || '—', this.formatarHora(r.encaminhadoEm)];
@@ -123,7 +124,7 @@ export class BotoesExportacao {
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     ws['!cols'] = [
       { wch: 32 }, { wch: 16 }, { wch: 16 },
-      { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 12 },
+      { wch: 20 }, { wch: 22 }, { wch: 22 }, { wch: 22 }, { wch: 12 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produção');
