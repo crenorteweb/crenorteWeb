@@ -144,6 +144,54 @@
           </button>
         </div>
 
+        <!-- Filtro de analista (somente no modo geral) -->
+        <div *ngIf="cargo() === 'geral' && analistasDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+            <i class="bi bi-person-check me-1"></i>Analista
+          </label>
+          <select
+            class="form-select form-select-sm"
+            style="min-width: 180px"
+            [ngModel]="filtroAnalista()"
+            (ngModelChange)="filtroAnalista.set($event)"
+          >
+            <option value="">Todos</option>
+            <option *ngFor="let a of analistasDisponiveis()" [value]="a.id">{{ a.nome }}</option>
+          </select>
+        </div>
+
+        <!-- Filtro de município -->
+        <div *ngIf="municipiosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+            <i class="bi bi-building me-1"></i>Município
+          </label>
+          <select
+            class="form-select form-select-sm"
+            style="min-width: 170px"
+            [ngModel]="filtroMunicipio()"
+            (ngModelChange)="onFiltroMunicipio($event)"
+          >
+            <option value="">Todos</option>
+            <option *ngFor="let m of municipiosDisponiveis()" [value]="m">{{ m }}</option>
+          </select>
+        </div>
+
+        <!-- Filtro de bairro -->
+        <div *ngIf="bairrosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+            <i class="bi bi-map me-1"></i>Bairro
+          </label>
+          <select
+            class="form-select form-select-sm"
+            style="min-width: 160px"
+            [ngModel]="filtroBairro()"
+            (ngModelChange)="filtroBairro.set($event)"
+          >
+            <option value="">Todos</option>
+            <option *ngFor="let b of bairrosDisponiveis()" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+
         <!-- Filtro de origem -->
         <div *ngIf="origensDisponiveis().length > 0" class="d-flex align-items-center gap-2">
           <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">

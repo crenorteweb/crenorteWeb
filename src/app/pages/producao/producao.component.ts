@@ -49,16 +49,31 @@ export class ProducaoComponent {
   termoBusca         = signal('');
   filtroResultado    = signal<ResultadoFiltro>('todos');
   filtroOrigem       = signal<string>('');
+  filtroAnalista     = signal<string>('');
+  filtroMunicipio    = signal<string>('');
+  filtroBairro       = signal<string>('');
   clienteSelecionado = signal<PreCadastro | null>(null);
   carregando         = signal(false);
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
 
-  /** Registros filtrados apenas por origem (sem busca CPF) — alimenta os cards de resumo */
+  /** Registros filtrados por origem/analista/município/bairro (sem busca CPF) — alimenta os cards de resumo */
   registrosPorOrigem = computed(() => {
+    let lista = this.registrosOriginais();
+
     const origem = this.filtroOrigem().trim();
-    if (!origem) return this.registrosOriginais();
-    return this.registrosOriginais().filter(r => (r.origem || '').trim() === origem);
+    if (origem) lista = lista.filter(r => (r.origem || '').trim() === origem);
+
+    const analista = this.filtroAnalista().trim();
+    if (analista) lista = lista.filter(r => r.analistaId === analista);
+
+    const municipio = this.filtroMunicipio().trim();
+    if (municipio) lista = lista.filter(r => (r.municipio || '').trim() === municipio);
+
+    const bairro = this.filtroBairro().trim();
+    if (bairro) lista = lista.filter(r => (r.bairro || '').trim() === bairro);
+
+    return lista;
   });
 
   origensDisponiveis = computed(() => {
@@ -68,6 +83,39 @@ export class ProducaoComponent {
       if (o) set.add(o);
     });
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  municipiosDisponiveis = computed(() => {
+    const set = new Set<string>();
+    this.registrosOriginais().forEach(r => {
+      const m = (r.municipio || '').trim();
+      if (m) set.add(m);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  bairrosDisponiveis = computed(() => {
+    const municipio = this.filtroMunicipio().trim();
+    const base = municipio
+      ? this.registrosOriginais().filter(r => (r.municipio || '').trim() === municipio)
+      : this.registrosOriginais();
+    const set = new Set<string>();
+    base.forEach(r => {
+      const b = (r.bairro || '').trim();
+      if (b) set.add(b);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  analistasDisponiveis = computed(() => {
+    if (this.cargo() !== 'geral') return [];
+    const map = new Map<string, string>();
+    this.registrosOriginais().forEach(r => {
+      if (r.analistaId && r.analistaNome) map.set(r.analistaId, r.analistaNome);
+    });
+    return Array.from(map.entries())
+      .map(([id, nome]) => ({ id, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   });
 
   registrosFiltrados = computed(() => {
@@ -97,6 +145,9 @@ export class ProducaoComponent {
     this.termoBusca.set('');
     this.filtroResultado.set('todos');
     this.filtroOrigem.set('');
+    this.filtroAnalista.set('');
+    this.filtroMunicipio.set('');
+    this.filtroBairro.set('');
     this.jaCarregou.set(false);
     this.erro.set(null);
     if (cargo === 'geral' && this.data()) this.buscar();
@@ -116,6 +167,11 @@ export class ProducaoComponent {
     this.termoBusca.set(termo);
   }
 
+  onFiltroMunicipio(municipio: string) {
+    this.filtroMunicipio.set(municipio);
+    this.filtroBairro.set('');
+  }
+
   // ── Busca principal ───────────────────────────────────────────────────────
 
   private buscar() {
@@ -132,6 +188,9 @@ export class ProducaoComponent {
     this.registrosOriginais.set([]);
     this.filtroResultado.set('todos');
     this.filtroOrigem.set('');
+    this.filtroAnalista.set('');
+    this.filtroMunicipio.set('');
+    this.filtroBairro.set('');
     this.termoBusca.set('');
 
     const obs$ =

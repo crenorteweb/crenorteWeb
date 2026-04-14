@@ -29,7 +29,7 @@ export class ColaboradoresService {
     return snap.docs
       .map(d => ({
         id: d.id,
-        uid: d.id,
+        uid: (d.data() as any).uid || d.id,
         nome: (d.data() as any).nome || '',
         cargo: ((d.data() as any).papel || papel) as Colaborador['cargo'],
         email: (d.data() as any).email,

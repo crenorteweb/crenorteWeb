@@ -15,6 +15,7 @@ export interface PreCadastro {
   cpf?: string;
   telefone?: string;
   municipio?: string;
+  bairro?: string;
   status?: string;
   assessorId?: string;
   assessorNome?: string;
