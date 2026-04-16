@@ -6,7 +6,7 @@ import { EMPTY } from 'rxjs';
 
 import { HeaderComponent } from '../shared/header/header.component';
 import { ProducaoService } from '../../services/producao.service';
-import { CargoFiltro, Colaborador, PreCadastro, ResultadoFiltro } from '../../models/producao.model';
+import { CargoFiltro, Colaborador, PeriodoFiltro, PreCadastro, ResultadoFiltro } from '../../models/producao.model';
 
 import { FiltroCargo } from '../../components/producao/filtro-cargo/filtro-cargo.component';
 import { FiltroColaborador } from '../../components/producao/filtro-colaborador/filtro-colaborador.component';
@@ -42,7 +42,8 @@ export class ProducaoComponent {
   // ── Filtros ───────────────────────────────────────────────────────────────
   cargo       = signal<CargoFiltro | null>(null);
   colaborador = signal<Colaborador | null>(null);
-  data        = signal('');
+  dataInicio  = signal('');
+  dataFim     = signal('');
 
   // ── Dados ─────────────────────────────────────────────────────────────────
   registrosOriginais = signal<PreCadastro[]>([]);
@@ -56,6 +57,14 @@ export class ProducaoComponent {
   carregando         = signal(false);
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
+
+  // ── Relatório de cadastros adicionados (modo geral) ───────────────────────
+  abaAtiva                  = signal<'analisados' | 'adicionados'>('analisados');
+  registrosAdicionados      = signal<PreCadastro[]>([]);
+  filtroOrigemAdicionados   = signal<string>('');
+  carregandoAdicionados     = signal(false);
+  jaCarregouAdicionados     = signal(false);
+  erroAdicionados           = signal<string | null>(null);
 
   /** Registros filtrados por origem/analista/município/bairro (sem busca CPF) — alimenta os cards de resumo */
   registrosPorOrigem = computed(() => {
@@ -136,21 +145,63 @@ export class ProducaoComponent {
     return lista;
   });
 
+  origensAdicionadas = computed(() => {
+    const set = new Set<string>();
+    this.registrosAdicionados().forEach(r => {
+      const o = (r.origem || '').trim();
+      if (o) set.add(o);
+    });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  registrosAdicionadosFiltrados = computed(() => {
+    const origem = this.filtroOrigemAdicionados().trim();
+    return origem
+      ? this.registrosAdicionados().filter(r => (r.origem || '').trim() === origem)
+      : this.registrosAdicionados();
+  });
+
+  adicionadosPorOrigem = computed(() => {
+    const map = new Map<string, number>();
+    this.registrosAdicionadosFiltrados().forEach(r => {
+      const o = (r.origem || '').trim() || 'Sem origem';
+      map.set(o, (map.get(o) ?? 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  });
+
+  adicionadosPorAssessor = computed(() => {
+    const map = new Map<string, number>();
+    this.registrosAdicionadosFiltrados().forEach(r => {
+      const nome = (r.assessorNome || '').trim() || 'Desconhecido';
+      map.set(nome, (map.get(nome) ?? 0) + 1);
+    });
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  });
+
   // ── Handlers de filtro ────────────────────────────────────────────────────
 
   onCargo(cargo: CargoFiltro) {
     this.cargo.set(cargo);
     this.colaborador.set(null);
     this.registrosOriginais.set([]);
+    this.registrosAdicionados.set([]);
     this.termoBusca.set('');
     this.filtroResultado.set('todos');
     this.filtroOrigem.set('');
     this.filtroAnalista.set('');
     this.filtroMunicipio.set('');
     this.filtroBairro.set('');
+    this.filtroOrigemAdicionados.set('');
+    this.abaAtiva.set('analisados');
     this.jaCarregou.set(false);
+    this.jaCarregouAdicionados.set(false);
     this.erro.set(null);
-    if (cargo === 'geral' && this.data()) this.buscar();
+    this.erroAdicionados.set(null);
+    if (cargo === 'geral' && this.dataInicio()) {
+      this.buscar();
+      this.buscarAdicionados();
+    }
   }
 
   onColaborador(colab: Colaborador) {
@@ -158,9 +209,11 @@ export class ProducaoComponent {
     this.buscar();
   }
 
-  onData(data: string) {
-    this.data.set(data);
+  onData(periodo: PeriodoFiltro) {
+    this.dataInicio.set(periodo.inicio);
+    this.dataFim.set(periodo.fim);
     if (this.colaborador() || this.cargo() === 'geral') this.buscar();
+    if (this.cargo() === 'geral') this.buscarAdicionados();
   }
 
   onTermoBusca(termo: string) {
@@ -175,10 +228,11 @@ export class ProducaoComponent {
   // ── Busca principal ───────────────────────────────────────────────────────
 
   private buscar() {
-    const cargo = this.cargo();
-    const colab = this.colaborador();
-    const data  = this.data();
-    if (!cargo || !data) return;
+    const cargo      = this.cargo();
+    const colab      = this.colaborador();
+    const dataInicio = this.dataInicio();
+    const dataFim    = this.dataFim();
+    if (!cargo || !dataInicio) return;
     if (cargo !== 'geral' && !colab) return;
 
     const uid = colab?.uid || colab?.id || '';
@@ -194,10 +248,10 @@ export class ProducaoComponent {
     this.termoBusca.set('');
 
     const obs$ =
-      cargo === 'assessor'  ? this.svc.buscarPorAssessor(uid, data)  :
-      cargo === 'analista'  ? this.svc.buscarPorAnalista(uid, data)  :
-      cargo === 'geral'     ? this.svc.buscarTodosAnalisados(data)   :
-                              this.svc.buscarPorSupervisor(uid, data);
+      cargo === 'assessor'  ? this.svc.buscarPorAssessor(uid, dataInicio, dataFim)  :
+      cargo === 'analista'  ? this.svc.buscarPorAnalista(uid, dataInicio, dataFim)  :
+      cargo === 'geral'     ? this.svc.buscarTodosAnalisados(dataInicio, dataFim)   :
+                              this.svc.buscarPorSupervisor(uid, dataInicio, dataFim);
 
     obs$.pipe(
       catchError(e => {
@@ -210,6 +264,30 @@ export class ProducaoComponent {
       }),
     ).subscribe(registros => {
       this.registrosOriginais.set(registros);
+    });
+  }
+
+  private buscarAdicionados() {
+    const dataInicio = this.dataInicio();
+    const dataFim    = this.dataFim();
+    if (!dataInicio) return;
+
+    this.carregandoAdicionados.set(true);
+    this.erroAdicionados.set(null);
+    this.registrosAdicionados.set([]);
+    this.filtroOrigemAdicionados.set('');
+
+    this.svc.buscarAdicionados(dataInicio, dataFim).pipe(
+      catchError(e => {
+        this.erroAdicionados.set('Erro ao buscar cadastros adicionados: ' + (e?.message || 'Tente novamente.'));
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.carregandoAdicionados.set(false);
+        this.jaCarregouAdicionados.set(true);
+      }),
+    ).subscribe(registros => {
+      this.registrosAdicionados.set(registros);
     });
   }
 
@@ -228,6 +306,13 @@ export class ProducaoComponent {
   get nomeColaborador(): string {
     if (this.cargo() === 'geral') return 'Todos os Analistas';
     return this.colaborador()?.nome || '';
+  }
+
+  get periodoLabel(): string {
+    const ini = this.dataInicio();
+    const fim = this.dataFim();
+    if (!ini) return '';
+    return ini === fim ? ini : `${ini} a ${fim}`;
   }
 
   contarResultado(fr: ResultadoFiltro): number {

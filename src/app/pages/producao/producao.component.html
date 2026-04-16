@@ -36,10 +36,10 @@
           ></app-filtro-colaborador>
         </div>
 
-        <!-- Data -->
-        <div class="col-12 col-md-4">
+        <!-- Período -->
+        <div class="col-12 col-md-6">
           <label class="form-label fw-semibold">
-            <i class="bi bi-calendar3 me-1 text-success"></i>Data
+            <i class="bi bi-calendar3 me-1 text-success"></i>Período
           </label>
           <app-filtro-data (dataSelecionada)="onData($event)"></app-filtro-data>
         </div>
@@ -48,178 +48,340 @@
     </div>
   </div>
 
-  <!-- Alerta de erro -->
-  <div *ngIf="erro()" class="alert alert-danger alert-dismissible fade show" role="alert">
-    <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ erro() }}
-    <button type="button" class="btn-close" (click)="erro.set(null)" aria-label="Fechar"></button>
-  </div>
+  <!-- ── Abas (somente modo geral) ── -->
+  <ul *ngIf="cargo() === 'geral'" class="nav nav-tabs mb-4">
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        [class.active]="abaAtiva() === 'analisados'"
+        (click)="abaAtiva.set('analisados')"
+      >
+        <i class="bi bi-check2-circle me-1"></i>Analisados
+      </button>
+    </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        [class.active]="abaAtiva() === 'adicionados'"
+        (click)="abaAtiva.set('adicionados')"
+      >
+        <i class="bi bi-person-plus me-1"></i>Adicionados
+      </button>
+    </li>
+  </ul>
 
-  <!-- Spinner de carregamento -->
-  <div *ngIf="carregando()" class="text-center py-5">
-    <div class="spinner-border text-success" style="width:3rem;height:3rem;" role="status"></div>
-    <p class="mt-3 text-muted">Buscando dados de produção...</p>
-  </div>
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: ANALISADOS  (sempre visível em modos não-geral)                  -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="cargo() !== 'geral' || abaAtiva() === 'analisados'">
 
-  <!-- Conteúdo após carregar -->
-  <ng-container *ngIf="!carregando() && jaCarregou()">
-
-    <!-- Cards de resumo (usa registrosPorOrigem — reflete filtro de origem, não a busca por CPF) -->
-    <app-cards-resumo
-      [registros]="registrosPorOrigem()"
-      [cargo]="cargo()"
-    ></app-cards-resumo>
-
-    <!-- Estado vazio -->
-    <div *ngIf="registrosOriginais().length === 0" class="text-center py-5">
-      <i class="bi bi-inbox fs-1 text-muted"></i>
-      <p class="mt-3 text-muted fs-5 mb-1">Nenhum registro encontrado para este dia.</p>
-      <small class="text-muted">Tente selecionar outra data ou verifique o colaborador selecionado.</small>
+    <!-- Alerta de erro -->
+    <div *ngIf="erro()" class="alert alert-danger alert-dismissible fade show" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ erro() }}
+      <button type="button" class="btn-close" (click)="erro.set(null)" aria-label="Fechar"></button>
     </div>
 
-    <!-- Tabela -->
-    <div *ngIf="registrosOriginais().length > 0" class="card shadow-sm">
+    <!-- Spinner -->
+    <div *ngIf="carregando()" class="text-center py-5">
+      <div class="spinner-border text-success" style="width:3rem;height:3rem;" role="status"></div>
+      <p class="mt-3 text-muted">Buscando dados de produção...</p>
+    </div>
+
+    <!-- Conteúdo após carregar -->
+    <ng-container *ngIf="!carregando() && jaCarregou()">
+
+      <app-cards-resumo
+        [registros]="registrosPorOrigem()"
+        [cargo]="cargo()"
+      ></app-cards-resumo>
+
+      <!-- Estado vazio -->
+      <div *ngIf="registrosOriginais().length === 0" class="text-center py-5">
+        <i class="bi bi-inbox fs-1 text-muted"></i>
+        <p class="mt-3 text-muted fs-5 mb-1">Nenhum registro encontrado para o período.</p>
+        <small class="text-muted">Tente selecionar outro período ou verifique o colaborador selecionado.</small>
+      </div>
+
+      <!-- Tabela -->
+      <div *ngIf="registrosOriginais().length > 0" class="card shadow-sm">
+
+        <div class="card-header bg-white py-3">
+
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <span class="fw-semibold text-success">
+              <i class="bi bi-table me-2"></i>{{ nomeColaborador }}
+            </span>
+            <div class="d-flex align-items-center gap-3 flex-wrap">
+              <app-busca-cpf
+                [total]="registrosOriginais().length"
+                [filtrado]="registrosFiltrados().length"
+                (termoBusca)="onTermoBusca($event)"
+              ></app-busca-cpf>
+              <app-botoes-exportacao
+                [registros]="registrosFiltrados()"
+                [cargo]="cargo()"
+                [nomeColaborador]="nomeColaborador"
+                [dataInicio]="dataInicio()"
+                [dataFim]="dataFim()"
+              ></app-botoes-exportacao>
+            </div>
+          </div>
+
+          <!-- Filtros de resultado e origem -->
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+
+            <!-- Filtro de resultado -->
+            <div class="d-flex gap-2 flex-wrap">
+              <button
+                type="button"
+                [class]="filtroResultado() === 'todos'
+                  ? 'btn btn-success btn-sm'
+                  : 'btn btn-outline-secondary btn-sm'"
+                (click)="filtroResultado.set('todos')"
+              >
+                Todos <span class="badge bg-white text-dark ms-1">{{ registrosPorOrigem().length }}</span>
+              </button>
+              <button
+                type="button"
+                [class]="filtroResultado() === 'apto'
+                  ? 'btn btn-success btn-sm'
+                  : 'btn btn-outline-success btn-sm'"
+                (click)="filtroResultado.set('apto')"
+              >
+                Aptos <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'apto'" [class.text-dark]="filtroResultado() === 'apto'" [class.bg-success]="filtroResultado() !== 'apto'">{{ contarResultado('apto') }}</span>
+              </button>
+              <button
+                type="button"
+                [class]="filtroResultado() === 'inapto'
+                  ? 'btn btn-danger btn-sm'
+                  : 'btn btn-outline-danger btn-sm'"
+                (click)="filtroResultado.set('inapto')"
+              >
+                Inaptos <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'inapto'" [class.text-dark]="filtroResultado() === 'inapto'" [class.bg-danger]="filtroResultado() !== 'inapto'">{{ contarResultado('inapto') }}</span>
+              </button>
+              <button
+                *ngIf="mostrarFiltroNaoAnalisado"
+                type="button"
+                [class]="filtroResultado() === 'nao_analisado'
+                  ? 'btn btn-warning btn-sm'
+                  : 'btn btn-outline-warning btn-sm'"
+                (click)="filtroResultado.set('nao_analisado')"
+              >
+                Não analisados <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'nao_analisado'" [class.text-dark]="true" [class.bg-warning]="filtroResultado() !== 'nao_analisado'">{{ contarResultado('nao_analisado') }}</span>
+              </button>
+            </div>
+
+            <!-- Filtro de analista (somente no modo geral) -->
+            <div *ngIf="cargo() === 'geral' && analistasDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-person-check me-1"></i>Analista
+              </label>
+              <select
+                class="form-select form-select-sm"
+                style="min-width: 180px"
+                [ngModel]="filtroAnalista()"
+                (ngModelChange)="filtroAnalista.set($event)"
+              >
+                <option value="">Todos</option>
+                <option *ngFor="let a of analistasDisponiveis()" [value]="a.id">{{ a.nome }}</option>
+              </select>
+            </div>
+
+            <!-- Filtro de município -->
+            <div *ngIf="municipiosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-building me-1"></i>Município
+              </label>
+              <select
+                class="form-select form-select-sm"
+                style="min-width: 170px"
+                [ngModel]="filtroMunicipio()"
+                (ngModelChange)="onFiltroMunicipio($event)"
+              >
+                <option value="">Todos</option>
+                <option *ngFor="let m of municipiosDisponiveis()" [value]="m">{{ m }}</option>
+              </select>
+            </div>
+
+            <!-- Filtro de bairro -->
+            <div *ngIf="bairrosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-map me-1"></i>Bairro
+              </label>
+              <select
+                class="form-select form-select-sm"
+                style="min-width: 160px"
+                [ngModel]="filtroBairro()"
+                (ngModelChange)="filtroBairro.set($event)"
+              >
+                <option value="">Todos</option>
+                <option *ngFor="let b of bairrosDisponiveis()" [value]="b">{{ b }}</option>
+              </select>
+            </div>
+
+            <!-- Filtro de origem -->
+            <div *ngIf="origensDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-geo-alt me-1"></i>Origem
+              </label>
+              <select
+                class="form-select form-select-sm"
+                style="min-width: 160px"
+                [ngModel]="filtroOrigem()"
+                (ngModelChange)="filtroOrigem.set($event)"
+              >
+                <option value="">Todas</option>
+                <option *ngFor="let o of origensDisponiveis()" [value]="o">{{ o }}</option>
+              </select>
+            </div>
+
+          </div><!-- /filtros -->
+
+        </div>
+
+        <div class="card-body p-0">
+          <app-tabela-producao
+            [registros]="registrosFiltrados()"
+            [cargo]="cargo()"
+            (clienteClicado)="abrirModal($event)"
+          ></app-tabela-producao>
+        </div>
+
+      </div>
+
+    </ng-container>
+
+  </ng-container>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: ADICIONADOS  (somente modo geral)                                -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="cargo() === 'geral' && abaAtiva() === 'adicionados'">
+
+    <!-- Alerta de erro -->
+    <div *ngIf="erroAdicionados()" class="alert alert-danger alert-dismissible fade show" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ erroAdicionados() }}
+      <button type="button" class="btn-close" (click)="erroAdicionados.set(null)" aria-label="Fechar"></button>
+    </div>
+
+    <!-- Spinner -->
+    <div *ngIf="carregandoAdicionados()" class="text-center py-5">
+      <div class="spinner-border text-primary" style="width:3rem;height:3rem;" role="status"></div>
+      <p class="mt-3 text-muted">Carregando cadastros adicionados...</p>
+    </div>
+
+    <div *ngIf="!carregandoAdicionados() && jaCarregouAdicionados()" class="card shadow-sm mb-4">
 
       <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
 
-        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
-          <span class="fw-semibold text-success">
-            <i class="bi bi-table me-2"></i>{{ nomeColaborador }}
+          <span class="fw-semibold" style="color: #0d6efd">
+            <i class="bi bi-person-plus me-2"></i>Cadastros Adicionados no Período
           </span>
+
           <div class="d-flex align-items-center gap-3 flex-wrap">
-            <app-busca-cpf
-              [total]="registrosOriginais().length"
-              [filtrado]="registrosFiltrados().length"
-              (termoBusca)="onTermoBusca($event)"
-            ></app-busca-cpf>
+            <!-- Filtro de origem -->
+            <div *ngIf="origensAdicionadas().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-geo-alt me-1"></i>Origem
+              </label>
+              <select
+                class="form-select form-select-sm"
+                style="min-width: 160px"
+                [ngModel]="filtroOrigemAdicionados()"
+                (ngModelChange)="filtroOrigemAdicionados.set($event)"
+              >
+                <option value="">Todas</option>
+                <option *ngFor="let o of origensAdicionadas()" [value]="o">{{ o }}</option>
+              </select>
+            </div>
+
+            <!-- Exportação -->
             <app-botoes-exportacao
-              [registros]="registrosFiltrados()"
-              [cargo]="cargo()"
-              [nomeColaborador]="nomeColaborador"
-              [data]="data()"
+              [registros]="registrosAdicionadosFiltrados()"
+              [modoAdicionados]="true"
+              [nomeColaborador]="'Geral'"
+              [dataInicio]="dataInicio()"
+              [dataFim]="dataFim()"
             ></app-botoes-exportacao>
           </div>
+
         </div>
-
-        <!-- Filtros de resultado e origem -->
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-
-        <!-- Filtro de resultado -->
-        <div class="d-flex gap-2 flex-wrap">
-          <button
-            type="button"
-            [class]="filtroResultado() === 'todos'
-              ? 'btn btn-success btn-sm'
-              : 'btn btn-outline-secondary btn-sm'"
-            (click)="filtroResultado.set('todos')"
-          >
-            Todos <span class="badge bg-white text-dark ms-1">{{ registrosPorOrigem().length }}</span>
-          </button>
-          <button
-            type="button"
-            [class]="filtroResultado() === 'apto'
-              ? 'btn btn-success btn-sm'
-              : 'btn btn-outline-success btn-sm'"
-            (click)="filtroResultado.set('apto')"
-          >
-            Aptos <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'apto'" [class.text-dark]="filtroResultado() === 'apto'" [class.bg-success]="filtroResultado() !== 'apto'" >{{ contarResultado('apto') }}</span>
-          </button>
-          <button
-            type="button"
-            [class]="filtroResultado() === 'inapto'
-              ? 'btn btn-danger btn-sm'
-              : 'btn btn-outline-danger btn-sm'"
-            (click)="filtroResultado.set('inapto')"
-          >
-            Inaptos <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'inapto'" [class.text-dark]="filtroResultado() === 'inapto'" [class.bg-danger]="filtroResultado() !== 'inapto'">{{ contarResultado('inapto') }}</span>
-          </button>
-          <button
-            *ngIf="mostrarFiltroNaoAnalisado"
-            type="button"
-            [class]="filtroResultado() === 'nao_analisado'
-              ? 'btn btn-warning btn-sm'
-              : 'btn btn-outline-warning btn-sm'"
-            (click)="filtroResultado.set('nao_analisado')"
-          >
-            Não analisados <span class="badge ms-1" [class.bg-white]="filtroResultado() === 'nao_analisado'" [class.text-dark]="true" [class.bg-warning]="filtroResultado() !== 'nao_analisado'">{{ contarResultado('nao_analisado') }}</span>
-          </button>
-        </div>
-
-        <!-- Filtro de analista (somente no modo geral) -->
-        <div *ngIf="cargo() === 'geral' && analistasDisponiveis().length > 0" class="d-flex align-items-center gap-2">
-          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
-            <i class="bi bi-person-check me-1"></i>Analista
-          </label>
-          <select
-            class="form-select form-select-sm"
-            style="min-width: 180px"
-            [ngModel]="filtroAnalista()"
-            (ngModelChange)="filtroAnalista.set($event)"
-          >
-            <option value="">Todos</option>
-            <option *ngFor="let a of analistasDisponiveis()" [value]="a.id">{{ a.nome }}</option>
-          </select>
-        </div>
-
-        <!-- Filtro de município -->
-        <div *ngIf="municipiosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
-          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
-            <i class="bi bi-building me-1"></i>Município
-          </label>
-          <select
-            class="form-select form-select-sm"
-            style="min-width: 170px"
-            [ngModel]="filtroMunicipio()"
-            (ngModelChange)="onFiltroMunicipio($event)"
-          >
-            <option value="">Todos</option>
-            <option *ngFor="let m of municipiosDisponiveis()" [value]="m">{{ m }}</option>
-          </select>
-        </div>
-
-        <!-- Filtro de bairro -->
-        <div *ngIf="bairrosDisponiveis().length > 0" class="d-flex align-items-center gap-2">
-          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
-            <i class="bi bi-map me-1"></i>Bairro
-          </label>
-          <select
-            class="form-select form-select-sm"
-            style="min-width: 160px"
-            [ngModel]="filtroBairro()"
-            (ngModelChange)="filtroBairro.set($event)"
-          >
-            <option value="">Todos</option>
-            <option *ngFor="let b of bairrosDisponiveis()" [value]="b">{{ b }}</option>
-          </select>
-        </div>
-
-        <!-- Filtro de origem -->
-        <div *ngIf="origensDisponiveis().length > 0" class="d-flex align-items-center gap-2">
-          <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
-            <i class="bi bi-geo-alt me-1"></i>Origem
-          </label>
-          <select
-            class="form-select form-select-sm"
-            style="min-width: 160px"
-            [ngModel]="filtroOrigem()"
-            (ngModelChange)="filtroOrigem.set($event)"
-          >
-            <option value="">Todas</option>
-            <option *ngFor="let o of origensDisponiveis()" [value]="o">{{ o }}</option>
-          </select>
-        </div>
-
-        </div><!-- /filtros -->
-
       </div>
 
-      <div class="card-body p-0">
-        <app-tabela-producao
-          [registros]="registrosFiltrados()"
-          [cargo]="cargo()"
-          (clienteClicado)="abrirModal($event)"
-        ></app-tabela-producao>
-      </div>
+      <div class="card-body">
 
+        <!-- Vazio -->
+        <div *ngIf="registrosAdicionadosFiltrados().length === 0" class="text-center text-muted py-5">
+          <i class="bi bi-inbox fs-1"></i>
+          <p class="mt-3 mb-0 fs-5">Nenhum cadastro adicionado no período.</p>
+        </div>
+
+        <ng-container *ngIf="registrosAdicionadosFiltrados().length > 0">
+
+          <!-- Badge total -->
+          <div class="mb-4">
+            <span class="badge fs-6 py-2 px-3" style="background-color:#0d6efd">
+              Total: {{ registrosAdicionadosFiltrados().length }}
+            </span>
+          </div>
+
+          <div class="row g-4">
+
+            <!-- Por assessor -->
+            <div class="col-12 col-lg-6">
+              <h6 class="fw-semibold text-muted small mb-2">
+                <i class="bi bi-person me-1"></i>Por Assessor
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Assessor</th>
+                      <th class="text-center" style="width:100px">Qtd.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of adicionadosPorAssessor()">
+                      <td>{{ item[0] }}</td>
+                      <td class="text-center">
+                        <span class="badge" style="background-color:#0d6efd">{{ item[1] }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Por origem -->
+            <div class="col-12 col-lg-6" *ngIf="adicionadosPorOrigem().length > 1 || filtroOrigemAdicionados()">
+              <h6 class="fw-semibold text-muted small mb-2">
+                <i class="bi bi-geo-alt me-1"></i>Por Origem
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-sm table-bordered table-hover mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Origem</th>
+                      <th class="text-center" style="width:100px">Qtd.</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let item of adicionadosPorOrigem()">
+                      <td>{{ item[0] }}</td>
+                      <td class="text-center">
+                        <span class="badge" style="background-color:#0d6efd">{{ item[1] }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+        </ng-container>
+
+      </div>
     </div>
 
   </ng-container>

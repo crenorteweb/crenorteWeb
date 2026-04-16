@@ -16,7 +16,10 @@ export class BotoesExportacao {
   @Input() registros: PreCadastro[] = [];
   @Input() cargo: CargoFiltro | null = null;
   @Input() nomeColaborador = '';
-  @Input() data = '';
+  @Input() dataInicio = '';
+  @Input() dataFim = '';
+  /** Quando true, usa colunas e nome de arquivo específicos para o relatório de adicionados */
+  @Input() modoAdicionados = false;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -34,10 +37,17 @@ export class BotoesExportacao {
     return `${d}/${m}/${y}`;
   }
 
+  private get periodoLabel(): string {
+    return this.dataInicio === this.dataFim
+      ? this.dataInicio
+      : `${this.dataInicio}_a_${this.dataFim}`;
+  }
+
   private nomeArquivo(ext: string): string {
     const nome = (this.nomeColaborador || 'colaborador')
       .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
-    return `producao_${this.cargo}_${nome}_${this.data}.${ext}`;
+    const prefixo = this.modoAdicionados ? 'adicionados' : `producao_${this.cargo}`;
+    return `${prefixo}_${nome}_${this.periodoLabel}.${ext}`;
   }
 
   get registrosAptos(): PreCadastro[] {
@@ -45,11 +55,12 @@ export class BotoesExportacao {
   }
 
   get mostrarBotoesAptos(): boolean {
-    return (this.cargo === 'analista' || this.cargo === 'geral') && this.registrosAptos.length > 0;
+    return !this.modoAdicionados && (this.cargo === 'analista' || this.cargo === 'geral') && this.registrosAptos.length > 0;
   }
 
   private getCabecalhos(): string[] {
     const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'Bairro'];
+    if (this.modoAdicionados) return [...base, 'Assessor', 'Origem', 'Horário de Criação'];
     if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário'];
     if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
     if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário'];
@@ -66,6 +77,8 @@ export class BotoesExportacao {
         r.municipio || '—',
         r.bairro || '—',
       ];
+      if (this.modoAdicionados)
+        return [...base, r.assessorNome || '—', r.origem || '—', this.formatarHora(r.criadoEm)];
       if (this.cargo === 'assessor')
         return [...base, r.status || '—', this.formatarHora(r.encaminhadoEm)];
       if (this.cargo === 'analista')
@@ -93,13 +106,18 @@ export class BotoesExportacao {
 
     doc.setFontSize(12);
     doc.setTextColor(40, 40, 40);
-    const titulo = `Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}${subtitulo ? ' · ' + subtitulo : ''}`;
+    const titulo = this.modoAdicionados
+      ? `Relatório de Cadastros Adicionados${subtitulo ? ' · ' + subtitulo : ''}`
+      : `Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}${subtitulo ? ' · ' + subtitulo : ''}`;
     doc.text(titulo, 14, 27);
 
     doc.setFontSize(10);
     doc.setTextColor(80, 80, 80);
     doc.text(`Colaborador: ${this.nomeColaborador}`, 14, 35);
-    doc.text(`Data: ${this.formatarData(this.data)}`, 14, 41);
+    const periodo = this.dataInicio === this.dataFim
+      ? this.formatarData(this.dataInicio)
+      : `${this.formatarData(this.dataInicio)} a ${this.formatarData(this.dataFim)}`;
+    doc.text(`Período: ${periodo}`, 14, 41);
 
     autoTable(doc, {
       head: [this.getCabecalhos()],

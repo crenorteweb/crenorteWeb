@@ -31,14 +31,17 @@ export class ProducaoService {
     } catch { return 0; }
   }
 
-  /** Verifica se um Timestamp cai no dia indicado (YYYY-MM-DD, fuso local) */
-  private isOnDate(ts: any, dateStr: string): boolean {
+  /** Verifica se um Timestamp está dentro do intervalo [dataInicio, dataFim] (YYYY-MM-DD, fuso local) */
+  private isInRange(ts: any, dataInicio: string, dataFim: string): boolean {
     if (!ts) return false;
     try {
       const d: Date = ts?.toDate ? ts.toDate() : new Date(ts);
       if (isNaN(d.getTime())) return false;
-      const [y, m, day] = dateStr.split('-').map(Number);
-      return d.getFullYear() === y && d.getMonth() === m - 1 && d.getDate() === day;
+      const [yi, mi, di] = dataInicio.split('-').map(Number);
+      const [yf, mf, df] = dataFim.split('-').map(Number);
+      const inicio = new Date(yi, mi - 1, di, 0, 0, 0, 0);
+      const fim    = new Date(yf, mf - 1, df, 23, 59, 59, 999);
+      return d >= inicio && d <= fim;
     } catch { return false; }
   }
 
@@ -130,44 +133,48 @@ export class ProducaoService {
 
   // ── API pública (Observable) ──────────────────────────────────────────────
 
-  buscarPorAssessor(assessorId: string, data: string): Observable<PreCadastro[]> {
-    return from(this._assessor(assessorId, data));
+  buscarPorAssessor(assessorId: string, dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._assessor(assessorId, dataInicio, dataFim));
   }
 
-  buscarPorAnalista(analistaId: string, data: string): Observable<PreCadastro[]> {
-    return from(this._analista(analistaId, data));
+  buscarPorAnalista(analistaId: string, dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._analista(analistaId, dataInicio, dataFim));
   }
 
-  buscarPorSupervisor(supervisorId: string, data: string): Observable<PreCadastro[]> {
-    return from(this._supervisor(supervisorId, data));
+  buscarPorSupervisor(supervisorId: string, dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._supervisor(supervisorId, dataInicio, dataFim));
   }
 
-  buscarTodosAnalisados(data: string): Observable<PreCadastro[]> {
-    return from(this._todosAnalisados(data));
+  buscarTodosAnalisados(dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._todosAnalisados(dataInicio, dataFim));
+  }
+
+  buscarAdicionados(dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._adicionados(dataInicio, dataFim));
   }
 
   // ── Implementações privadas ───────────────────────────────────────────────
 
-  private async _assessor(uid: string, data: string): Promise<PreCadastro[]> {
+  private async _assessor(uid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
     const snap = await getDocs(
       query(this.preCadRef, where('createdByUid', '==', uid))
     );
     const filtered = snap.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isOnDate(r.createdAt, data));
+      .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
 
     const result = filtered.map(r => this.mapRaw(r));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
     return result;
   }
 
-  private async _analista(uid: string, data: string): Promise<PreCadastro[]> {
+  private async _analista(uid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
     const snap = await getDocs(
       query(this.preCadRef, where('aprovacao.porUid', '==', uid))
     );
     const filtered = snap.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isOnDate(r.aprovacao?.em, data));
+      .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
 
     // Enriquece nomes dos assessores via colaboradores
     const uids = filtered.map(r => r.createdByUid).filter(Boolean);
@@ -178,7 +185,7 @@ export class ProducaoService {
     return result;
   }
 
-  private async _supervisor(supervisorUid: string, data: string): Promise<PreCadastro[]> {
+  private async _supervisor(supervisorUid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
     // Passo 1 — assessores sob este supervisor
     const assessoresSnap = await getDocs(
       query(
@@ -208,13 +215,13 @@ export class ProducaoService {
       snap.docs.forEach(d => all.push({ id: d.id, ...(d.data() as any) }));
     }
 
-    const filtered = all.filter(r => this.isOnDate(r.createdAt, data));
+    const filtered = all.filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
     return result;
   }
 
-  private async _todosAnalisados(data: string): Promise<PreCadastro[]> {
+  private async _todosAnalisados(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
     const [snapAnalisados, snapNaCaixa] = await Promise.all([
       getDocs(query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto']))),
       getDocs(query(this.preCadRef, where('caixaAtual', '==', 'analista'))),
@@ -222,7 +229,7 @@ export class ProducaoService {
 
     const analisados = snapAnalisados.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isOnDate(r.aprovacao?.em, data));
+      .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
 
     const idsAnalisados = new Set(analisados.map(r => r.id));
 
@@ -230,7 +237,7 @@ export class ProducaoService {
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r =>
         !idsAnalisados.has(r.id) &&
-        this.isOnDate(r.encaminhamento?.em ?? r.createdAt, data)
+        this.isInRange(r.encaminhamento?.em ?? r.createdAt, dataInicio, dataFim)
       );
 
     const filtered = [...analisados, ...naoAnalisados];
@@ -250,6 +257,20 @@ export class ProducaoService {
       this.getTime(b.analisadoEm ?? b.encaminhadoEm) -
       this.getTime(a.analisadoEm ?? a.encaminhadoEm)
     );
+    return result;
+  }
+
+  private async _adicionados(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
+    const snap = await getDocs(this.preCadRef);
+    const filtered = snap.docs
+      .map(d => ({ id: d.id, ...(d.data() as any) }))
+      .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
+
+    const assessorUids = [...new Set(filtered.map(r => r.createdByUid).filter(Boolean) as string[])];
+    const nomes = await this.fetchNomesByUids(assessorUids);
+
+    const result = filtered.map(r => this.mapRaw(r, nomes));
+    result.sort((a, b) => this.getTime(b.criadoEm) - this.getTime(a.criadoEm));
     return result;
   }
 }
