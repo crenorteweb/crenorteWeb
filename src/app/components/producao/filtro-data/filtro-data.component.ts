@@ -1,5 +1,6 @@
 import { Component, EventEmitter, OnInit, Output } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { PeriodoFiltro } from '../../../models/producao.model';
 
 @Component({
   selector: 'app-filtro-data',
@@ -8,22 +9,39 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './filtro-data.component.html',
 })
 export class FiltroData implements OnInit {
-  @Output() dataSelecionada = new EventEmitter<string>();
+  @Output() dataSelecionada = new EventEmitter<PeriodoFiltro>();
 
-  data = '';
+  dataInicio = '';
+  dataFim = '';
 
   ngOnInit() {
-    this.data = this.hoje();
-    this.dataSelecionada.emit(this.data);
+    this.dataInicio = this.hoje();
+    this.dataFim = this.hoje();
+    this.emit();
   }
 
-  onChange() {
-    this.dataSelecionada.emit(this.data);
+  onInicioChange() {
+    if (this.dataFim && this.dataFim < this.dataInicio) {
+      this.dataFim = this.dataInicio;
+    }
+    this.emit();
+  }
+
+  onFimChange() {
+    if (this.dataInicio && this.dataInicio > this.dataFim) {
+      this.dataInicio = this.dataFim;
+    }
+    this.emit();
   }
 
   resetar() {
-    this.data = this.hoje();
-    this.dataSelecionada.emit(this.data);
+    this.dataInicio = this.hoje();
+    this.dataFim = this.hoje();
+    this.emit();
+  }
+
+  private emit() {
+    this.dataSelecionada.emit({ inicio: this.dataInicio, fim: this.dataFim });
   }
 
   private hoje(): string {
