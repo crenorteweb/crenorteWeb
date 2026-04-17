@@ -18,9 +18,9 @@ export interface ArquivoPreCadastro {
 export type AgendamentoStatus = 'nao_agendado' | 'agendado' | 'visitado';
 export type AprovacaoStatus = 'nao_verificado' | 'apto' | 'inapto';
 export type FormalizacaoStatus = 'nao_formalizado' | 'formalizado';
-
-// NOVO: status de desistência
 export type DesistenciaStatus = 'nao_desistiu' | 'desistiu';
+export type ElegibilidadeStatus = 'nao_verificado' | 'sim' | 'nao';
+export type AtendimentoStatus = 'nao_atendido' | 'em_atendimento' | 'finalizado';
 
 export type FluxoFixos = {
   aluguel: number;
@@ -137,6 +137,21 @@ export interface PreCadastro {
   /** 'coordenador' | 'membro' */
 
 
+
+  elegivel?: {
+    status: ElegibilidadeStatus;     // 'nao_verificado' | 'sim' | 'nao'
+    porUid?: string;
+    porNome?: string;
+    em?: Timestamp | Date | any;
+  };
+
+  atendimento?: {
+    status: AtendimentoStatus;       // 'nao_atendido' | 'em_atendimento' | 'finalizado'
+    porUid?: string;
+    porNome?: string;
+    em?: Timestamp | Date | any;
+    observacao?: string | null;
+  };
 
   // NOVOS CAMPOS:
   observacoes?: string | null;

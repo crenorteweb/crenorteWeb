@@ -11,14 +11,16 @@
           <div>
             <h5 class="modal-title mb-0 fw-bold" id="importacaoModalTitulo">
               <i class="bi bi-file-earmark-excel text-success me-1"></i>
-              Importar Clientes via Excel
+              {{ tipo() === 'elegibilidade' ? 'Atualizar Elegibilidade via Excel' : 'Importar Clientes via Excel' }}
             </h5>
             <p class="text-muted small mb-0">
               <ng-container [ngSwitch]="etapa()">
-                <span *ngSwitchCase="'upload'">Envie a planilha Excel com os dados dos clientes</span>
-                <span *ngSwitchCase="'preview'">Revise os dados antes de confirmar a importação</span>
-                <span *ngSwitchCase="'importando'">Importando registros para o sistema…</span>
-                <span *ngSwitchCase="'concluido'">Importação finalizada</span>
+                <span *ngSwitchCase="'upload'">Envie a planilha Excel com os dados</span>
+                <span *ngSwitchCase="'preview'">Revise os dados antes de confirmar</span>
+                <span *ngSwitchCase="'importando'">
+                  {{ tipo() === 'elegibilidade' ? 'Atualizando elegibilidade…' : 'Importando registros…' }}
+                </span>
+                <span *ngSwitchCase="'concluido'">Operação finalizada</span>
               </ng-container>
             </p>
           </div>
@@ -29,6 +31,23 @@
 
       <!-- Indicador de etapas -->
       <div class="modal-body pb-0 pt-3">
+
+        <!-- ===== SELETOR DE TIPO (só na etapa upload) ===== -->
+        <div *ngIf="etapa() === 'upload'" class="d-flex gap-2 mb-4">
+          <button type="button" class="btn btn-sm flex-fill"
+            [class.btn-success]="tipo() === 'cadastro'"
+            [class.btn-outline-secondary]="tipo() !== 'cadastro'"
+            (click)="mudarTipo('cadastro')">
+            <i class="bi bi-person-plus me-1"></i>Importar novos clientes
+          </button>
+          <button type="button" class="btn btn-sm flex-fill"
+            [class.btn-primary]="tipo() === 'elegibilidade'"
+            [class.btn-outline-secondary]="tipo() !== 'elegibilidade'"
+            (click)="mudarTipo('elegibilidade')">
+            <i class="bi bi-person-check me-1"></i>Atualizar elegibilidade
+          </button>
+        </div>
+
         <div class="imp-steps d-flex gap-1 mb-4">
           <div class="imp-step" [class.imp-step--active]="etapa() === 'upload'"
             [class.imp-step--done]="etapa() !== 'upload'">
@@ -45,7 +64,7 @@
           <div class="imp-step" [class.imp-step--active]="etapa() === 'importando'"
             [class.imp-step--done]="etapa() === 'concluido'">
             <span class="imp-step__num">3</span>
-            <span class="imp-step__label">Importando</span>
+            <span class="imp-step__label">{{ tipo() === 'elegibilidade' ? 'Atualizando' : 'Importando' }}</span>
           </div>
           <div class="imp-step__line"></div>
           <div class="imp-step" [class.imp-step--active]="etapa() === 'concluido'">
@@ -57,7 +76,6 @@
         <!-- ================= ETAPA 1: UPLOAD ================= -->
         <div *ngIf="etapa() === 'upload'">
 
-          <!-- Alerta de erro -->
           <div *ngIf="erro()" class="alert alert-danger d-flex align-items-start gap-2 mb-3">
             <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
             <span>{{ erro() }}</span>
@@ -65,8 +83,10 @@
 
           <!-- Botão download modelo -->
           <div class="d-flex justify-content-end mb-3">
-            <button type="button" class="btn btn-outline-success btn-sm" (click)="downloadTemplate()">
-              <i class="bi bi-download me-1"></i> Baixar modelo de planilha
+            <button type="button" class="btn btn-outline-success btn-sm"
+              (click)="tipo() === 'elegibilidade' ? downloadTemplateElegibilidade() : downloadTemplate()">
+              <i class="bi bi-download me-1"></i>
+              Baixar modelo de planilha
             </button>
           </div>
 
@@ -96,13 +116,29 @@
             </ng-container>
           </div>
 
-          <!-- Formato esperado -->
+          <!-- Colunas esperadas -->
           <div class="imp-info mt-3">
             <p class="fw-semibold mb-1 small"><i class="bi bi-info-circle me-1"></i>Colunas esperadas (nesta ordem):</p>
             <div class="d-flex flex-wrap gap-1">
-              <span class="badge bg-secondary-subtle text-secondary" *ngFor="let col of ['nome','cpf','telefone','bairro','uf','municipio','origem','cadunico']">
-                {{ col }}
-              </span>
+              <!-- Modo cadastro -->
+              <ng-container *ngIf="tipo() === 'cadastro'">
+                <span class="badge bg-secondary-subtle text-secondary"
+                  *ngFor="let col of ['nome','cpf','telefone','bairro','uf','municipio','origem','cadunico']">
+                  {{ col }}
+                </span>
+              </ng-container>
+              <!-- Modo elegibilidade -->
+              <ng-container *ngIf="tipo() === 'elegibilidade'">
+                <span class="badge bg-primary-subtle text-primary"
+                  *ngFor="let col of ['nome','cpf','elegivel']">
+                  {{ col }}
+                </span>
+                <div class="w-100 mt-2 small text-muted">
+                  <i class="bi bi-info-circle me-1"></i>
+                  O sistema localizará o cliente pelo <strong>CPF</strong> e atualizará apenas o campo de elegibilidade.
+                  O nome é usado somente para identificação no relatório.
+                </div>
+              </ng-container>
             </div>
           </div>
 
@@ -111,130 +147,219 @@
         <!-- ================= ETAPA 2: PREVIEW ================= -->
         <div *ngIf="etapa() === 'preview'">
 
-          <!-- Alerta de erro (ex.: falha no admin check) -->
           <div *ngIf="erro()" class="alert alert-danger d-flex align-items-start gap-2 mb-3">
             <i class="bi bi-exclamation-triangle-fill flex-shrink-0 mt-1"></i>
             <span>{{ erro() }}</span>
           </div>
 
-          <!-- Resumo -->
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-md-3">
-              <div class="imp-stat imp-stat--total">
-                <span class="imp-stat__num">{{ linhas().length }}</span>
-                <span class="imp-stat__label">Total de linhas</span>
+          <!-- ===== PREVIEW: MODO CADASTRO ===== -->
+          <ng-container *ngIf="tipo() === 'cadastro'">
+            <div class="row g-2 mb-3">
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--total">
+                  <span class="imp-stat__num">{{ linhas().length }}</span>
+                  <span class="imp-stat__label">Total de linhas</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--ok">
+                  <span class="imp-stat__num">{{ linhasValidas().length }}</span>
+                  <span class="imp-stat__label">Válidas</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--error">
+                  <span class="imp-stat__num">{{ linhasInvalidas().length }}</span>
+                  <span class="imp-stat__label">Com erros</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--ok" *ngIf="linhasValidas().length > 0">
+                  <span class="imp-stat__num"><i class="bi bi-check-circle-fill text-success"></i></span>
+                  <span class="imp-stat__label">Pronto para importar</span>
+                </div>
+                <div class="imp-stat imp-stat--warn" *ngIf="linhasValidas().length === 0">
+                  <span class="imp-stat__num text-warning"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                  <span class="imp-stat__label">Nada a importar</span>
+                </div>
               </div>
             </div>
-            <div class="col-6 col-md-3">
-              <div class="imp-stat imp-stat--ok">
-                <span class="imp-stat__num">{{ linhasValidas().length }}</span>
-                <span class="imp-stat__label">Válidas</span>
-              </div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="imp-stat imp-stat--error">
-                <span class="imp-stat__num">{{ linhasInvalidas().length }}</span>
-                <span class="imp-stat__label">Com erros</span>
-              </div>
-            </div>
-            <div class="col-6 col-md-3">
-              <div class="imp-stat imp-stat--warn" *ngIf="linhasValidas().length === 0">
-                <span class="imp-stat__num text-warning"><i class="bi bi-exclamation-triangle-fill"></i></span>
-                <span class="imp-stat__label">Nada a importar</span>
-              </div>
-              <div class="imp-stat imp-stat--ok" *ngIf="linhasValidas().length > 0">
-                <span class="imp-stat__num">
-                  <i class="bi bi-check-circle-fill text-success"></i>
-                </span>
-                <span class="imp-stat__label">Pronto para importar</span>
-              </div>
-            </div>
-          </div>
 
-          <!-- Aviso de CPFs duplicados na planilha (deduplicados automaticamente) -->
-          <div *ngIf="linhasDuplicadas().length > 0" class="alert alert-info small mb-3">
-            <i class="bi bi-copy me-1"></i>
-            <strong>{{ linhasDuplicadas().length }} CPF(s) duplicado(s)</strong> foram encontrados na planilha e
-            removidos automaticamente — apenas a primeira ocorrência de cada um será importada.
-          </div>
+            <div *ngIf="linhasDuplicadas().length > 0" class="alert alert-info small mb-3">
+              <i class="bi bi-copy me-1"></i>
+              <strong>{{ linhasDuplicadas().length }} CPF(s) duplicado(s)</strong> foram encontrados e removidos automaticamente.
+            </div>
 
-          <!-- Alerta quando há erros -->
-          <div *ngIf="linhasInvalidas().length > 0" class="alert alert-warning small mb-3">
-            <strong>{{ linhasInvalidas().length }} linha(s) com erro</strong> não serão importadas.
-            Você pode importar apenas as <strong>{{ linhasValidas().length }} linha(s) válidas</strong>
-            ou cancelar para corrigir a planilha.
-            <button type="button" class="btn btn-link btn-sm p-0 ms-2"
-              (click)="mostrarDetalhesErros.set(!mostrarDetalhesErros())">
-              {{ mostrarDetalhesErros() ? 'Ocultar erros' : 'Ver detalhes dos erros' }}
-            </button>
-          </div>
+            <div *ngIf="linhasInvalidas().length > 0" class="alert alert-warning small mb-3">
+              <strong>{{ linhasInvalidas().length }} linha(s) com erro</strong> não serão importadas.
+              <button type="button" class="btn btn-link btn-sm p-0 ms-2"
+                (click)="mostrarDetalhesErros.set(!mostrarDetalhesErros())">
+                {{ mostrarDetalhesErros() ? 'Ocultar erros' : 'Ver detalhes' }}
+              </button>
+            </div>
 
-          <!-- Lista de erros -->
-          <div *ngIf="mostrarDetalhesErros() && linhasInvalidas().length > 0" class="mb-3">
-            <div class="imp-error-list">
-              <div *ngFor="let l of linhasInvalidas()" class="imp-error-item">
-                <div class="d-flex align-items-start gap-2">
-                  <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ l.index }}</span>
-                  <div>
-                    <span class="fw-semibold small">{{ l.nome || '(sem nome)' }}</span>
-                    <ul class="mb-0 ps-3 small text-danger">
-                      <li *ngFor="let e of l.erros">{{ e }}</li>
-                    </ul>
+            <div *ngIf="mostrarDetalhesErros() && linhasInvalidas().length > 0" class="mb-3">
+              <div class="imp-error-list">
+                <div *ngFor="let l of linhasInvalidas()" class="imp-error-item">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ l.index }}</span>
+                    <div>
+                      <span class="fw-semibold small">{{ l.nome || '(sem nome)' }}</span>
+                      <ul class="mb-0 ps-3 small text-danger">
+                        <li *ngFor="let e of l.erros">{{ e }}</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- Tabela de preview -->
-          <div class="imp-table-wrapper">
-            <table class="imp-table table table-sm">
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Nome</th>
-                  <th>CPF</th>
-                  <th>Telefone</th>
-                  <th>Bairro</th>
-                  <th>UF</th>
-                  <th>Município</th>
-                  <th>Origem</th>
-                  <th>Modalidade</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let l of linhas()" [class.table-success]="l.valida"
-                  [class.table-danger]="!l.valida">
-                  <td class="text-muted small">{{ l.index }}</td>
-                  <td>{{ l.nome }}</td>
-                  <td class="text-nowrap">{{ l.cpfNumeros | slice:0:3 }}.{{ l.cpfNumeros | slice:3:6 }}.{{ l.cpfNumeros | slice:6:9 }}-{{ l.cpfNumeros | slice:9:11 }}</td>
-                  <td class="text-nowrap">{{ l.telefone }}</td>
-                  <td>{{ l.bairro }}</td>
-                  <td>{{ l.uf }}</td>
-                  <td>{{ l.municipio }}</td>
-                  <td>{{ l.origem }}</td>
-                  <td>
-                    <span class="badge" [class.bg-success-subtle]="l.modalidade === 'cadunico'"
-                      [class.text-success]="l.modalidade === 'cadunico'"
-                      [class.bg-primary-subtle]="l.modalidade === 'grupo_solidario'"
-                      [class.text-primary]="l.modalidade === 'grupo_solidario'">
-                      {{ l.modalidade === 'cadunico' ? 'Cadúnico' : 'Grupo Solidário' }}
-                    </span>
-                  </td>
-                  <td>
-                    <span *ngIf="l.valida" class="badge bg-success-subtle text-success">
-                      <i class="bi bi-check-circle me-1"></i>Válida
-                    </span>
-                    <span *ngIf="!l.valida" class="badge bg-danger-subtle text-danger"
-                      [title]="l.erros.join('; ')">
-                      <i class="bi bi-x-circle me-1"></i>Erro
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+            <div class="imp-table-wrapper">
+              <table class="imp-table table table-sm">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Nome</th><th>CPF</th><th>Telefone</th>
+                    <th>Bairro</th><th>UF</th><th>Município</th><th>Origem</th>
+                    <th>Modalidade</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let l of linhas()"
+                    [class.table-success]="l.valida" [class.table-danger]="!l.valida">
+                    <td class="text-muted small">{{ l.index }}</td>
+                    <td>{{ l.nome }}</td>
+                    <td class="text-nowrap">{{ l.cpfNumeros | slice:0:3 }}.{{ l.cpfNumeros | slice:3:6 }}.{{ l.cpfNumeros | slice:6:9 }}-{{ l.cpfNumeros | slice:9:11 }}</td>
+                    <td>{{ l.telefone }}</td>
+                    <td>{{ l.bairro }}</td>
+                    <td>{{ l.uf }}</td>
+                    <td>{{ l.municipio }}</td>
+                    <td>{{ l.origem }}</td>
+                    <td>
+                      <span class="badge"
+                        [class.bg-success-subtle]="l.modalidade === 'cadunico'" [class.text-success]="l.modalidade === 'cadunico'"
+                        [class.bg-primary-subtle]="l.modalidade === 'grupo_solidario'" [class.text-primary]="l.modalidade === 'grupo_solidario'">
+                        {{ l.modalidade === 'cadunico' ? 'Cadúnico' : 'Grupo Solidário' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span *ngIf="l.valida" class="badge bg-success-subtle text-success">
+                        <i class="bi bi-check-circle me-1"></i>Válida
+                      </span>
+                      <span *ngIf="!l.valida" class="badge bg-danger-subtle text-danger" [title]="l.erros.join('; ')">
+                        <i class="bi bi-x-circle me-1"></i>Erro
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
+
+          <!-- ===== PREVIEW: MODO ELEGIBILIDADE ===== -->
+          <ng-container *ngIf="tipo() === 'elegibilidade'">
+            <div class="row g-2 mb-3">
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--total">
+                  <span class="imp-stat__num">{{ linhasEleg().length }}</span>
+                  <span class="imp-stat__label">Total de linhas</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--ok">
+                  <span class="imp-stat__num">{{ linhasElegValidas().length }}</span>
+                  <span class="imp-stat__label">Válidas</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--error">
+                  <span class="imp-stat__num">{{ linhasElegInvalidas().length }}</span>
+                  <span class="imp-stat__label">Com erros</span>
+                </div>
+              </div>
+              <div class="col-6 col-md-3">
+                <div class="imp-stat imp-stat--ok" *ngIf="linhasElegValidas().length > 0">
+                  <span class="imp-stat__num"><i class="bi bi-check-circle-fill text-success"></i></span>
+                  <span class="imp-stat__label">Pronto para atualizar</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="alert alert-primary small mb-3">
+              <i class="bi bi-info-circle me-1"></i>
+              O sistema localizará cada cliente pelo CPF e atualizará o campo de elegibilidade.
+              CPFs não encontrados serão listados no relatório final.
+              O autor da atualização será o <strong>admin logado</strong>.
+            </div>
+
+            <div *ngIf="linhasElegDuplic().length > 0" class="alert alert-info small mb-3">
+              <i class="bi bi-copy me-1"></i>
+              <strong>{{ linhasElegDuplic().length }} CPF(s) duplicado(s)</strong> na planilha — apenas a primeira ocorrência será processada.
+            </div>
+
+            <div *ngIf="linhasElegInvalidas().length > 0" class="alert alert-warning small mb-3">
+              <strong>{{ linhasElegInvalidas().length }} linha(s) com erro</strong> não serão processadas.
+              <button type="button" class="btn btn-link btn-sm p-0 ms-2"
+                (click)="mostrarDetalhesErros.set(!mostrarDetalhesErros())">
+                {{ mostrarDetalhesErros() ? 'Ocultar erros' : 'Ver detalhes' }}
+              </button>
+            </div>
+
+            <div *ngIf="mostrarDetalhesErros() && linhasElegInvalidas().length > 0" class="mb-3">
+              <div class="imp-error-list">
+                <div *ngFor="let l of linhasElegInvalidas()" class="imp-error-item">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ l.index }}</span>
+                    <div>
+                      <span class="fw-semibold small">{{ l.nome || '(sem nome)' }}</span>
+                      <ul class="mb-0 ps-3 small text-danger">
+                        <li *ngFor="let e of l.erros">{{ e }}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="imp-table-wrapper">
+              <table class="imp-table table table-sm">
+                <thead>
+                  <tr>
+                    <th>#</th><th>Nome</th><th>CPF</th><th>Elegível</th><th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let l of linhasEleg()"
+                    [class.table-success]="l.valida" [class.table-danger]="!l.valida && !l.duplicadaNaPlanilha"
+                    [class.table-warning]="l.duplicadaNaPlanilha">
+                    <td class="text-muted small">{{ l.index }}</td>
+                    <td>{{ l.nome }}</td>
+                    <td class="text-nowrap">
+                      {{ l.cpfNumeros | slice:0:3 }}.{{ l.cpfNumeros | slice:3:6 }}.{{ l.cpfNumeros | slice:6:9 }}-{{ l.cpfNumeros | slice:9:11 }}
+                    </td>
+                    <td>
+                      <span class="badge"
+                        [class.bg-success-subtle]="l.elegivel === 'sim'" [class.text-success]="l.elegivel === 'sim'"
+                        [class.bg-danger-subtle]="l.elegivel === 'nao'" [class.text-danger]="l.elegivel === 'nao'">
+                        {{ l.elegivel === 'sim' ? 'Elegível' : 'Não elegível' }}
+                      </span>
+                    </td>
+                    <td>
+                      <span *ngIf="l.valida" class="badge bg-success-subtle text-success">
+                        <i class="bi bi-check-circle me-1"></i>Válida
+                      </span>
+                      <span *ngIf="l.duplicadaNaPlanilha" class="badge bg-warning-subtle text-warning">
+                        <i class="bi bi-copy me-1"></i>Duplicada
+                      </span>
+                      <span *ngIf="!l.valida && !l.duplicadaNaPlanilha" class="badge bg-danger-subtle text-danger"
+                        [title]="l.erros.join('; ')">
+                        <i class="bi bi-x-circle me-1"></i>Erro
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </ng-container>
 
         </div>
 
@@ -243,10 +368,10 @@
           <div class="imp-loading-icon mb-3">
             <i class="bi bi-cloud-arrow-up-fill text-success" style="font-size: 3rem;"></i>
           </div>
-          <h6 class="fw-bold mb-1">Importando registros…</h6>
-          <p class="text-muted small mb-3">
-            Não feche esta janela. Por favor aguarde.
-          </p>
+          <h6 class="fw-bold mb-1">
+            {{ tipo() === 'elegibilidade' ? 'Atualizando elegibilidade…' : 'Importando registros…' }}
+          </h6>
+          <p class="text-muted small mb-3">Não feche esta janela. Por favor aguarde.</p>
           <div class="progress mb-2" style="height: 10px; max-width: 400px; margin: 0 auto;">
             <div class="progress-bar progress-bar-striped progress-bar-animated bg-success"
               role="progressbar"
@@ -257,73 +382,131 @@
             </div>
           </div>
           <p class="text-muted small">
-            {{ progresso().atual }} de {{ progresso().total }} registros
-            ({{ progressoPct() }}%)
+            {{ progresso().atual }} de {{ progresso().total }} registros ({{ progressoPct() }}%)
           </p>
         </div>
 
         <!-- ================= ETAPA 4: CONCLUÍDO ================= -->
-        <div *ngIf="etapa() === 'concluido' && resultado() as res" class="py-2">
+        <div *ngIf="etapa() === 'concluido'" class="py-2">
 
-          <!-- Sucesso total -->
-          <div *ngIf="res.totalErros === 0" class="text-center py-3">
-            <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
-            <h5 class="fw-bold mt-2 mb-1">Importação concluída!</h5>
-            <p class="text-muted">
-              <strong>{{ res.importados }}</strong> registro(s) importado(s) com sucesso.
-            </p>
-            <p *ngIf="res.duplicadasPlanilha > 0" class="text-info small mb-3">
-              <i class="bi bi-info-circle me-1"></i>
-              {{ res.duplicadasPlanilha }} CPF(s) duplicado(s) na planilha foram ignorados automaticamente.
-            </p>
-            <button type="button" class="btn btn-outline-success btn-sm" (click)="downloadCadastrados()">
-              <i class="bi bi-download me-1"></i> Baixar planilha dos cadastrados
-            </button>
-          </div>
-
-          <!-- Sucesso parcial / com erros -->
-          <div *ngIf="res.totalErros > 0">
-            <div class="row g-3 mb-4">
-              <div class="col-6">
-                <div class="imp-stat imp-stat--ok text-center">
-                  <i class="bi bi-check-circle-fill text-success" style="font-size: 1.75rem;"></i>
-                  <div class="fw-bold fs-4 mt-1">{{ res.importados }}</div>
-                  <div class="small text-muted">Importados com sucesso</div>
-                </div>
-              </div>
-              <div class="col-6">
-                <div class="imp-stat imp-stat--error text-center">
-                  <i class="bi bi-x-circle-fill text-danger" style="font-size: 1.75rem;"></i>
-                  <div class="fw-bold fs-4 mt-1">{{ res.totalErros }}</div>
-                  <div class="small text-muted">Não importados (com erro)</div>
-                </div>
-              </div>
-            </div>
-
-            <div *ngIf="res.duplicadasPlanilha > 0" class="alert alert-info small mb-3">
-              <i class="bi bi-info-circle me-1"></i>
-              {{ res.duplicadasPlanilha }} CPF(s) duplicado(s) na planilha foram ignorados automaticamente.
-            </div>
-            <div class="d-flex justify-content-end mb-3">
+          <!-- ===== CONCLUÍDO: MODO CADASTRO ===== -->
+          <ng-container *ngIf="tipo() === 'cadastro' && resultado() as res">
+            <div *ngIf="res.totalErros === 0" class="text-center py-3">
+              <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+              <h5 class="fw-bold mt-2 mb-1">Importação concluída!</h5>
+              <p class="text-muted"><strong>{{ res.importados }}</strong> registro(s) importado(s) com sucesso.</p>
+              <p *ngIf="res.duplicadasPlanilha > 0" class="text-info small mb-3">
+                <i class="bi bi-info-circle me-1"></i>
+                {{ res.duplicadasPlanilha }} CPF(s) duplicado(s) ignorados automaticamente.
+              </p>
               <button type="button" class="btn btn-outline-success btn-sm" (click)="downloadCadastrados()">
                 <i class="bi bi-download me-1"></i> Baixar planilha dos cadastrados
               </button>
             </div>
-            <h6 class="fw-bold mb-2">Detalhes dos registros não importados:</h6>
-            <div class="imp-error-list">
-              <div *ngFor="let d of res.detalhesErro" class="imp-error-item">
-                <div class="d-flex align-items-start gap-2">
-                  <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ d.linha }}</span>
-                  <div>
-                    <span class="fw-semibold small">{{ d.nome || '(sem nome)' }}</span>
-                    <ul class="mb-0 ps-3 small text-danger">
-                      <li *ngFor="let e of d.erros">{{ e }}</li>
-                    </ul>
+
+            <div *ngIf="res.totalErros > 0">
+              <div class="row g-3 mb-4">
+                <div class="col-6">
+                  <div class="imp-stat imp-stat--ok text-center">
+                    <i class="bi bi-check-circle-fill text-success" style="font-size:1.75rem"></i>
+                    <div class="fw-bold fs-4 mt-1">{{ res.importados }}</div>
+                    <div class="small text-muted">Importados com sucesso</div>
+                  </div>
+                </div>
+                <div class="col-6">
+                  <div class="imp-stat imp-stat--error text-center">
+                    <i class="bi bi-x-circle-fill text-danger" style="font-size:1.75rem"></i>
+                    <div class="fw-bold fs-4 mt-1">{{ res.totalErros }}</div>
+                    <div class="small text-muted">Não importados</div>
+                  </div>
+                </div>
+              </div>
+              <div class="d-flex justify-content-end mb-3">
+                <button type="button" class="btn btn-outline-success btn-sm" (click)="downloadCadastrados()">
+                  <i class="bi bi-download me-1"></i> Baixar planilha dos cadastrados
+                </button>
+              </div>
+              <h6 class="fw-bold mb-2">Detalhes dos erros:</h6>
+              <div class="imp-error-list">
+                <div *ngFor="let d of res.detalhesErro" class="imp-error-item">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ d.linha }}</span>
+                    <div>
+                      <span class="fw-semibold small">{{ d.nome || '(sem nome)' }}</span>
+                      <ul class="mb-0 ps-3 small text-danger">
+                        <li *ngFor="let e of d.erros">{{ e }}</li>
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </ng-container>
+
+          <!-- ===== CONCLUÍDO: MODO ELEGIBILIDADE ===== -->
+          <ng-container *ngIf="tipo() === 'elegibilidade' && resultadoEleg() as res">
+            <div class="text-center mb-4">
+              <i class="bi bi-check-circle-fill text-success" style="font-size: 3rem;"></i>
+              <h5 class="fw-bold mt-2 mb-1">Atualização concluída!</h5>
+            </div>
+
+            <div class="row g-3 mb-4">
+              <div class="col-6 col-md-4">
+                <div class="imp-stat imp-stat--ok text-center">
+                  <i class="bi bi-check-circle-fill text-success" style="font-size:1.75rem"></i>
+                  <div class="fw-bold fs-4 mt-1">{{ res.atualizados }}</div>
+                  <div class="small text-muted">Atualizados</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-4">
+                <div class="imp-stat imp-stat--warn text-center">
+                  <i class="bi bi-search text-warning" style="font-size:1.75rem"></i>
+                  <div class="fw-bold fs-4 mt-1">{{ res.naoEncontrados }}</div>
+                  <div class="small text-muted">CPFs não encontrados</div>
+                </div>
+              </div>
+              <div class="col-6 col-md-4" *ngIf="res.totalErros > 0">
+                <div class="imp-stat imp-stat--error text-center">
+                  <i class="bi bi-x-circle-fill text-danger" style="font-size:1.75rem"></i>
+                  <div class="fw-bold fs-4 mt-1">{{ res.totalErros }}</div>
+                  <div class="small text-muted">Linhas com erro</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CPFs não encontrados -->
+            <div *ngIf="res.naoEncontrados > 0" class="mb-3">
+              <h6 class="fw-bold mb-2">CPFs não encontrados no sistema:</h6>
+              <div class="imp-error-list">
+                <div *ngFor="let d of res.detalhesNaoEncontrado" class="imp-error-item">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="badge bg-warning-subtle text-warning flex-shrink-0">Linha {{ d.linha }}</span>
+                    <span class="small">
+                      <strong>{{ d.nome }}</strong> — CPF: {{ d.cpf }}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Linhas com erro de formato -->
+            <div *ngIf="res.totalErros > 0" class="mb-3">
+              <h6 class="fw-bold mb-2">Linhas com erro de formato:</h6>
+              <div class="imp-error-list">
+                <div *ngFor="let d of res.detalhesErro" class="imp-error-item">
+                  <div class="d-flex align-items-start gap-2">
+                    <span class="badge bg-danger-subtle text-danger flex-shrink-0">Linha {{ d.linha }}</span>
+                    <div>
+                      <span class="fw-semibold small">{{ d.nome || '(sem nome)' }}</span>
+                      <ul class="mb-0 ps-3 small text-danger">
+                        <li *ngFor="let e of d.erros">{{ e }}</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </ng-container>
 
         </div>
 
@@ -332,7 +515,6 @@
       <!-- Footer -->
       <div class="modal-footer border-0 pt-0">
 
-        <!-- Etapa: upload -->
         <ng-container *ngIf="etapa() === 'upload'">
           <button type="button" class="btn btn-light" (click)="fecharModal()">Cancelar</button>
           <button type="button" class="btn btn-success" (click)="processarArquivo()"
@@ -343,23 +525,23 @@
           </button>
         </ng-container>
 
-        <!-- Etapa: preview -->
         <ng-container *ngIf="etapa() === 'preview'">
           <button type="button" class="btn btn-light" (click)="voltarParaUpload()">
             <i class="bi bi-arrow-left me-1"></i> Voltar
           </button>
           <button type="button" class="btn btn-light" (click)="fecharModal()">Cancelar</button>
           <button type="button" class="btn btn-success"
-            [disabled]="linhasValidas().length === 0"
+            [disabled]="totalLinhasParaConfirmar() === 0"
             (click)="confirmarImportacao()">
             <i class="bi bi-cloud-arrow-up me-1"></i>
-            Importar {{ linhasValidas().length }} registro(s) válido(s)
+            {{ tipo() === 'elegibilidade'
+              ? 'Atualizar ' + totalLinhasParaConfirmar() + ' registro(s)'
+              : 'Importar ' + totalLinhasParaConfirmar() + ' registro(s) válido(s)' }}
           </button>
         </ng-container>
 
-        <!-- Etapa: importando — nenhuma ação disponível -->
+        <!-- Etapa importando: nenhuma ação -->
 
-        <!-- Etapa: concluído -->
         <ng-container *ngIf="etapa() === 'concluido'">
           <button type="button" class="btn btn-success" (click)="fecharModal()">
             <i class="bi bi-check me-1"></i> Fechar

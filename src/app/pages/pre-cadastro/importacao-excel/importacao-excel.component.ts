@@ -12,11 +12,15 @@ import {
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ImportacaoExcelService } from './importacao-excel.service';
-import { LinhaImportacao, ResultadoImportacao } from './importacao-excel.model';
+import {
+  LinhaImportacao, ResultadoImportacao,
+  LinhaElegibilidade, ResultadoElegibilidade,
+} from './importacao-excel.model';
 
 declare const bootstrap: any;
 
 type Etapa = 'upload' | 'preview' | 'importando' | 'concluido';
+type Tipo  = 'cadastro' | 'elegibilidade';
 
 @Component({
   selector: 'app-importacao-excel',
@@ -32,19 +36,33 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
   private svc = inject(ImportacaoExcelService);
   private bsModal?: any;
 
-  etapa = signal<Etapa>('upload');
-  arquivo = signal<File | null>(null);
-  linhas = signal<LinhaImportacao[]>([]);
+  // ===== Estado compartilhado =====
+  tipo     = signal<Tipo>('cadastro');
+  etapa    = signal<Etapa>('upload');
+  arquivo  = signal<File | null>(null);
   progresso = signal({ atual: 0, total: 0 });
-  resultado = signal<ResultadoImportacao | null>(null);
-  erro = signal<string | null>(null);
-  isDragOver = signal(false);
-  processando = signal(false);
+  erro      = signal<string | null>(null);
+  isDragOver   = signal(false);
+  processando  = signal(false);
   mostrarDetalhesErros = signal(false);
+
+  // ===== Estado: modo CADASTRO =====
+  linhas    = signal<LinhaImportacao[]>([]);
+  resultado = signal<ResultadoImportacao | null>(null);
 
   linhasValidas    = computed(() => this.linhas().filter((l) => l.valida));
   linhasInvalidas  = computed(() => this.linhas().filter((l) => !l.valida && !l.duplicadaNaPlanilha));
   linhasDuplicadas = computed(() => this.linhas().filter((l) => !!l.duplicadaNaPlanilha));
+
+  // ===== Estado: modo ELEGIBILIDADE =====
+  linhasEleg    = signal<LinhaElegibilidade[]>([]);
+  resultadoEleg = signal<ResultadoElegibilidade | null>(null);
+
+  linhasElegValidas   = computed(() => this.linhasEleg().filter(l => l.valida));
+  linhasElegInvalidas = computed(() => this.linhasEleg().filter(l => !l.valida && !l.duplicadaNaPlanilha));
+  linhasElegDuplic    = computed(() => this.linhasEleg().filter(l => !!l.duplicadaNaPlanilha));
+
+  // ===== Progresso =====
   progressoPct = computed(() => {
     const p = this.progresso();
     return p.total > 0 ? Math.round((p.atual / p.total) * 100) : 0;
@@ -63,7 +81,6 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     this.bsModal?.dispose();
   }
 
-  /** Chamado pelo componente pai via @ViewChild */
   abrirModal(): void {
     this.reiniciar();
     this.bsModal?.show();
@@ -77,12 +94,19 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     this.etapa.set('upload');
     this.arquivo.set(null);
     this.linhas.set([]);
+    this.linhasEleg.set([]);
     this.progresso.set({ atual: 0, total: 0 });
     this.resultado.set(null);
+    this.resultadoEleg.set(null);
     this.erro.set(null);
     this.isDragOver.set(false);
     this.processando.set(false);
     this.mostrarDetalhesErros.set(false);
+  }
+
+  mudarTipo(t: Tipo): void {
+    this.tipo.set(t);
+    this.reiniciar();
   }
 
   // ===== Upload / Drag-and-drop =====
@@ -91,7 +115,7 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     if (file) this.arquivo.set(file);
-    input.value = ''; // permite reselecionar o mesmo arquivo
+    input.value = '';
   }
 
   onDragOver(event: DragEvent): void {
@@ -126,6 +150,10 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     this.svc.downloadTemplate();
   }
 
+  downloadTemplateElegibilidade(): void {
+    this.svc.downloadTemplateElegibilidade();
+  }
+
   // ===== Etapa 1 → 2: Processar planilha =====
 
   async processarArquivo(): Promise<void> {
@@ -136,15 +164,11 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     this.erro.set(null);
 
     try {
-      let linhas = await this.svc.parseExcel(file);
-      if (linhas.length === 0) {
-        this.erro.set('Nenhuma linha de dados encontrada na planilha. Verifique se o arquivo segue o modelo.');
-        return;
+      if (this.tipo() === 'elegibilidade') {
+        await this.processarElegibilidade(file);
+      } else {
+        await this.processarCadastro(file);
       }
-      linhas = this.svc.validarFormatos(linhas);
-      linhas = await this.svc.verificarCpfsDuplicados(linhas);
-      this.linhas.set(linhas);
-      this.etapa.set('preview');
     } catch (e: any) {
       this.erro.set(e?.message || 'Erro ao processar o arquivo. Verifique se ele segue o modelo correto.');
     } finally {
@@ -152,9 +176,50 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     }
   }
 
-  // ===== Etapa 2 → 3: Confirmar importação =====
+  private async processarCadastro(file: File): Promise<void> {
+    let linhas = await this.svc.parseExcel(file);
+    if (linhas.length === 0) {
+      this.erro.set('Nenhuma linha de dados encontrada na planilha.');
+      return;
+    }
+    linhas = this.svc.validarFormatos(linhas);
+    linhas = await this.svc.verificarCpfsDuplicados(linhas);
+    this.linhas.set(linhas);
+    this.etapa.set('preview');
+  }
+
+  private async processarElegibilidade(file: File): Promise<void> {
+    let linhas = await this.svc.parseExcelElegibilidade(file);
+    if (linhas.length === 0) {
+      this.erro.set('Nenhuma linha de dados encontrada na planilha.');
+      return;
+    }
+    linhas = this.svc.validarFormatosElegibilidade(linhas);
+
+    // Deduplica na planilha (mantém primeira ocorrência)
+    const vistos = new Map<string, number>();
+    linhas = linhas.map(l => {
+      if (!l.valida || l.cpfNumeros.length !== 11) return l;
+      if (vistos.has(l.cpfNumeros)) return { ...l, duplicadaNaPlanilha: true, valida: false };
+      vistos.set(l.cpfNumeros, l.index);
+      return l;
+    });
+
+    this.linhasEleg.set(linhas);
+    this.etapa.set('preview');
+  }
+
+  // ===== Etapa 2 → 3: Confirmar =====
 
   async confirmarImportacao(): Promise<void> {
+    if (this.tipo() === 'elegibilidade') {
+      await this.confirmarElegibilidade();
+    } else {
+      await this.confirmarCadastro();
+    }
+  }
+
+  private async confirmarCadastro(): Promise<void> {
     if (this.linhasValidas().length === 0) return;
 
     this.etapa.set('importando');
@@ -173,6 +238,25 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     }
   }
 
+  private async confirmarElegibilidade(): Promise<void> {
+    if (this.linhasElegValidas().length === 0) return;
+
+    this.etapa.set('importando');
+    this.progresso.set({ atual: 0, total: this.linhasElegValidas().length });
+
+    try {
+      const resultado = await this.svc.atualizarElegibilidade(this.linhasEleg(), (atual, total) => {
+        this.progresso.set({ atual, total });
+      });
+      this.resultadoEleg.set(resultado);
+      this.etapa.set('concluido');
+      this.importacaoConcluida.emit();
+    } catch (e: any) {
+      this.erro.set(e?.message || 'Erro durante a atualização. Tente novamente.');
+      this.etapa.set('preview');
+    }
+  }
+
   voltarParaUpload(): void {
     this.reiniciar();
   }
@@ -182,5 +266,12 @@ export class ImportacaoExcelComponent implements AfterViewInit, OnDestroy {
     if (res?.linhasImportadas?.length) {
       this.svc.exportarCadastrados(res.linhasImportadas);
     }
+  }
+
+  // ===== Helpers template =====
+  totalLinhasParaConfirmar(): number {
+    return this.tipo() === 'elegibilidade'
+      ? this.linhasElegValidas().length
+      : this.linhasValidas().length;
   }
 }
