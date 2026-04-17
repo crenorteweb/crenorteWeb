@@ -116,6 +116,26 @@ export const routes: Routes = [
       import('./pages/producao/producao.component').then(m => m.ProducaoComponent),
   },
 
+  // === Verificação de Elegibilidade ===
+  {
+    path: 'verificacao-elegibilidade',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin', 'supervisor', 'analista', 'operacional'] as Papel[] },
+    loadComponent: () =>
+      import('./pages/verificacao-elegibilidade/verificacao-elegibilidade.component')
+        .then(m => m.VerificacaoElegibilidadeComponent),
+  },
+
+  // === Call Center ===
+  {
+    path: 'call-center',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['operacional', 'admin', 'supervisor', 'analista'] as Papel[] },
+    loadComponent: () =>
+      import('./pages/call-center/call-center.component')
+        .then(m => m.CallCenterComponent),
+  },
+
   // === novo modulo ===
 
   {

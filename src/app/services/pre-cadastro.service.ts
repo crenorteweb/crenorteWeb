@@ -18,7 +18,7 @@ import {
   documentId,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
-import { PreCadastro } from '../models/pre-cadastro.model';
+import { PreCadastro, ElegibilidadeStatus, AtendimentoStatus } from '../models/pre-cadastro.model';
 
 // Storage (upload/download/remover)
 import {
@@ -67,6 +67,8 @@ export class PreCadastroService {
     const payload = {
       ...data,
       aprovacao: { status: 'nao_verificado' as const },
+      elegivel: { status: 'nao_verificado' as const },
+      atendimento: { status: 'nao_atendido' as const },
       encaminhamento: null,
       createdByUid: user.uid,
       createdByNome,
@@ -314,6 +316,53 @@ export class PreCadastroService {
       },
       atualizadoEm: serverTimestamp(),
     } as any);
+  }
+
+  /* ========== Elegibilidade ========== */
+
+  async registrarElegibilidade(preCadastroId: string, status: ElegibilidadeStatus): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user) throw new Error('Usuário não autenticado.');
+
+    let porNome = user.displayName || 'Analista';
+    try {
+      const snap = await getDoc(doc(this.db, 'colaboradores', user.uid));
+      porNome = (snap.data() as any)?.nome || porNome;
+    } catch {}
+
+    await updateDoc(doc(this.db, 'pre_cadastros', preCadastroId), {
+      'elegivel.status': status,
+      'elegivel.porUid': user.uid,
+      'elegivel.porNome': porNome,
+      'elegivel.em': serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    });
+  }
+
+  /* ========== Atendimento ========== */
+
+  async registrarAtendimento(
+    preCadastroId: string,
+    status: AtendimentoStatus,
+    observacao?: string | null
+  ): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user) throw new Error('Usuário não autenticado.');
+
+    let porNome = user.displayName || 'Analista';
+    try {
+      const snap = await getDoc(doc(this.db, 'colaboradores', user.uid));
+      porNome = (snap.data() as any)?.nome || porNome;
+    } catch {}
+
+    await updateDoc(doc(this.db, 'pre_cadastros', preCadastroId), {
+      'atendimento.status': status,
+      'atendimento.porUid': user.uid,
+      'atendimento.porNome': porNome,
+      'atendimento.em': serverTimestamp(),
+      'atendimento.observacao': observacao ?? null,
+      atualizadoEm: serverTimestamp(),
+    });
   }
 
   /* ========== Observações ========== */

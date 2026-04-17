@@ -1,0 +1,443 @@
+<app-header></app-header>
+<br><br><br><br><br>
+<div class="container py-3">
+
+  <!-- Título -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h2 class="mb-0">Call Center</h2>
+    <button class="btn btn-outline-secondary btn-sm" (click)="carregarTudo()" [disabled]="loading()">
+      <span *ngIf="loading()" class="spinner-border spinner-border-sm me-1" role="status"></span>
+      <i *ngIf="!loading()" class="bi bi-arrow-clockwise me-1"></i>
+      Atualizar
+    </button>
+  </div>
+
+  <!-- Abas -->
+  <ul class="nav nav-tabs mb-3">
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="abaAtiva() === 'geral'" (click)="abaAtiva.set('geral')">
+        <i class="bi bi-people me-1"></i>Geral
+        <span class="badge text-bg-secondary ms-1">{{ preCadastros().length }}</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="abaAtiva() === 'meus'" (click)="abaAtiva.set('meus')">
+        <i class="bi bi-person-lines-fill me-1"></i>Meus Atendimentos
+        <span class="badge text-bg-primary ms-1">{{ meusFiltrado().length }}</span>
+      </button>
+    </li>
+  </ul>
+
+  <!-- ===================== ABA GERAL ===================== -->
+  <ng-container *ngIf="abaAtiva() === 'geral'">
+
+    <!-- Filtros -->
+    <div class="d-flex flex-wrap gap-2 mb-3">
+      <div class="input-group">
+        <span class="input-group-text">Atendimento</span>
+        <select class="form-select" [value]="filtroAtendimento()" #selAtend
+          (change)="onFiltroAtendimentoChange(selAtend.value)">
+          <option value="todos">Todos</option>
+          <option value="nao_atendido">Não atendido</option>
+          <option value="em_atendimento">Em atendimento</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <span class="input-group-text">UF</span>
+        <input type="text" class="form-control" style="max-width:60px"
+          (input)="onFiltroUfChange($any($event.target).value)">
+        <span class="input-group-text">Cidade</span>
+        <input type="text" class="form-control"
+          (input)="onFiltroCidadeChange($any($event.target).value)">
+        <span class="input-group-text">Bairro</span>
+        <input type="text" class="form-control"
+          (input)="onFiltroBairroChange($any($event.target).value)">
+      </div>
+
+      <div class="input-group">
+        <span class="input-group-text">CPF</span>
+        <input type="text" class="form-control" placeholder="000.000.000-00"
+          (input)="onFiltroCpfChange($any($event.target).value)">
+      </div>
+    </div>
+
+    <!-- Resumo totais -->
+    <div *ngIf="!loading() && preCadastros().length" class="d-flex flex-wrap gap-2 mb-3">
+      <span class="badge text-bg-secondary px-3 py-2">
+        Não atendido: {{ contarPorStatus('nao_atendido') }}
+      </span>
+      <span class="badge text-bg-warning px-3 py-2" style="color:#333">
+        Em atendimento: {{ contarPorStatus('em_atendimento') }}
+      </span>
+      <span class="badge text-bg-success px-3 py-2">
+        Finalizado: {{ contarPorStatus('finalizado') }}
+      </span>
+    </div>
+
+    <!-- Loading -->
+    <div *ngIf="loading()" class="alert alert-light d-flex align-items-center gap-2">
+      <span class="spinner-border spinner-border-sm"></span> Carregando…
+    </div>
+
+    <!-- Vazio -->
+    <div *ngIf="!loading() && !filtrados().length" class="text-muted text-center py-4">
+      Nenhum cliente elegível encontrado.
+    </div>
+
+    <!-- Paginação topo -->
+    <nav *ngIf="!loading() && filtrados().length"
+      class="px-2 py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="small text-muted">Mostrando {{ pageStart + 1 }}–{{ pageEnd }} de {{ totalItems }}</div>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="currentPage===1">
+          <a class="page-link" (click)="prevPage()" role="button">‹</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">{{ currentPage }} / {{ totalPages }}</span></li>
+        <li class="page-item" [class.disabled]="currentPage===totalPages">
+          <a class="page-link" (click)="nextPage()" role="button">›</a>
+        </li>
+      </ul>
+    </nav>
+
+    <!-- Cards de clientes -->
+    <div *ngFor="let item of pageItems()" class="card mb-3"
+      [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
+      [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+      <div class="card-body">
+        <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+      </div>
+    </div>
+
+    <!-- Paginação base -->
+    <nav *ngIf="!loading() && filtrados().length"
+      class="px-2 py-2 mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="d-flex align-items-center gap-2">
+        <label class="small text-muted me-1">por página</label>
+        <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+          <option [ngValue]="10">10</option>
+          <option [ngValue]="20">20</option>
+          <option [ngValue]="50">50</option>
+        </select>
+      </div>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="currentPage===1">
+          <a class="page-link" (click)="prevPage()" role="button">‹</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">{{ currentPage }} / {{ totalPages }}</span></li>
+        <li class="page-item" [class.disabled]="currentPage===totalPages">
+          <a class="page-link" (click)="nextPage()" role="button">›</a>
+        </li>
+      </ul>
+    </nav>
+
+  </ng-container>
+
+  <!-- ===================== ABA MEUS ATENDIMENTOS ===================== -->
+  <ng-container *ngIf="abaAtiva() === 'meus'">
+
+    <div *ngIf="!meusFiltrado().length && !loading()" class="text-muted text-center py-4">
+      Você ainda não tem atendimentos em andamento ou finalizados.
+    </div>
+
+    <!-- Paginação topo -->
+    <nav *ngIf="meusFiltrado().length"
+      class="px-2 py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <div class="small text-muted">Mostrando {{ meusPageStart + 1 }}–{{ meusPageEnd }} de {{ meusTotalItems }}</div>
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="meusCurrentPage===1">
+          <a class="page-link" (click)="meusPrevPage()" role="button">‹</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">{{ meusCurrentPage }} / {{ meusTotalPages }}</span></li>
+        <li class="page-item" [class.disabled]="meusCurrentPage===meusTotalPages">
+          <a class="page-link" (click)="meusNextPage()" role="button">›</a>
+        </li>
+      </ul>
+    </nav>
+
+    <div *ngFor="let item of meusPageItems()" class="card mb-3"
+      [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
+      [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+      <div class="card-body">
+        <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+      </div>
+    </div>
+
+    <!-- Paginação base -->
+    <nav *ngIf="meusFiltrado().length"
+      class="px-2 py-2 mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item" [class.disabled]="meusCurrentPage===1">
+          <a class="page-link" (click)="meusPrevPage()" role="button">‹</a>
+        </li>
+        <li class="page-item disabled"><span class="page-link">{{ meusCurrentPage }} / {{ meusTotalPages }}</span></li>
+        <li class="page-item" [class.disabled]="meusCurrentPage===meusTotalPages">
+          <a class="page-link" (click)="meusNextPage()" role="button">›</a>
+        </li>
+      </ul>
+    </nav>
+
+  </ng-container>
+
+</div>
+
+<!-- ===================== TEMPLATE COMPARTILHADO: card do cliente ===================== -->
+<ng-template #cardCliente let-item="item">
+  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+
+    <!-- ESQUERDA: dados -->
+    <div class="flex-grow-1 pe-2">
+      <strong>{{ item.nomeCompleto }}</strong>
+      <div class="text-muted small">
+        CPF {{ cpfMask(item.cpf) }} • {{ item.cidade }}/{{ $any(item).uf }} • {{ item.bairro }}
+        <ng-container *ngIf="item.modalidade"> • {{ item.modalidade }}</ng-container>
+      </div>
+      <div class="small text-muted">{{ item.telefone }}<ng-container *ngIf="item.email"> • {{ item.email }}</ng-container></div>
+
+      <!-- Agendamento -->
+      <div *ngIf="$any(item).agendamentoData" class="mt-1 small">
+        <i class="bi bi-calendar-check text-primary me-1"></i>
+        <strong>Agendado:</strong> {{ $any(item).agendamentoData }}
+        <ng-container *ngIf="$any(item).agendamentoHora"> às {{ $any(item).agendamentoHora }}</ng-container>
+      </div>
+
+      <!-- Encaminhamento -->
+      <div *ngIf="item.encaminhamento?.assessorNome" class="mt-1 small">
+        <i class="bi bi-send text-success me-1"></i>
+        <strong>Encaminhado para:</strong> {{ item.encaminhamento?.assessorNome }}
+      </div>
+
+      <!-- Status atendimento -->
+      <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+        <span class="fw-semibold small">Atendimento:</span>
+        <span class="badge" [ngClass]="{
+          'text-bg-secondary': atendimentoStatus(item) === 'nao_atendido',
+          'text-bg-warning':   atendimentoStatus(item) === 'em_atendimento',
+          'text-bg-success':   atendimentoStatus(item) === 'finalizado'
+        }" [style.color]="atendimentoStatus(item) === 'em_atendimento' ? '#333' : ''">
+          {{ atendimentoStatus(item) === 'nao_atendido' ? 'Não atendido'
+           : atendimentoStatus(item) === 'em_atendimento' ? 'Em atendimento'
+           : 'Finalizado' }}
+        </span>
+        <small class="text-muted" *ngIf="item.atendimento?.porNome">
+          por <strong>{{ item.atendimento?.porNome }}</strong>
+          <ng-container *ngIf="item.atendimento?.em as aem">
+            — {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM/yyyy HH:mm' }}
+          </ng-container>
+        </small>
+      </div>
+      <div *ngIf="item.atendimento?.observacao" class="small text-muted mt-1">
+        Obs.: {{ item.atendimento?.observacao }}
+      </div>
+    </div>
+
+    <!-- DIREITA: botões de ação -->
+    <div class="d-flex flex-column gap-1" style="min-width:160px">
+
+      <!-- Iniciar -->
+      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'nao_atendido'"
+        class="btn btn-outline-primary btn-sm" (click)="iniciarAtendimento(item)">
+        <i class="bi bi-telephone me-1"></i>Iniciar Atendimento
+      </button>
+
+      <!-- Finalizar -->
+      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'em_atendimento'"
+        class="btn btn-success btn-sm" (click)="abrirModalFinalizar(item)">
+        <i class="bi bi-check-lg me-1"></i>Finalizar
+      </button>
+
+      <!-- Reabrir -->
+      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'finalizado'"
+        class="btn btn-outline-secondary btn-sm" (click)="iniciarAtendimento(item)">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Reabrir
+      </button>
+
+      <!-- Agendar -->
+      <button *ngIf="isOperacional()"
+        class="btn btn-outline-info btn-sm" (click)="abrirModalAgendamento(item)">
+        <i class="bi bi-calendar-plus me-1"></i>
+        {{ $any(item).agendamentoData ? 'Editar Agendamento' : 'Agendar' }}
+      </button>
+
+      <!-- Encaminhar para assessor -->
+      <button *ngIf="isOperacional()"
+        class="btn btn-outline-success btn-sm" (click)="abrirModalEncaminhar(item)">
+        <i class="bi bi-send me-1"></i>Encaminhar
+      </button>
+
+      <!-- Editar dados -->
+      <button *ngIf="isOperacional()"
+        class="btn btn-outline-secondary btn-sm" (click)="abrirModalEditar(item)">
+        <i class="bi bi-pencil me-1"></i>Editar Cliente
+      </button>
+
+    </div>
+  </div>
+</ng-template>
+
+<!-- ===== Modal: Finalizar Atendimento ===== -->
+<div *ngIf="finalizarAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background:rgba(0,0,0,.35);z-index:1055">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(520px,96vw)">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Finalizar Atendimento</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalFinalizar()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <label class="form-label">Observação (opcional)</label>
+      <textarea #txtObs class="form-control" rows="3"
+        placeholder="Ex.: Cliente confirmou interesse, aguardando documentação..."></textarea>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalFinalizar()">Cancelar</button>
+      <button class="btn btn-success" (click)="confirmarFinalizar(txtObs.value)">
+        <i class="bi bi-check-lg me-1"></i>Confirmar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Encaminhar para Assessor ===== -->
+<div *ngIf="encaminharAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background:rgba(0,0,0,.35);z-index:1055">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(480px,96vw)">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Encaminhar para Assessor</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalEncaminhar()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <label class="form-label">Selecione o assessor</label>
+      <select class="form-select" [ngModel]="assessorSelecionado()"
+        (ngModelChange)="assessorSelecionado.set($event)">
+        <option value="">— selecione —</option>
+        <option *ngFor="let a of assessores()" [value]="a.uid || a.id">{{ a.nome }}</option>
+      </select>
+      <div *ngIf="!assessores().length" class="text-muted small mt-2">
+        Nenhum assessor ativo encontrado.
+      </div>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalEncaminhar()">Cancelar</button>
+      <button class="btn btn-success" [disabled]="!assessorSelecionado()"
+        (click)="confirmarEncaminhar()">
+        <i class="bi bi-send me-1"></i>Encaminhar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Agendamento ===== -->
+<div *ngIf="agendamentoAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background:rgba(0,0,0,.35);z-index:1055">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(440px,96vw)">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Agendar Visita</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalAgendamento()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <div class="row g-3">
+        <div class="col-7">
+          <label class="form-label">Data <span class="text-danger">*</span></label>
+          <input type="date" class="form-control"
+            [ngModel]="agendamentoData()" (ngModelChange)="agendamentoData.set($event)">
+        </div>
+        <div class="col-5">
+          <label class="form-label">Hora</label>
+          <input type="time" class="form-control"
+            [ngModel]="agendamentoHora()" (ngModelChange)="agendamentoHora.set($event)">
+        </div>
+      </div>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalAgendamento()">Cancelar</button>
+      <button class="btn btn-primary" [disabled]="!agendamentoData()"
+        (click)="confirmarAgendamento()">
+        <i class="bi bi-calendar-check me-1"></i>Salvar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Modal: Editar Cliente ===== -->
+<div *ngIf="editarAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background:rgba(0,0,0,.35);z-index:1055">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(640px,96vw);max-height:88vh;overflow-y:auto">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Editar Dados do Cliente</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalEditar()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <div class="row g-3">
+
+        <div class="col-12">
+          <label class="form-label">Nome completo</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().nomeCompleto"
+            (ngModelChange)="updateEditForm('nomeCompleto', $event)">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Telefone</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().telefone"
+            (ngModelChange)="updateEditForm('telefone', $event)">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">E-mail</label>
+          <input type="email" class="form-control"
+            [ngModel]="editForm().email"
+            (ngModelChange)="updateEditForm('email', $event)">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Cidade</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().cidade"
+            (ngModelChange)="updateEditForm('cidade', $event)">
+        </div>
+
+        <div class="col-2">
+          <label class="form-label">UF</label>
+          <input type="text" class="form-control" maxlength="2"
+            [ngModel]="editForm().uf"
+            (ngModelChange)="updateEditForm('uf', $event)">
+        </div>
+
+        <div class="col-4">
+          <label class="form-label">Bairro</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().bairro"
+            (ngModelChange)="updateEditForm('bairro', $event)">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Modalidade</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().modalidade"
+            (ngModelChange)="updateEditForm('modalidade', $event)">
+        </div>
+
+        <div class="col-6">
+          <label class="form-label">Origem</label>
+          <input type="text" class="form-control"
+            [ngModel]="editForm().origem"
+            (ngModelChange)="updateEditForm('origem', $event)">
+        </div>
+
+      </div>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalEditar()">Cancelar</button>
+      <button class="btn btn-primary" [disabled]="salvandoEdicao()" (click)="confirmarEdicao()">
+        <span *ngIf="salvandoEdicao()" class="spinner-border spinner-border-sm me-1"></span>
+        <i *ngIf="!salvandoEdicao()" class="bi bi-floppy me-1"></i>Salvar
+      </button>
+    </div>
+  </div>
+</div>

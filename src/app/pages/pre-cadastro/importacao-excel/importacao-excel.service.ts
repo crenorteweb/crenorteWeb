@@ -8,11 +8,12 @@ import {
   writeBatch,
   doc,
   getDoc,
+  updateDoc,
   serverTimestamp,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
 import * as XLSX from 'xlsx';
-import { LinhaImportacao, ResultadoImportacao } from './importacao-excel.model';
+import { LinhaImportacao, ResultadoImportacao, LinhaElegibilidade, ResultadoElegibilidade } from './importacao-excel.model';
 
 const UFS_VALIDAS = new Set([
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA',
@@ -285,6 +286,194 @@ export class ImportacaoExcelService {
 
     const hoje = new Date().toISOString().slice(0, 10);
     XLSX.writeFile(wb, `clientes_cadastrados_${hoje}.xlsx`);
+  }
+
+  // ===================================================
+  // ========= ELEGIBILIDADE EM MASSA ==================
+  // ===================================================
+
+  private static readonly ELEGIVEL_SIM = new Set([
+    'sim', 's', 'yes', 'y', '1', 'true', 'elegivel', 'elegível',
+  ]);
+
+  /** Lê o arquivo Excel de elegibilidade (colunas: nome, cpf, elegivel). */
+  parseExcelElegibilidade(file: File): Promise<LinhaElegibilidade[]> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = new Uint8Array(e.target!.result as ArrayBuffer);
+          const wb = XLSX.read(data, { type: 'array' });
+          const ws = wb.Sheets[wb.SheetNames[0]];
+          const rows: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+          if (rows.length < 2) { resolve([]); return; }
+
+          const linhas: LinhaElegibilidade[] = rows
+            .slice(1)
+            .filter((row) => row.some((cell) => String(cell).trim() !== ''))
+            .map((row, i) => {
+              const nome       = String(row[0] ?? '').trim();
+              const cpfRaw     = String(row[1] ?? '').trim();
+              const elegivelRaw = String(row[2] ?? '').trim();
+              const cpfNumeros = cpfRaw.replace(/\D/g, '');
+              const elegivel: 'sim' | 'nao' =
+                ImportacaoExcelService.ELEGIVEL_SIM.has(elegivelRaw.toLowerCase()) ? 'sim' : 'nao';
+
+              return { index: i + 2, nome, cpf: cpfRaw, cpfNumeros, elegivelRaw, elegivel, erros: [], valida: false };
+            });
+
+          resolve(linhas);
+        } catch (err) { reject(err); }
+      };
+      reader.onerror = () => reject(reader.error);
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  /** Valida formato das linhas de elegibilidade. */
+  validarFormatosElegibilidade(linhas: LinhaElegibilidade[]): LinhaElegibilidade[] {
+    return linhas.map((l) => {
+      const erros: string[] = [];
+
+      if (!l.nome || l.nome.length < 3)
+        erros.push('Nome obrigatório (mínimo 3 caracteres)');
+
+      if (!l.cpfNumeros)
+        erros.push('CPF obrigatório');
+      else if (l.cpfNumeros.length !== 11)
+        erros.push(`CPF inválido: "${l.cpf}" (deve ter 11 dígitos)`);
+
+      if (!l.elegivelRaw)
+        erros.push('Campo elegível obrigatório (aceitos: Sim, Não, S, N)');
+
+      // Detecta duplicatas na planilha (mesmo campo usado abaixo em atualizarElegibilidade)
+      return { ...l, erros, valida: erros.length === 0 };
+    });
+  }
+
+  /**
+   * Busca cada CPF no Firestore e atualiza o campo `elegivel`.
+   * Apenas admin pode executar.
+   */
+  async atualizarElegibilidade(
+    linhas: LinhaElegibilidade[],
+    onProgress?: (atual: number, total: number) => void
+  ): Promise<ResultadoElegibilidade> {
+    const user = this.auth.currentUser;
+    if (!user) throw new Error('Usuário não autenticado.');
+
+    const colabSnap = await getDoc(doc(this.db, 'colaboradores', user.uid));
+    const papel = (colabSnap.data() as any)?.papel ?? '';
+    if (papel !== 'admin') {
+      throw new Error('Apenas administradores podem atualizar elegibilidade em massa.');
+    }
+
+    const porNome: string = (colabSnap.data() as any)?.nome ?? user.displayName ?? 'Admin';
+    const porUid  = user.uid;
+
+    // Deduplica por CPF (mantém última ocorrência da planilha)
+    const dedupMap = new Map<string, LinhaElegibilidade>();
+    const duplicadas = new Set<string>();
+    const cpfVistos  = new Map<string, number>();
+
+    for (const l of linhas) {
+      if (!l.valida) continue;
+      if (cpfVistos.has(l.cpfNumeros)) {
+        duplicadas.add(l.cpfNumeros);
+      }
+      cpfVistos.set(l.cpfNumeros, l.index);
+      dedupMap.set(l.cpfNumeros, l);
+    }
+
+    const paraAtualizar = Array.from(dedupMap.values());
+    const colRef = collection(this.db, 'pre_cadastros');
+
+    const detalhesErro: ResultadoElegibilidade['detalhesErro'] = linhas
+      .filter(l => !l.valida && !l.duplicadaNaPlanilha)
+      .map(l => ({ linha: l.index, nome: l.nome, cpf: l.cpf, erros: l.erros }));
+
+    const detalhesNaoEncontrado: ResultadoElegibilidade['detalhesNaoEncontrado'] = [];
+    const linhasAtualizadas: LinhaElegibilidade[] = [];
+    let atualizados = 0;
+
+    for (let i = 0; i < paraAtualizar.length; i++) {
+      const linha = paraAtualizar[i];
+
+      // Busca por CPF nas duas coleções
+      let docId: string | null = null;
+      const cols = ['pre_cadastros', 'pre-cadastros'] as const;
+      for (const col of cols) {
+        const snap = await getDocs(query(collection(this.db, col), where('cpf', '==', linha.cpfNumeros)));
+        if (!snap.empty) { docId = snap.docs[0].id; break; }
+      }
+
+      if (!docId) {
+        detalhesNaoEncontrado.push({ linha: linha.index, nome: linha.nome, cpf: linha.cpf });
+      } else {
+        const payload = {
+          'elegivel.status': linha.elegivel,
+          'elegivel.porUid': porUid,
+          'elegivel.porNome': porNome,
+          'elegivel.em': serverTimestamp(),
+          atualizadoEm: serverTimestamp(),
+        };
+        await Promise.all([
+          updateDoc(doc(this.db, 'pre_cadastros', docId), payload).catch(() => { }),
+          updateDoc(doc(this.db, 'pre-cadastros', docId), payload).catch(() => { }),
+        ]);
+        atualizados++;
+        linhasAtualizadas.push(linha);
+      }
+
+      onProgress?.(i + 1, paraAtualizar.length);
+    }
+
+    return {
+      atualizados,
+      naoEncontrados: detalhesNaoEncontrado.length,
+      totalErros: detalhesErro.length,
+      detalhesErro,
+      detalhesNaoEncontrado,
+      linhasAtualizadas,
+    };
+  }
+
+  /** Exporta planilha modelo para atualização de elegibilidade. */
+  downloadTemplateElegibilidade(): void {
+    const wb = XLSX.utils.book_new();
+
+    const dados = [
+      ['nome', 'cpf', 'elegivel'],
+      ['Maria da Silva', '12345678901', 'Sim'],
+      ['João Pereira',   '98765432100', 'Não'],
+    ];
+    const ws1 = XLSX.utils.aoa_to_sheet(dados);
+    ws1['!cols'] = [{ wch: 30 }, { wch: 16 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(wb, ws1, 'Elegibilidade');
+
+    const instrucoes = [
+      ['INSTRUÇÕES — Atualização de Elegibilidade em Massa'],
+      [''],
+      ['Coluna',   'Descrição',                          'Obrigatório', 'Exemplo'],
+      ['nome',     'Nome completo do cliente',            'Sim',         'Maria da Silva'],
+      ['cpf',      'CPF (somente números ou com máscara)','Sim',         '12345678901'],
+      ['elegivel', 'Elegível para atendimento?',          'Sim',         'Sim ou Não'],
+      [''],
+      ['VALORES ACEITOS para "elegivel":'],
+      ['→ Para SIM: Sim, sim, S, s, Yes, yes, 1, True'],
+      ['→ Para NÃO: Não, Nao, N, n, No, no (ou qualquer outro valor)'],
+      [''],
+      ['OBSERVAÇÕES:'],
+      ['• O sistema localiza o cliente pelo CPF e atualiza apenas o campo de elegibilidade'],
+      ['• CPFs não encontrados no sistema serão listados no relatório final'],
+      ['• O registro de quem fez a atualização é feito automaticamente com os dados do admin logado'],
+    ];
+    const ws2 = XLSX.utils.aoa_to_sheet(instrucoes);
+    ws2['!cols'] = [{ wch: 14 }, { wch: 46 }, { wch: 16 }, { wch: 30 }];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Instruções');
+
+    XLSX.writeFile(wb, 'modelo_elegibilidade_massa.xlsx');
   }
 
   /** Gera e faz download de um arquivo Excel modelo com instruções. */

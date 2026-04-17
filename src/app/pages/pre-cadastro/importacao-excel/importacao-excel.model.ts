@@ -23,3 +23,26 @@ export interface ResultadoImportacao {
   detalhesErro: Array<{ linha: number; nome: string; erros: string[] }>;
   linhasImportadas: LinhaImportacao[];
 }
+
+// ===== Elegibilidade em massa =====
+
+export interface LinhaElegibilidade {
+  index: number;
+  nome: string;
+  cpf: string;             // valor bruto
+  cpfNumeros: string;      // apenas dígitos
+  elegivelRaw: string;     // valor bruto da planilha
+  elegivel: 'sim' | 'nao';
+  erros: string[];
+  valida: boolean;
+  duplicadaNaPlanilha?: boolean;
+}
+
+export interface ResultadoElegibilidade {
+  atualizados: number;
+  naoEncontrados: number;
+  totalErros: number;
+  detalhesErro: Array<{ linha: number; nome: string; cpf: string; erros: string[] }>;
+  detalhesNaoEncontrado: Array<{ linha: number; nome: string; cpf: string }>;
+  linhasAtualizadas: LinhaElegibilidade[];
+}

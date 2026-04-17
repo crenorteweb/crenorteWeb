@@ -1,0 +1,204 @@
+<app-header></app-header>
+<br><br><br><br><br>
+<div class="container py-3">
+
+  <!-- Header + Filtros -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <h2 class="mb-2 mb-md-0">Verificação de Elegibilidade</h2>
+
+    <div class="d-flex flex-wrap gap-2">
+
+      <!-- Filtro: Status elegibilidade -->
+      <div class="input-group">
+        <span class="input-group-text">Elegibilidade</span>
+        <select class="form-select" [value]="filtroElegivel()" #selEleg
+          (change)="onFiltroElegivelChange(selEleg.value)">
+          <option value="todos">Todos</option>
+          <option value="nao_verificado">Não verificado</option>
+          <option value="sim">Elegível</option>
+          <option value="nao">Não elegível</option>
+        </select>
+      </div>
+
+      <!-- Filtro: Data (aprovação) -->
+      <div class="input-group">
+        <span class="input-group-text">De</span>
+        <input type="date" class="form-control" [value]="filtroDataDe() || ''"
+          (input)="onFiltroDataDeChange($any($event.target).value)">
+        <span class="input-group-text">Até</span>
+        <input type="date" class="form-control" [value]="filtroDataAte() || ''"
+          (input)="onFiltroDataAteChange($any($event.target).value)">
+      </div>
+
+      <!-- Filtros geográficos -->
+      <div class="input-group">
+        <span class="input-group-text">UF</span>
+        <input type="text" class="form-control" style="max-width:60px"
+          (input)="onFiltroUfChange($any($event.target).value)">
+        <span class="input-group-text">Cidade</span>
+        <input type="text" class="form-control"
+          (input)="onFiltroCidadeChange($any($event.target).value)">
+        <span class="input-group-text">Bairro</span>
+        <input type="text" class="form-control"
+          (input)="onFiltroBairroChange($any($event.target).value)">
+      </div>
+
+      <!-- Filtro CPF -->
+      <div class="input-group">
+        <span class="input-group-text">CPF</span>
+        <input type="text" class="form-control" placeholder="000.000.000-00"
+          (input)="onFiltroCpfChange($any($event.target).value)">
+      </div>
+
+      <!-- Atualizar -->
+      <button class="btn btn-outline-secondary" (click)="carregarTudo()" [disabled]="loading()">
+        <span *ngIf="loading()" class="spinner-border spinner-border-sm me-1" role="status"></span>
+        <i *ngIf="!loading()" class="bi bi-arrow-clockwise me-1"></i>
+        Atualizar
+      </button>
+    </div>
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading()" class="alert alert-light border-0 shadow-sm d-flex align-items-center gap-2">
+    <span class="spinner-border spinner-border-sm"></span>
+    Carregando…
+  </div>
+
+  <!-- Vazio -->
+  <div *ngIf="!loading() && !filtrados().length" class="text-muted text-center py-4">
+    Nenhum pré-cadastro apto encontrado.
+  </div>
+
+  <!-- PAGINAÇÃO (topo) -->
+  <nav *ngIf="!loading() && filtrados().length"
+    class="px-2 py-2 mb-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="small text-muted">
+      Mostrando {{ pageStart + 1 }}–{{ pageEnd }} de {{ totalItems }}
+    </div>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item" [class.disabled]="currentPage===1">
+        <a class="page-link" (click)="prevPage()" role="button">‹</a>
+      </li>
+      <li class="page-item disabled">
+        <span class="page-link">{{ currentPage }} / {{ totalPages }}</span>
+      </li>
+      <li class="page-item" [class.disabled]="currentPage===totalPages">
+        <a class="page-link" (click)="nextPage()" role="button">›</a>
+      </li>
+    </ul>
+  </nav>
+
+  <!-- Lista -->
+  <div *ngFor="let item of pageItems()" class="card mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+
+        <!-- ESQUERDA: dados do cliente -->
+        <div class="pe-3 flex-grow-1">
+          <strong>{{ item.nomeCompleto }}</strong>
+          <div class="text-muted small">
+            CPF {{ cpfMask(item.cpf) }} • {{ item.cidade }}/{{ $any(item).uf }} • {{ item.bairro }}
+            <ng-container *ngIf="item.modalidade"> • {{ item.modalidade }}</ng-container>
+          </div>
+
+          <div class="small text-muted mt-1">
+            Criado por: <strong>{{ nomeDoAutor(item.createdByUid) }}</strong>
+          </div>
+
+          <!-- Status aprovação -->
+          <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+            <span class="badge text-bg-success">Apto</span>
+            <small class="text-muted" *ngIf="$any(item)?.aprovacao?.porNome">
+              por {{ $any(item).aprovacao.porNome }}
+              <ng-container *ngIf="$any(item)?.aprovacao?.em as aem">
+                — {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM/yyyy HH:mm' }}
+              </ng-container>
+            </small>
+          </div>
+
+          <!-- Status elegibilidade -->
+          <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold">Elegibilidade:</span>
+
+            <span class="badge" [ngClass]="{
+              'text-bg-secondary': elegivelStatus(item) === 'nao_verificado',
+              'text-bg-success':   elegivelStatus(item) === 'sim',
+              'text-bg-danger':    elegivelStatus(item) === 'nao'
+            }">
+              {{ elegivelStatus(item) === 'nao_verificado' ? 'Não verificado'
+               : elegivelStatus(item) === 'sim' ? 'Elegível' : 'Não elegível' }}
+            </span>
+
+            <small class="text-muted" *ngIf="item.elegivel?.porNome">
+              por {{ item.elegivel?.porNome }}
+              <ng-container *ngIf="item.elegivel?.em as eem">
+                — {{ (eem?.toDate ? eem.toDate() : eem) | date:'dd/MM/yyyy HH:mm' }}
+              </ng-container>
+            </small>
+          </div>
+        </div>
+
+        <!-- DIREITA: ações -->
+        <div class="d-flex flex-column gap-2 text-end">
+          <button class="btn btn-outline-success btn-sm"
+            [disabled]="elegivelStatus(item) === 'sim'"
+            (click)="marcarElegivel(item)">
+            <i class="bi bi-check-circle me-1"></i>Marcar Elegível
+          </button>
+          <button class="btn btn-outline-danger btn-sm"
+            [disabled]="elegivelStatus(item) === 'nao'"
+            (click)="abrirModalNaoElegivel(item)">
+            <i class="bi bi-x-circle me-1"></i>Não Elegível
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGINAÇÃO (base) -->
+  <nav *ngIf="!loading() && filtrados().length"
+    class="px-2 py-2 mt-2 d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <div class="d-flex align-items-center gap-2">
+      <label class="small text-muted me-1">por página</label>
+      <select class="form-select form-select-sm w-auto" [ngModel]="pageSize" (ngModelChange)="onPageSizeChange($event)">
+        <option [ngValue]="10">10</option>
+        <option [ngValue]="20">20</option>
+        <option [ngValue]="50">50</option>
+      </select>
+    </div>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item" [class.disabled]="currentPage===1">
+        <a class="page-link" (click)="prevPage()" role="button">‹</a>
+      </li>
+      <li class="page-item disabled">
+        <span class="page-link">{{ currentPage }} / {{ totalPages }}</span>
+      </li>
+      <li class="page-item" [class.disabled]="currentPage===totalPages">
+        <a class="page-link" (click)="nextPage()" role="button">›</a>
+      </li>
+    </ul>
+  </nav>
+
+</div>
+
+<!-- Modal: Confirmar Não Elegível -->
+<div *ngIf="naoElegivelAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background: rgba(0,0,0,.35); z-index:1055;">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(480px, 96vw);">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Confirmar: Não Elegível</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalNaoElegivel()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <p class="mb-0">Deseja marcar este cliente como <strong>Não Elegível</strong>?</p>
+      <small class="text-muted">Essa ação ficará registrada com seu nome e a data/hora.</small>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalNaoElegivel()">Cancelar</button>
+      <button class="btn btn-danger" (click)="confirmarNaoElegivel()">Confirmar</button>
+    </div>
+  </div>
+</div>
