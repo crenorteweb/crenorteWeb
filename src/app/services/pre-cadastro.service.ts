@@ -39,6 +39,12 @@ type UsuarioAssessor = {
   analistaResponsavelUid?: string | null;
 };
 
+export const UFS_NORTE = ['PA', 'AC', 'AP', 'AM', 'RO', 'RR', 'TO'] as const;
+
+export function filtrarUfsNorte<T>(rows: T[]): T[] {
+  return rows.filter(r => UFS_NORTE.includes(((r as any)?.uf ?? '').toString().toUpperCase().trim() as any));
+}
+
 @Injectable({ providedIn: 'root' })
 export class PreCadastroService {
   private db = inject(Firestore);
@@ -114,11 +120,11 @@ export class PreCadastroService {
     try {
       const qy = query(this.colRef, where('createdByUid', '==', useUid), orderBy('createdAt', 'desc'));
       const snap = await getDocs(qy);
-      return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+      return filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
     } catch {
       const qy = query(this.colRef, where('createdByUid', '==', useUid));
       const snap = await getDocs(qy);
-      const rows = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+      const rows = filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
 
       const ms = (x: any) =>
         x?.toMillis ? x.toMillis() :
@@ -133,7 +139,7 @@ export class PreCadastroService {
   async listarTodos(): Promise<PreCadastro[]> {
     const qy = query(this.colRef, orderBy('createdAt', 'desc'));
     const snap = await getDocs(qy);
-    return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+    return filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
   }
 
   /**
@@ -196,7 +202,7 @@ export class PreCadastroService {
     try {
       const qy = query(this.colRef, where('aprovacao.status', 'in', ['inapto', 'apto']));
       const snap = await getDocs(qy);
-      const rows = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+      const rows = filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
       rows.sort((a: any, b: any) => {
         const ms = (x: any) =>
           x?.toMillis ? x.toMillis() :
@@ -207,7 +213,7 @@ export class PreCadastroService {
       return rows;
     } catch {
       const snap = await getDocs(this.colRef);
-      const rows = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+      const rows = filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
       const filtrados = rows.filter(r => ['inapto', 'apto'].includes(r?.aprovacao?.status ?? 'inapto'));
       filtrados.sort((a: any, b: any) => {
         const ms = (x: any) =>
@@ -297,7 +303,7 @@ export class PreCadastroService {
     const ms = (x: any) => x?.toMillis ? x.toMillis() : x?.toDate ? x.toDate().getTime() : (typeof x === 'number' ? x : 0);
     const map = new Map<string, PreCadastro>();
     rows.forEach(r => map.set(r.id, r));
-    return Array.from(map.values()).sort((a: any, b: any) => ms(b.createdAt) - ms(a.createdAt));
+    return filtrarUfsNorte(Array.from(map.values())).sort((a: any, b: any) => ms(b.createdAt) - ms(a.createdAt));
   }
 
   async enviarParaAssessor(preCadastroId: string, assessorUid: string, assessorNome?: string): Promise<void> {

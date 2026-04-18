@@ -11,6 +11,7 @@ import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PreCadastro } from '../../models/pre-cadastro.model';
+import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -404,7 +405,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      const arr = Array.from(acc.values());
+      const arr = filtrarUfsNorte(Array.from(acc.values()));
       this.preCadastros.set(arr);
       this.rebuildTotaisPorAutor(arr);
       await this.preloadColabNames(Array.from(needNames));

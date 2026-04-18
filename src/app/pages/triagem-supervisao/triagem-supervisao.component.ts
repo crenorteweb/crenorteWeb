@@ -4,7 +4,7 @@ import { FormsModule } from '@angular/forms';
 
 import { HeaderComponent } from '../shared/header/header.component';
 
-import { PreCadastroService } from '../../services/pre-cadastro.service';
+import { PreCadastroService, filtrarUfsNorte } from '../../services/pre-cadastro.service';
 import { GrupoSolidarioService } from '../../services/grupo-solidario.service';
 
 import { PreCadastro } from '../../models/pre-cadastro.model';
@@ -508,7 +508,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
 
-      this.pessoas = norm;
+      this.pessoas = filtrarUfsNorte(norm) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar pessoas:', e);

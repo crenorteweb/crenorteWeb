@@ -9,6 +9,7 @@ import {
 } from '@angular/fire/firestore';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import { PreCadastro } from '../../models/pre-cadastro.model';
+import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -247,7 +248,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      const arr = Array.from(acc.values());
+      const arr = filtrarUfsNorte(Array.from(acc.values()));
       this.preCadastros.set(arr);
       await this.preloadColabNames(Array.from(needNames));
     } catch (e) {

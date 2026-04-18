@@ -25,6 +25,8 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 
+import { filtrarUfsNorte } from '../../../services/pre-cadastro.service';
+
 
 /* =========================
    Normalização & Origens
@@ -433,7 +435,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
           }
         });
 
-        this.all = rows;
+        this.all = filtrarUfsNorte(rows) as typeof rows;
         this.atualizarOrigens();
         this.atualizarBairros();
         this.aplicarFiltros();
