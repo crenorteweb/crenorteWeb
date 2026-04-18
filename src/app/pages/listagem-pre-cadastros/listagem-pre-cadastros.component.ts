@@ -11,6 +11,8 @@ import {
   updateDoc,
 } from 'firebase/firestore';
 
+import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -209,6 +211,7 @@ export class ListagemPreCadastrosComponent implements OnInit {
         }
       }
 
+      this.presAll = filtrarUfsNorte(this.presAll);
       this.recalcularOpcoesDinamicas();
       this.aplicarFiltrosLocais(true);
     } catch (e: any) {
