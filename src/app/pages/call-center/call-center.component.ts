@@ -36,7 +36,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   private nomesSignal = signal<Record<string, string>>({});
 
   // ===== Abas =====
-  abaAtiva = signal<'geral' | 'meus'>('geral');
+  abaAtiva = signal<'geral' | 'meus' | 'agenda'>('geral');
 
   // ===== Filtros (aba geral) =====
   filtroAtendimento = signal<'todos' | 'nao_atendido' | 'em_atendimento' | 'finalizado'>('todos');
@@ -72,10 +72,88 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   finalizarAberto = signal(false);
   private finalizarId = signal<string | null>(null);
 
+  // ===== Aba Agenda =====
+  filtroAssessorAgenda = signal<string>('');
+  filtroPeriodoAgenda = signal<'todos' | 'semana' | 'mes'>('todos');
+
+  agendamentosDoAssessor = computed(() => {
+    const uid = this.filtroAssessorAgenda();
+    const periodo = this.filtroPeriodoAgenda();
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+
+    let inicioSemana: Date | null = null;
+    let fimSemana: Date | null = null;
+    let inicioMes: Date | null = null;
+    let fimMes: Date | null = null;
+
+    if (periodo === 'semana') {
+      const dow = hoje.getDay(); // 0=dom
+      inicioSemana = new Date(hoje);
+      inicioSemana.setDate(hoje.getDate() - dow);
+      fimSemana = new Date(inicioSemana);
+      fimSemana.setDate(inicioSemana.getDate() + 6);
+    } else if (periodo === 'mes') {
+      inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    }
+
+    return this.preCadastros()
+      .filter(i => {
+        const data: string = (i as any).agendamentoData;
+        if (!data) return false;
+        if (uid) {
+          const vinculado =
+            (i as any)?.encaminhamento?.assessorUid === uid ||
+            (i as any)?.createdByUid === uid ||
+            (i as any)?.alocadoParaUid === uid;
+          if (!vinculado) return false;
+        }
+
+        if (periodo !== 'todos') {
+          // data está em formato YYYY-MM-DD
+          const [y, m, d] = data.split('-').map(Number);
+          const dt = new Date(y, m - 1, d);
+          if (periodo === 'semana') return dt >= inicioSemana! && dt <= fimSemana!;
+          if (periodo === 'mes')   return dt >= inicioMes!    && dt <= fimMes!;
+        }
+        return true;
+      })
+      .sort((a, b) => {
+        const da = (a as any).agendamentoData ?? '';
+        const db = (b as any).agendamentoData ?? '';
+        if (da < db) return -1;
+        if (da > db) return 1;
+        const ha = (a as any).agendamentoHora ?? '';
+        const hb = (b as any).agendamentoHora ?? '';
+        return ha.localeCompare(hb);
+      });
+  });
+
   // ===== Modal: Encaminhar para assessor =====
   encaminharAberto = signal(false);
   private encaminharItem = signal<PreCadastro | null>(null);
   assessorSelecionado = signal<string>('');
+
+  agendamentosAssessorEncaminhar = computed(() => {
+    const uid = this.assessorSelecionado();
+    if (!uid) return [];
+    return this.preCadastros()
+      .filter(i => {
+        if (!(i as any).agendamentoData) return false;
+        return (i as any)?.encaminhamento?.assessorUid === uid ||
+               (i as any)?.createdByUid === uid ||
+               (i as any)?.alocadoParaUid === uid;
+      })
+      .sort((a, b) => {
+        const da = (a as any).agendamentoData ?? '';
+        const db = (b as any).agendamentoData ?? '';
+        if (da < db) return -1;
+        if (da > db) return 1;
+        return ((a as any).agendamentoHora ?? '').localeCompare((b as any).agendamentoHora ?? '');
+      });
+  });
 
   // ===== Modal: Agendamento =====
   agendamentoAberto = signal(false);
@@ -147,6 +225,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       // Assessores
       const assRows = snapAss.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Assessor));
       assRows.forEach(a => { if (!a.uid) a.uid = a.id; this.setNome(a.uid!, a.nome); });
+      assRows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
       this.assessores.set(assRows);
 
       // Pré-cadastros elegíveis
@@ -250,6 +329,30 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     this.preCadastros.update(list =>
       list.map(it => it.id === item.id
         ? { ...it as any, atendimento: { status: 'em_atendimento', porNome, porUid: cu.uid } }
+        : it
+      )
+    );
+  }
+
+  // ===== Ação: Liberar atendimento =====
+  async liberarAtendimento(item: PreCadastro) {
+    const payload: any = {
+      'atendimento.status': 'nao_atendido',
+      'atendimento.porUid': null,
+      'atendimento.porNome': null,
+      'atendimento.em': null,
+      'atendimento.observacao': null,
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await Promise.all([
+      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+    ]);
+
+    this.preCadastros.update(list =>
+      list.map(it => it.id === item.id
+        ? { ...it as any, atendimento: { status: 'nao_atendido', porNome: null, porUid: null } }
         : it
       )
     );

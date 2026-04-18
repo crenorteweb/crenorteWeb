@@ -13,7 +13,8 @@ export class CardsResumo {
   @Input() registros: PreCadastro[] = [];
   @Input() cargo: CargoFiltro | null = null;
 
-  get total(): number  { return this.registros.length; }
-  get aptos(): number  { return this.registros.filter(r => r.resultado === 'apto').length; }
-  get inaptos(): number { return this.registros.filter(r => r.resultado === 'inapto').length; }
+  get total(): number     { return this.registros.length; }
+  get aptos(): number     { return this.registros.filter(r => r.resultado === 'apto').length; }
+  get inaptos(): number   { return this.registros.filter(r => r.resultado === 'inapto').length; }
+  get elegiveis(): number { return this.registros.filter(r => r.elegivel?.status === 'sim').length; }
 }

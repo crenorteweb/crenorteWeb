@@ -80,8 +80,8 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   pageSize = signal<number>(9);
   page = signal<number>(1);
 
-  // ====== NOVO: Abas Pessoas | Grupos ======
-  aba = signal<'pessoas' | 'grupos'>('pessoas');
+  // ====== NOVO: Abas Pessoas | Grupos | Agenda ======
+  aba = signal<'pessoas' | 'grupos' | 'agenda'>('pessoas');
 
   // Estado GRUPOS (lista do assessor)
   gruposLoading = signal(false);
@@ -90,6 +90,89 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   // paginação (GRUPOS) — independentes da aba Pessoas
   pageGrupos = signal<number>(1);
   pageSizeGrupos = signal<number>(6);
+
+  // ====== ABA: AGENDA ======
+  agendaPeriodo = signal<'todos' | 'semana' | 'mes'>('todos');
+
+  abaAgendaItens = computed<PreCadastro[]>(() => {
+    const periodo = this.agendaPeriodo();
+
+    const hoje = new Date();
+    hoje.setHours(0, 0, 0, 0);
+    let inicioSemana: Date | null = null, fimSemana: Date | null = null;
+    let inicioMes: Date | null = null, fimMes: Date | null = null;
+
+    if (periodo === 'semana') {
+      const dow = hoje.getDay();
+      inicioSemana = new Date(hoje);
+      inicioSemana.setDate(hoje.getDate() - dow);
+      fimSemana = new Date(inicioSemana);
+      fimSemana.setDate(inicioSemana.getDate() + 6);
+    } else if (periodo === 'mes') {
+      inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1);
+      fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0);
+    }
+
+    const getAgDate = (i: PreCadastro): Date | null => {
+      const flat = (i as any).agendamentoData as string | undefined;
+      if (flat) {
+        const [y, m, d] = flat.split('-').map(Number);
+        const h = ((i as any).agendamentoHora || '00:00').split(':').map(Number);
+        return new Date(y, m - 1, d, h[0] || 0, h[1] || 0);
+      }
+      return this.toJSDate((i as any).agendamentoDataHora);
+    };
+
+    return this.itens()
+      .filter(i => {
+        const flat = (i as any).agendamentoData as string | undefined;
+        const ts = (i as any).agendamentoDataHora;
+        if (!flat && !ts) return false;
+
+        if (periodo !== 'todos') {
+          const dt = getAgDate(i);
+          if (!dt) return false;
+          const day = new Date(dt); day.setHours(0, 0, 0, 0);
+          if (periodo === 'semana') return day >= inicioSemana! && day <= fimSemana!;
+          if (periodo === 'mes')   return day >= inicioMes!    && day <= fimMes!;
+        }
+        return true;
+      })
+      .sort((a, b) => (getAgDate(a)?.getTime() ?? 0) - (getAgDate(b)?.getTime() ?? 0));
+  });
+
+  // Modal: ações da aba Agenda
+  modalAcoesAgendaAberto = signal(false);
+  acoesAgendaItem = signal<PreCadastro | null>(null);
+
+  abrirAcoesAgenda(i: PreCadastro) {
+    this.acoesAgendaItem.set(i);
+    this.modalAcoesAgendaAberto.set(true);
+  }
+
+  fecharAcoesAgenda() {
+    this.modalAcoesAgendaAberto.set(false);
+    this.acoesAgendaItem.set(null);
+  }
+
+  agendaAbrirEditar(i: PreCadastro)       { this.fecharAcoesAgenda(); this.abrirEditar(i); }
+  agendaAbrirVer(i: PreCadastro)          { this.fecharAcoesAgenda(); this.abrirVer(i); }
+  agendaAbrirObservacoes(i: PreCadastro)  { this.fecharAcoesAgenda(); this.abrirObservacoes(i); }
+  agendaAbrirArquivos(i: PreCadastro)     { this.fecharAcoesAgenda(); this.abrirArquivos(i); }
+  agendaAbrirAgendar(i: PreCadastro)      { this.fecharAcoesAgenda(); this.abrirAgendar(i); }
+  agendaMarcarVisitado(i: PreCadastro)    { this.fecharAcoesAgenda(); this.marcarVisitado(i); }
+  agendaCancelarAg(i: PreCadastro)        { this.fecharAcoesAgenda(); this.cancelarAgendamento(i); }
+  agendaMarcarFormal(i: PreCadastro)      { this.fecharAcoesAgenda(); this.marcarFormalizado(i); }
+  agendaDesfazFormal(i: PreCadastro)      { this.fecharAcoesAgenda(); this.desfazerFormalizacao(i); }
+  agendaMarcarDesist(i: PreCadastro)      { this.fecharAcoesAgenda(); this.marcarDesistencia(i); }
+  agendaDesfazDesist(i: PreCadastro)      { this.fecharAcoesAgenda(); this.desfazerDesistencia(i); }
+
+  // Modal: editar agendamento da aba Agenda
+  modalEditarAgAberto = signal(false);
+  editarAgItem = signal<PreCadastro | null>(null);
+  editAgData = '';
+  editAgHora = '';
+  editAgSalvando = signal(false);
 
   // modais (PESSOAS)
   modalVerAberto = signal(false);
@@ -1126,16 +1209,29 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
 
   // ====== AGENDAMENTO (PESSOAS E GRUPOS) ======
   abrirAgendar(i: PreCadastro) {
-    // Se o modal de grupo estiver aberto, fecha ele primeiro
     if (this.modalGrupoAberto()) {
       this.modalGrupoAberto.set(false);
       this.grupoSelecionado.set(null);
     }
 
-    // Depois abre o modal de agendamento normalmente
     this.itemAgendar.set(i);
-    this.agData = '';
-    this.agHora = '';
+
+    // Pré-preenche com o agendamento existente, se houver
+    const flat = (i as any).agendamentoData as string | undefined;
+    const hora = (i as any).agendamentoHora as string | undefined;
+    const ts = (i as any).agendamentoDataHora;
+    if (flat) {
+      this.agData = flat;
+      this.agHora = hora || '';
+    } else if (ts) {
+      const d = this.toJSDate(ts);
+      this.agData = d ? d.toISOString().slice(0, 10) : '';
+      this.agHora = d ? d.toTimeString().slice(0, 5) : '';
+    } else {
+      this.agData = '';
+      this.agHora = '';
+    }
+
     this.modalAgendarAberto.set(true);
   }
 
@@ -1158,39 +1254,54 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     this.agSalvando.set(true);
     try {
       const dataHora = this.combineToTimestamp(data, hora);
-      const agId = await this.agService.criar({
-        preCadastroId: pre.id,
-        clienteNome: pre.nomeCompleto ?? null,
-        clienteCpf: pre.cpf ?? null,
-        clienteTelefone: pre.telefone ?? null,
-        clienteEmail: pre.email ?? null,
-        clienteEndereco: pre.endereco ?? null,
-        clienteBairro: pre.bairro ?? null,
-        dataHora,
-        assessorUid: this.currentUserUid!,
-        assessorNome: this.currentUserNome ?? null,
-        createdByUid: this.currentUserUid!,
-        status: 'agendado'
-      });
+      const agIdExistente = (pre as any)?.agendamentoId as string | undefined;
+
+      let agId: string;
+
+      if (agIdExistente) {
+        // Atualiza o documento de agendamento existente
+        await this.agService.atualizar(agIdExistente, {
+          dataHora,
+          status: 'agendado',
+        } as any);
+        agId = agIdExistente;
+      } else {
+        // Cria novo documento de agendamento
+        agId = await this.agService.criar({
+          preCadastroId: pre.id,
+          clienteNome: pre.nomeCompleto ?? null,
+          clienteCpf: pre.cpf ?? null,
+          clienteTelefone: pre.telefone ?? null,
+          clienteEmail: pre.email ?? null,
+          clienteEndereco: pre.endereco ?? null,
+          clienteBairro: pre.bairro ?? null,
+          dataHora,
+          assessorUid: this.currentUserUid!,
+          assessorNome: this.currentUserNome ?? null,
+          createdByUid: this.currentUserUid!,
+          status: 'agendado'
+        });
+      }
 
       await this.service.atualizar(pre.id, {
         agendamentoStatus: 'agendado',
         agendamentoId: agId,
-        agendamentoDataHora: dataHora
+        agendamentoDataHora: dataHora,
+        agendamentoData: data,
+        agendamentoHora: hora,
       } as any);
 
       this.itens.update(list => list.map(x =>
         x.id === pre.id
-          ? { ...x, agendamentoStatus: 'agendado', agendamentoId: agId, agendamentoDataHora: dataHora } as any
+          ? { ...x, agendamentoStatus: 'agendado', agendamentoId: agId, agendamentoDataHora: dataHora, agendamentoData: data, agendamentoHora: hora } as any
           : x
       ));
 
       this.modalAgendarAberto.set(false);
       this.itemAgendar.set(null);
-      alert('Agendamento criado com sucesso!');
     } catch (e) {
       console.error('[Agendamento] erro ao salvar:', e);
-      alert('Não foi possível criar o agendamento.');
+      alert('Não foi possível salvar o agendamento.');
     } finally {
       this.agSalvando.set(false);
     }
@@ -1220,33 +1331,39 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
   }
 
   async cancelarAgendamento(i: PreCadastro) {
-    const agId = (i as any)?.agendamentoId;
-    if (!i?.id || !agId) { alert('Não há agendamento para cancelar.'); return; }
+    const agId = (i as any)?.agendamentoId as string | undefined;
+    const temAgendamento = agId || (i as any)?.agendamentoData || (i as any)?.agendamentoDataHora;
+    if (!i?.id || !temAgendamento) { alert('Não há agendamento para cancelar.'); return; }
+
     const ok = confirm(`Cancelar o agendamento de "${i.nomeCompleto || 'cliente'}"?`);
     if (!ok) return;
 
     try {
-      try { await this.agService.remover(agId); }
-      catch (e: any) {
-        if (e?.code === 'not-found' || /No document to delete|NOT_FOUND/i.test(e?.message || '')) {
-          console.warn('[Pré] agendamento já removido, seguindo.');
-        } else {
-          throw e;
+      // Remove doc separado de agendamento quando existir
+      if (agId) {
+        try { await this.agService.remover(agId); }
+        catch (e: any) {
+          if (e?.code === 'not-found' || /No document to delete|NOT_FOUND/i.test(e?.message || '')) {
+            console.warn('[Pré] agendamento já removido, seguindo.');
+          } else {
+            throw e;
+          }
         }
       }
 
       await this.service.atualizar(i.id, {
         agendamentoStatus: 'nao_agendado',
         agendamentoId: null as any,
-        agendamentoDataHora: null as any
+        agendamentoDataHora: null as any,
+        agendamentoData: null as any,
+        agendamentoHora: null as any,
       } as any);
 
       this.itens.update(list => list.map(x =>
         x.id === i.id
-          ? { ...x, agendamentoStatus: 'nao_agendado', agendamentoId: null, agendamentoDataHora: null } as any
+          ? { ...x, agendamentoStatus: 'nao_agendado', agendamentoId: null, agendamentoDataHora: null, agendamentoData: null, agendamentoHora: null } as any
           : x
       ));
-      alert('Agendamento cancelado.');
     } catch (e) {
       console.error('[Agendamento] erro ao cancelar:', e);
       alert('Não foi possível cancelar o agendamento.');
@@ -1431,6 +1548,68 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     } catch (e) {
       console.error('[Arquivos] erro ao remover:', e);
       alert('Não foi possível remover o arquivo.');
+    }
+  }
+
+  abrirEditarAg(i: PreCadastro) {
+    this.editarAgItem.set(i);
+    const flat = (i as any).agendamentoData as string | undefined;
+    const hora = (i as any).agendamentoHora as string | undefined;
+    const ts = (i as any).agendamentoDataHora;
+    if (flat) {
+      this.editAgData = flat;
+      this.editAgHora = hora || '';
+    } else {
+      const d = this.toJSDate(ts);
+      if (d) {
+        this.editAgData = d.toISOString().slice(0, 10);
+        this.editAgHora = d.toTimeString().slice(0, 5);
+      } else {
+        this.editAgData = '';
+        this.editAgHora = '';
+      }
+    }
+    this.modalEditarAgAberto.set(true);
+  }
+
+  fecharEditarAg() {
+    this.modalEditarAgAberto.set(false);
+    this.editarAgItem.set(null);
+    this.editAgData = '';
+    this.editAgHora = '';
+  }
+
+  async salvarEdicaoAg() {
+    const i = this.editarAgItem();
+    const data = this.editAgData.trim();
+    const hora = this.editAgHora.trim();
+    if (!i?.id || !data) { alert('Informe a data do agendamento.'); return; }
+
+    this.editAgSalvando.set(true);
+    try {
+      const dataHora = hora ? this.combineToTimestamp(data, hora) : undefined;
+      const patch: any = {
+        agendamentoData: data,
+        agendamentoHora: hora || null,
+        agendamentoStatus: 'agendado',
+        ...(dataHora ? { agendamentoDataHora: dataHora } : {}),
+      };
+
+      await this.service.atualizar(i.id, patch);
+
+      // Atualiza o doc de agendamento separado se existir
+      const agId = (i as any)?.agendamentoId as string | undefined;
+      if (agId && dataHora) {
+        try { await this.agService.atualizar(agId, { dataHora, status: 'agendado' } as any); } catch { }
+      }
+
+      this.itens.update(list => list.map(x => x.id === i.id ? { ...x, ...patch } as PreCadastro : x));
+      this.fecharEditarAg();
+    } catch (e) {
+      console.error('[AgendaTab] erro ao salvar edição:', e);
+      alert('Não foi possível salvar o agendamento.');
+    } finally {
+      this.editAgSalvando.set(false);
     }
   }
 

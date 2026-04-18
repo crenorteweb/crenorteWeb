@@ -25,9 +25,6 @@
       <a routerLink="/pre-cadastro/novo" class="btn btn-principal">
         <i class="bi bi-plus-lg me-1"></i> Novo
       </a>
-      <a routerLink="/agendamentos" class="btn btn-outline-success">
-        <i class="bi bi-calendar2-week me-1"></i> Meus agendamentos
-      </a>
       <button *ngIf="currentUserPapel() === 'admin'" type="button"
         class="btn btn-outline-success" (click)="abrirImportacao()">
         <i class="bi bi-file-earmark-excel me-1"></i> Importar via Excel
@@ -48,6 +45,13 @@
         [class.btn-outline-success]="aba()!=='grupos'" (click)="setAba('grupos')" role="tab"
         [attr.aria-selected]="aba()==='grupos' ? 'true' : 'false'">
         <i class="bi bi-people-fill me-1"></i> Grupos
+      </button>
+
+      <button type="button" class="btn" [class.btn-success]="aba()==='agenda'"
+        [class.btn-outline-success]="aba()!=='agenda'" (click)="aba.set('agenda')" role="tab"
+        [attr.aria-selected]="aba()==='agenda' ? 'true' : 'false'">
+        <i class="bi bi-calendar-week me-1"></i> Agenda
+        <span class="badge text-bg-light ms-1">{{ abaAgendaItens().length }}</span>
       </button>
     </div>
   </div>
@@ -428,20 +432,19 @@
                       </a>
 
                       <button type="button" class="btn btn-outline-secondary"
-                        (click)="acToggle.checked=false; abrirAgendar(i)"
-                        [disabled]="(i.agendamentoStatus||'nao_agendado')==='agendado'">
+                        (click)="acToggle.checked=false; abrirAgendar(i)">
                         <i class="bi bi-calendar-plus me-1"></i>
-                        {{ (i.agendamentoStatus||'nao_agendado')==='agendado' ? 'Já agendado' : 'Marcar visita' }}
+                        {{ ((i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData) ? 'Alterar agendamento' : 'Marcar visita' }}
                       </button>
 
                       <button type="button" class="btn btn-outline-primary"
-                        *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado'"
+                        *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData"
                         (click)="acToggle.checked=false; marcarVisitado(i)">
                         <i class="bi bi-check2-circle me-1"></i> Marcar visitado
                       </button>
 
                       <button type="button" class="btn btn-outline-danger"
-                        *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado'"
+                        *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData"
                         (click)="acToggle.checked=false; cancelarAgendamento(i)">
                         <i class="bi bi-x-circle me-1"></i> Cancelar agendamento
                       </button>
@@ -514,6 +517,133 @@
         </div>
       </div>
     </div>
+  </ng-container>
+
+  <!-- ======================= ABA: AGENDA ======================= -->
+  <ng-container *ngIf="aba()==='agenda'">
+
+    <!-- Filtros de período -->
+    <div class="d-flex flex-wrap gap-2 align-items-center mt-3 mb-3">
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn"
+          [class.btn-success]="agendaPeriodo()==='todos'"
+          [class.btn-outline-success]="agendaPeriodo()!=='todos'"
+          (click)="agendaPeriodo.set('todos')">Todos</button>
+        <button type="button" class="btn"
+          [class.btn-success]="agendaPeriodo()==='semana'"
+          [class.btn-outline-success]="agendaPeriodo()!=='semana'"
+          (click)="agendaPeriodo.set('semana')">Esta semana</button>
+        <button type="button" class="btn"
+          [class.btn-success]="agendaPeriodo()==='mes'"
+          [class.btn-outline-success]="agendaPeriodo()!=='mes'"
+          (click)="agendaPeriodo.set('mes')">Este mês</button>
+      </div>
+      <span class="text-muted small">{{ abaAgendaItens().length }} agendamento(s)</span>
+    </div>
+
+    <!-- Vazio -->
+    <div *ngIf="!loading() && !abaAgendaItens().length" class="text-center text-muted py-5">
+      <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+      Nenhum agendamento encontrado para este período.
+    </div>
+
+    <!-- Tabela -->
+    <div *ngIf="abaAgendaItens().length" class="card shadow-sm border-0">
+      <div class="table-responsive">
+        <table class="table table-hover table-sm align-middle mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Data</th>
+              <th>Hora</th>
+              <th>Cliente</th>
+              <th>CPF</th>
+              <th>Telefone</th>
+              <th>Bairro / Cidade</th>
+              <th>Origem</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let i of abaAgendaItens()" (click)="abrirAcoesAgenda(i)" style="cursor:pointer">
+              <!-- Data -->
+              <td class="fw-semibold text-nowrap">
+                <ng-container *ngIf="$any(i).agendamentoData">
+                  {{ $any(i).agendamentoData }}
+                </ng-container>
+                <ng-container *ngIf="!$any(i).agendamentoData && $any(i).agendamentoDataHora as ts">
+                  {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+                </ng-container>
+              </td>
+
+              <!-- Hora -->
+              <td class="text-nowrap">
+                <ng-container *ngIf="$any(i).agendamentoHora">{{ $any(i).agendamentoHora }}</ng-container>
+                <ng-container *ngIf="!$any(i).agendamentoHora && $any(i).agendamentoDataHora as ts">
+                  {{ (ts?.toDate ? ts.toDate() : ts) | date:'HH:mm' }}
+                </ng-container>
+                <ng-container *ngIf="!$any(i).agendamentoHora && !$any(i).agendamentoDataHora">—</ng-container>
+              </td>
+
+              <!-- Cliente -->
+              <td>
+                <strong>{{ i.nomeCompleto || '—' }}</strong>
+                <span *ngIf="$any(i)?.encaminhamento?.assessorUid"
+                  class="badge text-bg-info ms-1" title="Encaminhado pelo Call Center">
+                  <i class="bi bi-headset"></i> Call Center
+                </span>
+              </td>
+
+              <!-- CPF -->
+              <td class="text-muted small text-nowrap">{{ i.cpf || '—' }}</td>
+
+              <!-- Telefone -->
+              <td class="text-nowrap">
+                <a *ngIf="whatsHref(i.telefone) as wa" [href]="wa" target="_blank"
+                  rel="noopener noreferrer" class="text-success text-decoration-none">
+                  <i class="bi bi-whatsapp me-1"></i>{{ i.telefone }}
+                </a>
+                <span *ngIf="!whatsHref(i.telefone)">{{ i.telefone || '—' }}</span>
+              </td>
+
+              <!-- Bairro / Cidade -->
+              <td class="text-muted small">{{ i.bairro || '—' }}<ng-container *ngIf="i.cidade"> / {{ i.cidade }}</ng-container></td>
+
+              <!-- Origem -->
+              <td class="text-muted small">{{ i.origem || '—' }}</td>
+
+              <!-- Status agendamento -->
+              <td>
+                <span class="badge"
+                  [class.text-bg-info]="(i.agendamentoStatus||'nao_agendado')==='agendado'"
+                  [class.text-bg-success]="(i.agendamentoStatus||'nao_agendado')==='visitado'"
+                  [class.text-bg-secondary]="(i.agendamentoStatus||'nao_agendado')==='nao_agendado'">
+                  {{ (i.agendamentoStatus||'nao_agendado')==='agendado' ? 'Agendado'
+                   : (i.agendamentoStatus||'nao_agendado')==='visitado' ? 'Visitado'
+                   : 'Não agendado' }}
+                </span>
+              </td>
+
+              <!-- Ações -->
+              <td (click)="$event.stopPropagation()">
+                <div class="d-flex gap-1">
+                  <button class="btn btn-outline-secondary btn-sm" title="Alterar agendamento"
+                    (click)="abrirEditarAg(i)">
+                    <i class="bi bi-calendar-event"></i>
+                  </button>
+                  <button *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado'"
+                    class="btn btn-outline-success btn-sm" title="Marcar visitado"
+                    (click)="marcarVisitado(i)">
+                    <i class="bi bi-check2-circle"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
   </ng-container>
 
   <!-- ======================= ABA: GRUPOS ======================= -->
@@ -877,7 +1007,9 @@
   <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
   <div class="crn-modal__dialog" role="document" aria-labelledby="modalAgendarTitulo">
     <div class="crn-modal__header">
-      <h5 id="modalAgendarTitulo" class="mb-0">Agendar visita</h5>
+      <h5 id="modalAgendarTitulo" class="mb-0">
+        {{ (itemAgendar()?.agendamentoStatus||'nao_agendado') === 'agendado' ? 'Alterar agendamento' : 'Agendar visita' }}
+      </h5>
       <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
     </div>
 
@@ -1103,6 +1235,148 @@
 
     <div class="crn-modal__footer">
       <button class="btn btn-light" (click)="fecharModais()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: AÇÕES DA AGENDA ===== -->
+<div *ngIf="modalAcoesAgendaAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharAcoesAgenda()"></div>
+  <div class="crn-modal__dialog" role="document" *ngIf="acoesAgendaItem() as i">
+
+    <div class="crn-modal__header d-flex align-items-center justify-content-between">
+      <div class="min-w-0">
+        <h5 class="mb-0 text-truncate">{{ i.nomeCompleto || 'Cliente' }}</h5>
+        <small class="text-muted">CPF {{ i.cpf || '—' }} • {{ i.telefone || 'sem telefone' }}</small>
+      </div>
+      <button class="btn-close ms-2 flex-shrink-0" (click)="fecharAcoesAgenda()" aria-label="Fechar"></button>
+    </div>
+
+    <div class="crn-modal__body">
+
+      <!-- Geral -->
+      <div class="group-title">Geral</div>
+      <div class="actions-grid">
+        <button type="button" class="btn btn-outline-dark" (click)="agendaAbrirEditar(i)">
+          <i class="bi bi-pencil me-1"></i> Editar
+        </button>
+        <button type="button" class="btn btn-outline-secondary" (click)="agendaAbrirVer(i)">
+          <i class="bi bi-eye me-1"></i> Ver
+        </button>
+      </div>
+
+      <!-- Observações -->
+      <div class="group-title">Observações</div>
+      <div class="actions-grid">
+        <button type="button" class="btn btn-outline-primary" (click)="agendaAbrirObservacoes(i)">
+          <i class="bi bi-journal-text me-1"></i> Observações
+        </button>
+      </div>
+
+      <!-- Arquivos -->
+      <div class="group-title">Arquivos</div>
+      <div class="actions-grid">
+        <button type="button" class="btn btn-outline-info" (click)="agendaAbrirArquivos(i)">
+          <i class="bi bi-paperclip me-1"></i> Arquivos
+        </button>
+      </div>
+
+      <!-- Visita -->
+      <div class="group-title">Visita</div>
+      <div class="actions-grid">
+        <a class="btn btn-outline-success" *ngIf="i.telefone" [href]="whatsHref(i.telefone)"
+          target="_blank" rel="noopener noreferrer" (click)="fecharAcoesAgenda()">
+          <i class="bi bi-whatsapp me-1"></i> WhatsApp
+        </a>
+
+        <button type="button" class="btn btn-outline-secondary" (click)="agendaAbrirAgendar(i)">
+          <i class="bi bi-calendar-plus me-1"></i>
+          {{ ((i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData) ? 'Alterar agendamento' : 'Marcar visita' }}
+        </button>
+
+        <button type="button" class="btn btn-outline-primary"
+          *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData"
+          (click)="agendaMarcarVisitado(i)">
+          <i class="bi bi-check2-circle me-1"></i> Marcar visitado
+        </button>
+
+        <button type="button" class="btn btn-outline-danger"
+          *ngIf="(i.agendamentoStatus||'nao_agendado')==='agendado' || $any(i).agendamentoData"
+          (click)="agendaCancelarAg(i)">
+          <i class="bi bi-x-circle me-1"></i> Cancelar agendamento
+        </button>
+      </div>
+
+      <!-- Formalização -->
+      <div class="group-title">Formalização</div>
+      <div class="actions-grid">
+        <button type="button" class="btn btn-outline-primary"
+          *ngIf="formalizacaoStatus(i) === 'nao_formalizado'"
+          (click)="agendaMarcarFormal(i)">
+          <i class="bi bi-file-check me-1"></i> Marcar formalizado
+        </button>
+        <button type="button" class="btn btn-outline-secondary"
+          *ngIf="formalizacaoStatus(i) === 'formalizado'"
+          (click)="agendaDesfazFormal(i)">
+          <i class="bi bi-arrow-counterclockwise me-1"></i> Desfazer formalização
+        </button>
+      </div>
+
+      <!-- Desistência -->
+      <div class="group-title">Desistência</div>
+      <div class="actions-grid">
+        <button type="button" class="btn btn-outline-warning"
+          *ngIf="desistenciaStatus(i) === 'nao_desistiu'"
+          (click)="agendaMarcarDesist(i)">
+          <i class="bi bi-emoji-frown me-1"></i> Marcar desistência
+        </button>
+        <button type="button" class="btn btn-outline-dark"
+          *ngIf="desistenciaStatus(i) === 'desistiu'"
+          (click)="agendaDesfazDesist(i)">
+          <i class="bi bi-emoji-smile me-1"></i> Desfazer desistência
+        </button>
+      </div>
+
+    </div>
+
+    <div class="crn-modal__footer">
+      <button class="btn btn-light" (click)="fecharAcoesAgenda()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: EDITAR AGENDAMENTO (aba Agenda) ===== -->
+<div *ngIf="modalEditarAgAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharEditarAg()"></div>
+  <div class="crn-modal__dialog" role="document">
+    <div class="crn-modal__header">
+      <h5 class="mb-0"><i class="bi bi-calendar-event me-1"></i> Alterar Agendamento</h5>
+      <button class="btn-close" (click)="fecharEditarAg()" aria-label="Fechar"></button>
+    </div>
+
+    <div class="crn-modal__body" *ngIf="editarAgItem() as a">
+      <p class="mb-3">
+        <strong>Cliente:</strong> {{ a.nomeCompleto }}<br>
+        <small class="text-muted">CPF {{ a.cpf || '—' }} • {{ a.telefone || 'sem telefone' }}</small>
+      </p>
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Data <span class="text-danger">*</span></label>
+          <input type="date" class="form-control" [(ngModel)]="editAgData" />
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Hora</label>
+          <input type="time" class="form-control" [(ngModel)]="editAgHora" />
+        </div>
+      </div>
+    </div>
+
+    <div class="crn-modal__footer">
+      <button class="btn btn-light" (click)="fecharEditarAg()">Cancelar</button>
+      <button class="btn btn-success" (click)="salvarEdicaoAg()" [disabled]="editAgSalvando() || !editAgData">
+        <span *ngIf="editAgSalvando()" class="spinner-border spinner-border-sm me-1"></span>
+        <i *ngIf="!editAgSalvando()" class="bi bi-check2 me-1"></i> Salvar
+      </button>
     </div>
   </div>
 </div>

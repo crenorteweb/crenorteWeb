@@ -33,6 +33,7 @@ export interface PreCadastro {
   criadoEm?: any;
   encaminhadoEm?: any;
   analisadoEm?: any;
+  elegivel?: { status: 'nao_verificado' | 'sim' | 'nao' };
 }
 
 export interface Cliente {
