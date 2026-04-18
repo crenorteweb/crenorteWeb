@@ -128,6 +128,7 @@ export class ProducaoService {
       criadoEm: raw.createdAt,
       encaminhadoEm: raw.encaminhamento?.em || raw.createdAt,
       analisadoEm: raw.aprovacao?.em,
+      elegivel: raw.elegivel ? { status: raw.elegivel.status } : undefined,
     };
   }
 

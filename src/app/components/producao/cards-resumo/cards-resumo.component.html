@@ -19,7 +19,7 @@
 
   <!-- Analista -->
   <ng-container *ngIf="cargo === 'analista'">
-    <div class="col-12 col-sm-4">
+    <div class="col-12 col-sm-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="rounded-circle bg-secondary bg-opacity-10 p-3">
@@ -32,7 +32,7 @@
         </div>
       </div>
     </div>
-    <div class="col-12 col-sm-4">
+    <div class="col-12 col-sm-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="rounded-circle bg-success bg-opacity-10 p-3">
@@ -45,7 +45,7 @@
         </div>
       </div>
     </div>
-    <div class="col-12 col-sm-4">
+    <div class="col-12 col-sm-3">
       <div class="card border-0 shadow-sm h-100">
         <div class="card-body d-flex align-items-center gap-3">
           <div class="rounded-circle bg-danger bg-opacity-10 p-3">
@@ -54,6 +54,75 @@
           <div>
             <div class="text-muted small">Inaptos</div>
             <div class="fw-bold fs-2 text-danger">{{ inaptos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+            <i class="bi bi-star-fill fs-4 text-warning"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Elegíveis</div>
+            <div class="fw-bold fs-2 text-warning">{{ elegiveis }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ng-container>
+
+  <!-- Geral -->
+  <ng-container *ngIf="cargo === 'geral'">
+    <div class="col-12 col-sm-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-secondary bg-opacity-10 p-3">
+            <i class="bi bi-clipboard2-check fs-4 text-secondary"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Total Analisados</div>
+            <div class="fw-bold fs-2 text-secondary">{{ total }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-success bg-opacity-10 p-3">
+            <i class="bi bi-check-circle fs-4 text-success"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Aptos</div>
+            <div class="fw-bold fs-2 text-success">{{ aptos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-danger bg-opacity-10 p-3">
+            <i class="bi bi-x-circle fs-4 text-danger"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Inaptos</div>
+            <div class="fw-bold fs-2 text-danger">{{ inaptos }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-12 col-sm-3">
+      <div class="card border-0 shadow-sm h-100">
+        <div class="card-body d-flex align-items-center gap-3">
+          <div class="rounded-circle bg-warning bg-opacity-10 p-3">
+            <i class="bi bi-star-fill fs-4 text-warning"></i>
+          </div>
+          <div>
+            <div class="text-muted small">Elegíveis</div>
+            <div class="fw-bold fs-2 text-warning">{{ elegiveis }}</div>
           </div>
         </div>
       </div>

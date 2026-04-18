@@ -26,6 +26,12 @@
         <span class="badge text-bg-primary ms-1">{{ meusFiltrado().length }}</span>
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="abaAtiva() === 'agenda'" (click)="abaAtiva.set('agenda')">
+        <i class="bi bi-calendar-week me-1"></i>Agenda dos Assessores
+        <span class="badge text-bg-info ms-1">{{ agendamentosDoAssessor().length }}</span>
+      </button>
+    </li>
   </ul>
 
   <!-- ===================== ABA GERAL ===================== -->
@@ -131,6 +137,91 @@
         </li>
       </ul>
     </nav>
+
+  </ng-container>
+
+  <!-- ===================== ABA AGENDA DOS ASSESSORES ===================== -->
+  <ng-container *ngIf="abaAtiva() === 'agenda'">
+
+    <!-- Filtros -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+
+      <!-- Período -->
+      <div class="btn-group btn-group-sm" role="group">
+        <button type="button" class="btn"
+          [class.btn-primary]="filtroPeriodoAgenda() === 'todos'"
+          [class.btn-outline-primary]="filtroPeriodoAgenda() !== 'todos'"
+          (click)="filtroPeriodoAgenda.set('todos')">Todos</button>
+        <button type="button" class="btn"
+          [class.btn-primary]="filtroPeriodoAgenda() === 'semana'"
+          [class.btn-outline-primary]="filtroPeriodoAgenda() !== 'semana'"
+          (click)="filtroPeriodoAgenda.set('semana')">Esta semana</button>
+        <button type="button" class="btn"
+          [class.btn-primary]="filtroPeriodoAgenda() === 'mes'"
+          [class.btn-outline-primary]="filtroPeriodoAgenda() !== 'mes'"
+          (click)="filtroPeriodoAgenda.set('mes')">Este mês</button>
+      </div>
+
+      <!-- Assessor -->
+      <div class="input-group" style="max-width:300px">
+        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+        <select class="form-select" [ngModel]="filtroAssessorAgenda()"
+          (ngModelChange)="filtroAssessorAgenda.set($event)">
+          <option value="">Todos os assessores</option>
+          <option *ngFor="let a of assessores()" [value]="a.uid || a.id">{{ a.nome }}</option>
+        </select>
+      </div>
+
+      <span class="text-muted small">{{ agendamentosDoAssessor().length }} agendamento(s)</span>
+    </div>
+
+    <!-- Vazio -->
+    <div *ngIf="!loading() && !agendamentosDoAssessor().length" class="text-muted text-center py-4">
+      Nenhum agendamento encontrado.
+    </div>
+
+    <!-- Tabela de agendamentos -->
+    <div *ngIf="agendamentosDoAssessor().length" class="table-responsive">
+      <table class="table table-hover table-sm align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Data</th>
+            <th>Hora</th>
+            <th>Cliente</th>
+            <th>CPF</th>
+            <th>Cidade / UF</th>
+            <th>Assessor</th>
+            <th>Atendimento</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let item of agendamentosDoAssessor()">
+            <td class="fw-semibold">{{ $any(item).agendamentoData }}</td>
+            <td>{{ $any(item).agendamentoHora || '—' }}</td>
+            <td>{{ item.nomeCompleto }}</td>
+            <td class="text-muted small">{{ cpfMask(item.cpf) }}</td>
+            <td class="text-muted small">{{ $any(item).cidade }}/{{ $any(item).uf }}</td>
+            <td>
+              <span *ngIf="item.encaminhamento?.assessorNome" class="badge text-bg-success">
+                {{ item.encaminhamento?.assessorNome }}
+              </span>
+              <span *ngIf="!item.encaminhamento?.assessorNome" class="text-muted small">—</span>
+            </td>
+            <td>
+              <span class="badge" [ngClass]="{
+                'text-bg-secondary': atendimentoStatus(item) === 'nao_atendido',
+                'text-bg-warning':   atendimentoStatus(item) === 'em_atendimento',
+                'text-bg-success':   atendimentoStatus(item) === 'finalizado'
+              }" [style.color]="atendimentoStatus(item) === 'em_atendimento' ? '#333' : ''">
+                {{ atendimentoStatus(item) === 'nao_atendido' ? 'Não atendido'
+                 : atendimentoStatus(item) === 'em_atendimento' ? 'Em atendimento'
+                 : 'Finalizado' }}
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
   </ng-container>
 
@@ -247,6 +338,13 @@
         <i class="bi bi-check-lg me-1"></i>Finalizar
       </button>
 
+      <!-- Liberar atendimento -->
+      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'em_atendimento'"
+        class="btn btn-outline-warning btn-sm" (click)="liberarAtendimento(item)"
+        title="Liberar para que outro atendente possa atender">
+        <i class="bi bi-person-dash me-1"></i>Liberar
+      </button>
+
       <!-- Reabrir -->
       <button *ngIf="isOperacional() && atendimentoStatus(item) === 'finalizado'"
         class="btn btn-outline-secondary btn-sm" (click)="iniciarAtendimento(item)">
@@ -318,6 +416,37 @@
       <div *ngIf="!assessores().length" class="text-muted small mt-2">
         Nenhum assessor ativo encontrado.
       </div>
+
+      <!-- Agendamentos do assessor selecionado -->
+      <ng-container *ngIf="assessorSelecionado()">
+        <hr class="my-3">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="fw-semibold small"><i class="bi bi-calendar-week me-1"></i>Agenda do assessor</span>
+          <span class="badge text-bg-info">{{ agendamentosAssessorEncaminhar().length }}</span>
+        </div>
+        <div *ngIf="!agendamentosAssessorEncaminhar().length" class="text-muted small">
+          Nenhum agendamento cadastrado para este assessor.
+        </div>
+        <div *ngIf="agendamentosAssessorEncaminhar().length"
+          style="max-height:200px;overflow-y:auto">
+          <table class="table table-sm table-hover mb-0">
+            <thead class="table-light sticky-top">
+              <tr>
+                <th class="small">Data</th>
+                <th class="small">Hora</th>
+                <th class="small">Cliente</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ag of agendamentosAssessorEncaminhar()">
+                <td class="small fw-semibold">{{ $any(ag).agendamentoData }}</td>
+                <td class="small text-muted">{{ $any(ag).agendamentoHora || '—' }}</td>
+                <td class="small">{{ ag.nomeCompleto }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
     </div>
     <div class="p-3 border-top d-flex justify-content-end gap-2">
       <button class="btn btn-light" (click)="fecharModalEncaminhar()">Cancelar</button>
