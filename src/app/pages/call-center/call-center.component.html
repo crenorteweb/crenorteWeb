@@ -37,17 +37,68 @@
   <!-- ===================== ABA GERAL ===================== -->
   <ng-container *ngIf="abaAtiva() === 'geral'">
 
-    <!-- Filtros -->
+    <!-- Sub-abas de status -->
+    <ul class="nav nav-pills mb-3">
+      <li class="nav-item">
+        <button class="nav-link d-flex align-items-center gap-1"
+          [class.active]="filtroAtendimento() === 'nao_atendido'"
+          (click)="onFiltroAtendimentoChange('nao_atendido')">
+          Não atendidos
+          <span class="badge rounded-pill ms-1"
+            [class.bg-light]="filtroAtendimento() === 'nao_atendido'"
+            [class.text-dark]="filtroAtendimento() === 'nao_atendido'"
+            [class.bg-secondary]="filtroAtendimento() !== 'nao_atendido'">
+            {{ contarPorStatus('nao_atendido') }}
+          </span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link d-flex align-items-center gap-1"
+          [class.active]="filtroAtendimento() === 'em_atendimento'"
+          (click)="onFiltroAtendimentoChange('em_atendimento')">
+          Em atendimento
+          <span class="badge rounded-pill ms-1"
+            [class.bg-light]="filtroAtendimento() === 'em_atendimento'"
+            [class.text-dark]="filtroAtendimento() === 'em_atendimento'"
+            [class.bg-secondary]="filtroAtendimento() !== 'em_atendimento'">
+            {{ contarPorStatus('em_atendimento') }}
+          </span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link d-flex align-items-center gap-1"
+          [class.active]="filtroAtendimento() === 'finalizado'"
+          (click)="onFiltroAtendimentoChange('finalizado')">
+          Finalizados
+          <span class="badge rounded-pill ms-1"
+            [class.bg-light]="filtroAtendimento() === 'finalizado'"
+            [class.text-dark]="filtroAtendimento() === 'finalizado'"
+            [class.bg-secondary]="filtroAtendimento() !== 'finalizado'">
+            {{ contarPorStatus('finalizado') }}
+          </span>
+        </button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link"
+          [class.active]="filtroAtendimento() === 'todos'"
+          (click)="onFiltroAtendimentoChange('todos')">
+          Todos
+          <span class="badge rounded-pill ms-1"
+            [class.bg-light]="filtroAtendimento() === 'todos'"
+            [class.text-dark]="filtroAtendimento() === 'todos'"
+            [class.bg-secondary]="filtroAtendimento() !== 'todos'">
+            {{ preCadastros().length }}
+          </span>
+        </button>
+      </li>
+    </ul>
+
+    <!-- Filtros textuais -->
     <div class="d-flex flex-wrap gap-2 mb-3">
       <div class="input-group">
-        <span class="input-group-text">Atendimento</span>
-        <select class="form-select" [value]="filtroAtendimento()" #selAtend
-          (change)="onFiltroAtendimentoChange(selAtend.value)">
-          <option value="todos">Todos</option>
-          <option value="nao_atendido">Não atendido</option>
-          <option value="em_atendimento">Em atendimento</option>
-          <option value="finalizado">Finalizado</option>
-        </select>
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" placeholder="Buscar por nome..."
+          (input)="onFiltroNomeChange($any($event.target).value)">
       </div>
 
       <div class="input-group">
@@ -63,23 +114,28 @@
       </div>
 
       <div class="input-group">
+        <span class="input-group-text">Atendente</span>
+        <select class="form-select" [value]="filtroAtendente()" #selAtend
+          (change)="onFiltroAtendenteChange(selAtend.value)">
+          <option value="">Todos</option>
+          <option *ngFor="let a of atendentesOptions()" [value]="a.uid">{{ a.nome }}</option>
+        </select>
+      </div>
+
+      <div class="input-group">
+        <span class="input-group-text">Origem</span>
+        <select class="form-select" [value]="filtroOrigem()" #selOrigem
+          (change)="onFiltroOrigemChange(selOrigem.value)">
+          <option value="">Todas</option>
+          <option *ngFor="let o of origensOptions()" [value]="o.key">{{ o.label }}</option>
+        </select>
+      </div>
+
+      <div class="input-group">
         <span class="input-group-text">CPF</span>
         <input type="text" class="form-control" placeholder="000.000.000-00"
           (input)="onFiltroCpfChange($any($event.target).value)">
       </div>
-    </div>
-
-    <!-- Resumo totais -->
-    <div *ngIf="!loading() && preCadastros().length" class="d-flex flex-wrap gap-2 mb-3">
-      <span class="badge text-bg-secondary px-3 py-2">
-        Não atendido: {{ contarPorStatus('nao_atendido') }}
-      </span>
-      <span class="badge text-bg-warning px-3 py-2" style="color:#333">
-        Em atendimento: {{ contarPorStatus('em_atendimento') }}
-      </span>
-      <span class="badge text-bg-success px-3 py-2">
-        Finalizado: {{ contarPorStatus('finalizado') }}
-      </span>
     </div>
 
     <!-- Loading -->
@@ -107,12 +163,14 @@
       </ul>
     </nav>
 
-    <!-- Cards de clientes -->
-    <div *ngFor="let item of pageItems()" class="card mb-3"
-      [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
-      [class.border-success]="atendimentoStatus(item) === 'finalizado'">
-      <div class="card-body">
-        <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+    <!-- Grid de cards -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
+      <div *ngFor="let item of pageItems()" class="col">
+        <div class="card h-100"
+          [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
+          [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+          <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+        </div>
       </div>
     </div>
 
@@ -247,11 +305,13 @@
       </ul>
     </nav>
 
-    <div *ngFor="let item of meusPageItems()" class="card mb-3"
-      [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
-      [class.border-success]="atendimentoStatus(item) === 'finalizado'">
-      <div class="card-body">
-        <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
+      <div *ngFor="let item of meusPageItems()" class="col">
+        <div class="card h-100"
+          [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
+          [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+          <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
+        </div>
       </div>
     </div>
 
@@ -275,103 +335,80 @@
 
 <!-- ===================== TEMPLATE COMPARTILHADO: card do cliente ===================== -->
 <ng-template #cardCliente let-item="item">
-  <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
 
-    <!-- ESQUERDA: dados -->
-    <div class="flex-grow-1 pe-2">
-      <strong>{{ item.nomeCompleto }}</strong>
-      <div class="text-muted small">
-        CPF {{ cpfMask(item.cpf) }} • {{ item.cidade }}/{{ $any(item).uf }} • {{ item.bairro }}
-        <ng-container *ngIf="item.modalidade"> • {{ item.modalidade }}</ng-container>
-      </div>
-      <div class="small text-muted">{{ item.telefone }}<ng-container *ngIf="item.email"> • {{ item.email }}</ng-container></div>
+  <!-- Cabeçalho do card -->
+  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
+    <span class="fw-semibold text-truncate me-2" style="max-width:200px" [title]="item.nomeCompleto">
+      {{ item.nomeCompleto }}
+    </span>
+    <span class="badge flex-shrink-0" [ngClass]="{
+      'text-bg-secondary': atendimentoStatus(item) === 'nao_atendido',
+      'text-bg-warning':   atendimentoStatus(item) === 'em_atendimento',
+      'text-bg-success':   atendimentoStatus(item) === 'finalizado'
+    }" [style.color]="atendimentoStatus(item) === 'em_atendimento' ? '#333' : ''">
+      {{ atendimentoStatus(item) === 'nao_atendido' ? 'Não atendido'
+       : atendimentoStatus(item) === 'em_atendimento' ? 'Em atendimento'
+       : 'Finalizado' }}
+    </span>
+  </div>
 
-      <!-- Agendamento -->
-      <div *ngIf="$any(item).agendamentoData" class="mt-1 small">
-        <i class="bi bi-calendar-check text-primary me-1"></i>
-        <strong>Agendado:</strong> {{ $any(item).agendamentoData }}
-        <ng-container *ngIf="$any(item).agendamentoHora"> às {{ $any(item).agendamentoHora }}</ng-container>
-      </div>
-
-      <!-- Encaminhamento -->
-      <div *ngIf="item.encaminhamento?.assessorNome" class="mt-1 small">
-        <i class="bi bi-send text-success me-1"></i>
-        <strong>Encaminhado para:</strong> {{ item.encaminhamento?.assessorNome }}
-      </div>
-
-      <!-- Status atendimento -->
-      <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
-        <span class="fw-semibold small">Atendimento:</span>
-        <span class="badge" [ngClass]="{
-          'text-bg-secondary': atendimentoStatus(item) === 'nao_atendido',
-          'text-bg-warning':   atendimentoStatus(item) === 'em_atendimento',
-          'text-bg-success':   atendimentoStatus(item) === 'finalizado'
-        }" [style.color]="atendimentoStatus(item) === 'em_atendimento' ? '#333' : ''">
-          {{ atendimentoStatus(item) === 'nao_atendido' ? 'Não atendido'
-           : atendimentoStatus(item) === 'em_atendimento' ? 'Em atendimento'
-           : 'Finalizado' }}
-        </span>
-        <small class="text-muted" *ngIf="item.atendimento?.porNome">
-          por <strong>{{ item.atendimento?.porNome }}</strong>
-          <ng-container *ngIf="item.atendimento?.em as aem">
-            — {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM/yyyy HH:mm' }}
-          </ng-container>
-        </small>
-      </div>
-      <div *ngIf="item.atendimento?.observacao" class="small text-muted mt-1">
-        Obs.: {{ item.atendimento?.observacao }}
-      </div>
+  <!-- Corpo compacto -->
+  <div class="card-body py-2 px-3 small">
+    <div class="text-muted">{{ cpfMask(item.cpf) }} • {{ $any(item).cidade }}/{{ $any(item).uf }}<ng-container *ngIf="item.bairro"> • {{ item.bairro }}</ng-container></div>
+    <div *ngIf="item.telefone"><i class="bi bi-telephone text-muted me-1"></i>{{ item.telefone }}</div>
+    <div *ngIf="item.email"><i class="bi bi-envelope text-muted me-1"></i>{{ item.email }}</div>
+    <div *ngIf="item.modalidade || $any(item).origem" class="text-muted">
+      <ng-container *ngIf="item.modalidade">{{ item.modalidade }}</ng-container>
+      <ng-container *ngIf="item.modalidade && $any(item).origem"> • </ng-container>
+      <ng-container *ngIf="$any(item).origem">Origem: {{ $any(item).origem }}</ng-container>
     </div>
-
-    <!-- DIREITA: botões de ação -->
-    <div class="d-flex flex-column gap-1" style="min-width:160px">
-
-      <!-- Iniciar -->
-      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'nao_atendido'"
-        class="btn btn-outline-primary btn-sm" (click)="iniciarAtendimento(item)">
-        <i class="bi bi-telephone me-1"></i>Iniciar Atendimento
-      </button>
-
-      <!-- Finalizar -->
-      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'em_atendimento'"
-        class="btn btn-success btn-sm" (click)="abrirModalFinalizar(item)">
-        <i class="bi bi-check-lg me-1"></i>Finalizar
-      </button>
-
-      <!-- Liberar atendimento -->
-      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'em_atendimento'"
-        class="btn btn-outline-warning btn-sm" (click)="liberarAtendimento(item)"
-        title="Liberar para que outro atendente possa atender">
-        <i class="bi bi-person-dash me-1"></i>Liberar
-      </button>
-
-      <!-- Reabrir -->
-      <button *ngIf="isOperacional() && atendimentoStatus(item) === 'finalizado'"
-        class="btn btn-outline-secondary btn-sm" (click)="iniciarAtendimento(item)">
-        <i class="bi bi-arrow-counterclockwise me-1"></i>Reabrir
-      </button>
-
-      <!-- Agendar -->
-      <button *ngIf="isOperacional()"
-        class="btn btn-outline-info btn-sm" (click)="abrirModalAgendamento(item)">
-        <i class="bi bi-calendar-plus me-1"></i>
-        {{ $any(item).agendamentoData ? 'Editar Agendamento' : 'Agendar' }}
-      </button>
-
-      <!-- Encaminhar para assessor -->
-      <button *ngIf="isOperacional()"
-        class="btn btn-outline-success btn-sm" (click)="abrirModalEncaminhar(item)">
-        <i class="bi bi-send me-1"></i>Encaminhar
-      </button>
-
-      <!-- Editar dados -->
-      <button *ngIf="isOperacional()"
-        class="btn btn-outline-secondary btn-sm" (click)="abrirModalEditar(item)">
-        <i class="bi bi-pencil me-1"></i>Editar Cliente
-      </button>
-
+    <div *ngIf="$any(item).agendamentoData" class="text-primary">
+      <i class="bi bi-calendar-check me-1"></i>{{ $any(item).agendamentoData }}
+      <ng-container *ngIf="$any(item).agendamentoHora"> às {{ $any(item).agendamentoHora }}</ng-container>
+    </div>
+    <div *ngIf="item.encaminhamento?.assessorNome" class="text-success">
+      <i class="bi bi-send me-1"></i>{{ item.encaminhamento?.assessorNome }}
+    </div>
+    <div *ngIf="item.atendimento?.porNome" class="text-muted">
+      <i class="bi bi-person me-1"></i>{{ item.atendimento?.porNome }}
+      <ng-container *ngIf="item.atendimento?.em as aem">
+        · {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM HH:mm' }}
+      </ng-container>
+    </div>
+    <div *ngIf="item.atendimento?.observacao" class="text-muted fst-italic">
+      <i class="bi bi-chat-left-text me-1"></i>{{ item.atendimento?.observacao }}
     </div>
   </div>
+
+  <!-- Rodapé com ações -->
+  <div *ngIf="isOperacional()" class="card-footer py-1 px-2 d-flex flex-wrap gap-1">
+    <button *ngIf="atendimentoStatus(item) === 'nao_atendido'"
+      class="btn btn-outline-primary btn-sm" (click)="iniciarAtendimento(item)">
+      <i class="bi bi-telephone"></i> Iniciar
+    </button>
+    <button *ngIf="atendimentoStatus(item) === 'em_atendimento'"
+      class="btn btn-success btn-sm" (click)="abrirModalFinalizar(item)">
+      <i class="bi bi-check-lg"></i> Finalizar
+    </button>
+    <button *ngIf="atendimentoStatus(item) === 'em_atendimento'"
+      class="btn btn-outline-warning btn-sm" (click)="liberarAtendimento(item)" title="Liberar atendimento">
+      <i class="bi bi-person-dash"></i> Liberar
+    </button>
+    <button *ngIf="atendimentoStatus(item) === 'finalizado'"
+      class="btn btn-outline-secondary btn-sm" (click)="iniciarAtendimento(item)">
+      <i class="bi bi-arrow-counterclockwise"></i> Reabrir
+    </button>
+    <button class="btn btn-outline-info btn-sm" (click)="abrirModalAgendamento(item)" title="Agendar">
+      <i class="bi bi-calendar-plus"></i>
+    </button>
+    <button class="btn btn-outline-success btn-sm" (click)="abrirModalEncaminhar(item)" title="Encaminhar para assessor">
+      <i class="bi bi-send"></i>
+    </button>
+    <button class="btn btn-outline-secondary btn-sm" (click)="abrirModalEditar(item)" title="Editar cliente">
+      <i class="bi bi-pencil"></i>
+    </button>
+  </div>
+
 </ng-template>
 
 <!-- ===== Modal: Finalizar Atendimento ===== -->

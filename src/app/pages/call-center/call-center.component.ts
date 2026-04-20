@@ -40,11 +40,14 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   abaAtiva = signal<'geral' | 'meus' | 'agenda'>('geral');
 
   // ===== Filtros (aba geral) =====
-  filtroAtendimento = signal<'todos' | 'nao_atendido' | 'em_atendimento' | 'finalizado'>('todos');
+  filtroAtendimento = signal<'todos' | 'nao_atendido' | 'em_atendimento' | 'finalizado'>('nao_atendido');
+  filtroNome = signal<string>('');
   filtroCidade = signal<string>('');
   filtroUf = signal<string>('');
   filtroBairro = signal<string>('');
   filtroCpf = signal<string>('');
+  filtroOrigem = signal<string>('');
+  filtroAtendente = signal<string>('');
 
   // ===== Paginação aba geral =====
   pageSize = 20;
@@ -206,10 +209,13 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   // ===== Handlers de filtro =====
   onFiltroAtendimentoChange(v: string) { this.filtroAtendimento.set(v as any); this.currentPage = 1; }
+  onFiltroNomeChange(v: string) { this.filtroNome.set(v.toLowerCase()); this.currentPage = 1; }
   onFiltroCidadeChange(v: string) { this.filtroCidade.set(v); this.currentPage = 1; }
   onFiltroUfChange(v: string) { this.filtroUf.set(v); this.currentPage = 1; }
   onFiltroBairroChange(v: string) { this.filtroBairro.set(v); this.currentPage = 1; }
   onFiltroCpfChange(v: string) { this.filtroCpf.set(v.replace(/\D/g, '')); this.currentPage = 1; }
+  onFiltroOrigemChange(v: string) { this.filtroOrigem.set(v); this.currentPage = 1; }
+  onFiltroAtendenteChange(v: string) { this.filtroAtendente.set(v); this.currentPage = 1; }
 
   // ===== Carregar dados =====
   async carregarTudo(): Promise<void> {
@@ -258,21 +264,52 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     }
   }
 
+  atendentesOptions = computed(() => {
+    const map = new Map<string, string>(); // uid → nome
+    this.preCadastros().forEach(it => {
+      const uid = it.atendimento?.porUid;
+      const nome = it.atendimento?.porNome;
+      if (uid && nome && !map.has(uid)) map.set(uid, nome);
+    });
+    return Array.from(map.entries())
+      .map(([uid, nome]) => ({ uid, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  });
+
+  origensOptions = computed(() => {
+    const map = new Map<string, string>(); // lowercase → label original (primeiro encontrado)
+    this.preCadastros().forEach(it => {
+      const o = ((it as any).origem || '').trim();
+      if (!o) return;
+      const key = o.toLowerCase();
+      if (!map.has(key)) map.set(key, o);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .map(([key, label]) => ({ key, label }));
+  });
+
   // ===== Computed: filtrados (aba geral) =====
   filtrados = computed(() => {
     const f = this.filtroAtendimento();
+    const nome = this.filtroNome();
     const cidade = this.filtroCidade().toLowerCase();
     const uf = this.filtroUf().toLowerCase();
     const bairro = this.filtroBairro().toLowerCase();
     const cpf = this.filtroCpf().replace(/\D/g, '');
+    const origem = this.filtroOrigem();
 
     let base = [...this.preCadastros()];
 
     if (f !== 'todos') base = base.filter(i => (i.atendimento?.status ?? 'nao_atendido') === f);
+    if (nome) base = base.filter(i => (i.nomeCompleto || '').toLowerCase().includes(nome));
     if (cidade) base = base.filter(i => ((i as any).cidade || '').toLowerCase().includes(cidade));
     if (uf) base = base.filter(i => ((i as any).uf || '').toLowerCase().includes(uf));
     if (bairro) base = base.filter(i => ((i as any).bairro || '').toLowerCase().includes(bairro));
     if (cpf) base = base.filter(i => ((i as any).cpf || '').replace(/\D/g, '').includes(cpf));
+    if (origem) base = base.filter(i => ((i as any).origem || '').trim().toLowerCase() === origem);
+    const atendente = this.filtroAtendente();
+    if (atendente) base = base.filter(i => i.atendimento?.porUid === atendente);
 
     const order: Record<string, number> = { em_atendimento: 0, nao_atendido: 1, finalizado: 2 };
     return base.sort((a, b) => {
