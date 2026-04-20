@@ -12,6 +12,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { PreCadastro } from '../../models/pre-cadastro.model';
 import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
+import { normalizarTexto } from '../../core/constants/regioes-prioritarias.constant';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -203,9 +204,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const assUid = this.filtroAssessor();
     const de = this.filtroDataDe();
     const ate = this.filtroDataAte();
-    const cidade = this.filtroCidade().toLowerCase();
-    const uf = this.filtroUf().toLowerCase();
-    const bairro = this.filtroBairro().toLowerCase();
+    const cidade = normalizarTexto(this.filtroCidade());
+    const uf = this.filtroUf().toUpperCase();
+    const bairro = normalizarTexto(this.filtroBairro());
     const origem = this.filtroOrigem();
     const cpf = this.filtroCpf().replace(/\D/g, '');
 
@@ -219,24 +220,20 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     // ==== FILTRO POR DATA USANDO APROVAÇÃO (aprovacao.em) ====
     if (cidade) {
       base = base.filter(i =>
-        ((i as any).cidade || '').toLowerCase().includes(cidade)
+        normalizarTexto((i as any).cidade || '').includes(cidade)
       );
     }
 
     if (uf) {
       base = base.filter(i => {
-        const valorUf =
-          ((i as any).uf ||
-          (i as any).estado ||
-          '').toLowerCase();
-
+        const valorUf = ((i as any).uf || (i as any).estado || '').toUpperCase();
         return valorUf.includes(uf);
       });
     }
 
     if (bairro) {
       base = base.filter(i =>
-        ((i as any).bairro || '').toLowerCase().includes(bairro)
+        normalizarTexto((i as any).bairro || '').includes(bairro)
       );
     }
 

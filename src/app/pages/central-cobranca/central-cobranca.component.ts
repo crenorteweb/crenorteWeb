@@ -1,4 +1,5 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
+import { normalizarTexto } from '../../core/constants/regioes-prioritarias.constant';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { CobrancaDataService } from '../../services/cobranca-data.service';
@@ -168,14 +169,14 @@ export class CentralCobrancaComponent implements OnInit {
     const lista = this.grupos();
     if (!lista || lista.length === 0) return [];
 
-    const city = (this.filtroCidade() || '').trim().toLowerCase();
+    const city = normalizarTexto((this.filtroCidade() || '').trim());
     const txt = (this.textoBusca() || '').trim().toLowerCase();
     const di = this.dataIni() ? new Date(this.dataIni() + 'T00:00:00') : null;
     const df = this.dataFim() ? new Date(this.dataFim() + 'T23:59:59') : null;
 
     return lista.filter((g) => {
       if (city) {
-        const gc = (g.cidade || '').toLowerCase();
+        const gc = normalizarTexto(g.cidade || '');
         if (!gc.includes(city)) return false;
       }
 

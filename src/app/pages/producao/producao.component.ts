@@ -6,6 +6,7 @@ import { EMPTY } from 'rxjs';
 
 import { HeaderComponent } from '../shared/header/header.component';
 import { ProducaoService } from '../../services/producao.service';
+import { normalizarTexto, isCidadePrioritaria, isBairroPrioritario, ordenarComPrioridade } from '../../core/constants/regioes-prioritarias.constant';
 import { CargoFiltro, Colaborador, PeriodoFiltro, PreCadastro, ResultadoFiltro } from '../../models/producao.model';
 
 import { FiltroCargo } from '../../components/producao/filtro-cargo/filtro-cargo.component';
@@ -76,11 +77,11 @@ export class ProducaoComponent {
     const analista = this.filtroAnalista().trim();
     if (analista) lista = lista.filter(r => r.analistaId === analista);
 
-    const municipio = this.filtroMunicipio().trim();
-    if (municipio) lista = lista.filter(r => (r.municipio || '').trim() === municipio);
+    const municipio = normalizarTexto(this.filtroMunicipio().trim());
+    if (municipio) lista = lista.filter(r => normalizarTexto((r.municipio || '').trim()) === municipio);
 
-    const bairro = this.filtroBairro().trim();
-    if (bairro) lista = lista.filter(r => (r.bairro || '').trim() === bairro);
+    const bairro = normalizarTexto(this.filtroBairro().trim());
+    if (bairro) lista = lista.filter(r => normalizarTexto((r.bairro || '').trim()) === bairro);
 
     return lista;
   });
@@ -95,26 +96,38 @@ export class ProducaoComponent {
   });
 
   municipiosDisponiveis = computed(() => {
-    const set = new Set<string>();
+    const map = new Map<string, string>(); // normalizado → valor original
     this.registrosOriginais().forEach(r => {
       const m = (r.municipio || '').trim();
-      if (m) set.add(m);
+      if (!m) return;
+      const key = normalizarTexto(m);
+      if (!map.has(key)) map.set(key, m);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   });
 
+  municipiosOrdenados = computed(() =>
+    ordenarComPrioridade(this.municipiosDisponiveis(), isCidadePrioritaria)
+  );
+
   bairrosDisponiveis = computed(() => {
-    const municipio = this.filtroMunicipio().trim();
+    const municipio = normalizarTexto(this.filtroMunicipio().trim());
     const base = municipio
-      ? this.registrosOriginais().filter(r => (r.municipio || '').trim() === municipio)
+      ? this.registrosOriginais().filter(r => normalizarTexto((r.municipio || '').trim()) === municipio)
       : this.registrosOriginais();
-    const set = new Set<string>();
+    const map = new Map<string, string>(); // normalizado → valor original
     base.forEach(r => {
       const b = (r.bairro || '').trim();
-      if (b) set.add(b);
+      if (!b) return;
+      const key = normalizarTexto(b);
+      if (!map.has(key)) map.set(key, b);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   });
+
+  bairrosOrdenados = computed(() =>
+    ordenarComPrioridade(this.bairrosDisponiveis(), isBairroPrioritario)
+  );
 
   analistasDisponiveis = computed(() => {
     if (this.cargo() !== 'geral') return [];

@@ -107,9 +107,12 @@
             <label class="form-label mb-1">Bairro</label>
             <select class="form-select" [ngModel]="filtroBairro()" (ngModelChange)="filtroBairro.set($event)">
               <option value="">Todos os bairros</option>
-              <option *ngFor="let b of bairrosDisponiveis()" [value]="b">
-                {{ b }}
-              </option>
+              <optgroup label="── Prioritários ──">
+                <option *ngFor="let b of bairrosOrdenados()" [value]="b.valor" [hidden]="!b.prioritario">{{ b.valor }}</option>
+              </optgroup>
+              <optgroup label="── Demais ──">
+                <option *ngFor="let b of bairrosOrdenados()" [value]="b.valor" [hidden]="b.prioritario">{{ b.valor }}</option>
+              </optgroup>
             </select>
           </div>
 
