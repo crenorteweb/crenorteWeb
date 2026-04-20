@@ -12,7 +12,7 @@ import { PreCadastro } from '../../models/pre-cadastro.model';
 import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { normalizarTexto } from '../../core/constants/regioes-prioritarias.constant';
+import { normalizarTexto, UFS_PRIORITARIAS, CIDADES_PRIORITARIAS, BAIRROS_PRIORITARIOS } from '../../core/constants/regioes-prioritarias.constant';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -88,8 +88,8 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
   onFiltroElegivelChange(v: string) { this.filtroElegivel.set(v as any); this.currentPage = 1; }
   onFiltroDataDeChange(v: string) { this.filtroDataDe.set(v); this.currentPage = 1; }
   onFiltroDataAteChange(v: string) { this.filtroDataAte.set(v); this.currentPage = 1; }
-  onFiltroCidadeChange(v: string) { this.filtroCidade.set(v); this.currentPage = 1; }
-  onFiltroUfChange(v: string) { this.filtroUf.set(v); this.currentPage = 1; }
+  onFiltroCidadeChange(v: string) { this.filtroCidade.set(v); this.filtroBairro.set(''); this.currentPage = 1; }
+  onFiltroUfChange(v: string) { this.filtroUf.set(v); this.filtroCidade.set(''); this.filtroBairro.set(''); this.currentPage = 1; }
   onFiltroBairroChange(v: string) { this.filtroBairro.set(v); this.currentPage = 1; }
   onFiltroCpfChange(v: string) { this.filtroCpf.set(v.replace(/\D/g, '')); this.currentPage = 1; }
   onFiltroOrigemChange(v: string) { this.filtroOrigem.set(v); this.currentPage = 1; }
@@ -143,6 +143,46 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     return Array.from(map.entries())
       .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
       .map(([key, label]) => ({ key, label }));
+  });
+
+  // ===== Options para filtros de localização =====
+  ufsOptions = computed(() => {
+    const all = new Set<string>();
+    this.preCadastros().forEach(it => { const v = ((it as any).uf || '').toUpperCase().trim(); if (v) all.add(v); });
+    const prio = UFS_PRIORITARIAS.filter(u => all.has(u));
+    const demais = Array.from(all).filter(u => !UFS_PRIORITARIAS.includes(u)).sort();
+    return { prio, demais };
+  });
+
+  cidadesOptions = computed(() => {
+    const uf = this.filtroUf().toUpperCase();
+    const all = new Set<string>();
+    this.preCadastros()
+      .filter(it => !uf || ((it as any).uf || '').toUpperCase() === uf)
+      .forEach(it => { const v = ((it as any).cidade || '').trim(); if (v) all.add(v); });
+    const prio = CIDADES_PRIORITARIAS.filter(c => Array.from(all).some(v => normalizarTexto(v) === normalizarTexto(c)));
+    const prioNorms = new Set(prio.map(normalizarTexto));
+    const demais = Array.from(all).filter(v => !prioNorms.has(normalizarTexto(v)))
+      .sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
+    return { prio, demais };
+  });
+
+  bairrosOptions = computed(() => {
+    const uf = this.filtroUf().toUpperCase();
+    const cidade = normalizarTexto(this.filtroCidade());
+    const all = new Set<string>();
+    this.preCadastros()
+      .filter(it => {
+        if (uf && ((it as any).uf || '').toUpperCase() !== uf) return false;
+        if (cidade && !normalizarTexto((it as any).cidade || '').includes(cidade)) return false;
+        return true;
+      })
+      .forEach(it => { const v = ((it as any).bairro || '').trim(); if (v) all.add(v); });
+    const prio = BAIRROS_PRIORITARIOS.filter(b => Array.from(all).some(v => normalizarTexto(v) === normalizarTexto(b)));
+    const prioNorms = new Set(prio.map(normalizarTexto));
+    const demais = Array.from(all).filter(v => !prioNorms.has(normalizarTexto(v)))
+      .sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
+    return { prio, demais };
   });
 
   // ===== Computed: filtrados =====

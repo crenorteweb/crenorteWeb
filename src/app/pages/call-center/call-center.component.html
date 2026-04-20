@@ -103,14 +103,31 @@
 
       <div class="input-group">
         <span class="input-group-text">UF</span>
-        <input type="text" class="form-control" style="max-width:60px"
-          (input)="onFiltroUfChange($any($event.target).value)">
+        <select class="form-select" style="max-width:90px" [value]="filtroUf()" #selUf (change)="onFiltroUfChange(selUf.value)">
+          <option value="">Todas</option>
+          <option *ngFor="let u of ufsOptions().prio" [value]="u">{{ u }}</option>
+          <option *ngFor="let u of ufsOptions().demais" [value]="u">{{ u }}</option>
+        </select>
         <span class="input-group-text">Cidade</span>
-        <input type="text" class="form-control"
-          (input)="onFiltroCidadeChange($any($event.target).value)">
+        <select class="form-select" [value]="filtroCidade()" #selCidade (change)="onFiltroCidadeChange(selCidade.value)">
+          <option value="">Todas</option>
+          <optgroup label="── Prioritárias ──" *ngIf="cidadesOptions().prio.length">
+            <option *ngFor="let c of cidadesOptions().prio" [value]="c">{{ c }}</option>
+          </optgroup>
+          <optgroup label="── Demais ──" *ngIf="cidadesOptions().demais.length">
+            <option *ngFor="let c of cidadesOptions().demais" [value]="c">{{ c }}</option>
+          </optgroup>
+        </select>
         <span class="input-group-text">Bairro</span>
-        <input type="text" class="form-control"
-          (input)="onFiltroBairroChange($any($event.target).value)">
+        <select class="form-select" [value]="filtroBairro()" #selBairro (change)="onFiltroBairroChange(selBairro.value)">
+          <option value="">Todos</option>
+          <optgroup label="── Prioritários ──" *ngIf="bairrosOptions().prio.length">
+            <option *ngFor="let b of bairrosOptions().prio" [value]="b">{{ b }}</option>
+          </optgroup>
+          <optgroup label="── Demais ──" *ngIf="bairrosOptions().demais.length">
+            <option *ngFor="let b of bairrosOptions().demais" [value]="b">{{ b }}</option>
+          </optgroup>
+        </select>
       </div>
 
       <div class="input-group">
