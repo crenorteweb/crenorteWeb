@@ -12,7 +12,7 @@ import { PreCadastro } from '../../models/pre-cadastro.model';
 import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { normalizarTexto, UFS_PRIORITARIAS, CIDADES_PRIORITARIAS, BAIRROS_PRIORITARIOS } from '../../core/constants/regioes-prioritarias.constant';
+import { normalizarTexto, UFS_PRIORITARIAS } from '../../core/constants/regioes-prioritarias.constant';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -160,11 +160,7 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     this.preCadastros()
       .filter(it => !uf || ((it as any).uf || '').toUpperCase() === uf)
       .forEach(it => { const v = ((it as any).cidade || '').trim(); if (v) all.add(v); });
-    const prio = CIDADES_PRIORITARIAS.filter(c => Array.from(all).some(v => normalizarTexto(v) === normalizarTexto(c)));
-    const prioNorms = new Set(prio.map(normalizarTexto));
-    const demais = Array.from(all).filter(v => !prioNorms.has(normalizarTexto(v)))
-      .sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
-    return { prio, demais };
+    return Array.from(all).sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
   });
 
   bairrosOptions = computed(() => {
@@ -178,11 +174,7 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
         return true;
       })
       .forEach(it => { const v = ((it as any).bairro || '').trim(); if (v) all.add(v); });
-    const prio = BAIRROS_PRIORITARIOS.filter(b => Array.from(all).some(v => normalizarTexto(v) === normalizarTexto(b)));
-    const prioNorms = new Set(prio.map(normalizarTexto));
-    const demais = Array.from(all).filter(v => !prioNorms.has(normalizarTexto(v)))
-      .sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
-    return { prio, demais };
+    return Array.from(all).sort((a, b) => normalizarTexto(a).localeCompare(normalizarTexto(b)));
   });
 
   // ===== Computed: filtrados =====
