@@ -12,6 +12,7 @@ import { PreCadastro } from '../../models/pre-cadastro.model';
 import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import { normalizarTexto } from '../../core/constants/regioes-prioritarias.constant';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -150,9 +151,9 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     const f = this.filtroElegivel();
     const de = this.filtroDataDe();
     const ate = this.filtroDataAte();
-    const cidade = this.filtroCidade().toLowerCase();
-    const uf = this.filtroUf().toLowerCase();
-    const bairro = this.filtroBairro().toLowerCase();
+    const cidade = normalizarTexto(this.filtroCidade());
+    const uf = this.filtroUf().toUpperCase();
+    const bairro = normalizarTexto(this.filtroBairro());
     const cpf = this.filtroCpf().replace(/\D/g, '');
     const origem = this.filtroOrigem();
 
@@ -162,9 +163,9 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
       base = base.filter(i => (i.elegivel?.status ?? 'nao_verificado') === f);
     }
 
-    if (cidade) base = base.filter(i => ((i as any).cidade || '').toLowerCase().includes(cidade));
-    if (uf) base = base.filter(i => ((i as any).uf || '').toLowerCase().includes(uf));
-    if (bairro) base = base.filter(i => ((i as any).bairro || '').toLowerCase().includes(bairro));
+    if (cidade) base = base.filter(i => normalizarTexto((i as any).cidade || '').includes(cidade));
+    if (uf) base = base.filter(i => ((i as any).uf || '').toUpperCase().includes(uf));
+    if (bairro) base = base.filter(i => normalizarTexto((i as any).bairro || '').includes(bairro));
     if (cpf) base = base.filter(i => ((i as any).cpf || '').replace(/\D/g, '').includes(cpf));
     if (origem) base = base.filter(i => ((i as any).origem || '').trim().toLowerCase() === origem);
 

@@ -26,6 +26,7 @@ import { GrupoSolidarioService } from '../../../services/grupo-solidario.service
 
 // ===== Importação via Excel =====
 import { ImportacaoExcelComponent } from '../importacao-excel/importacao-excel.component';
+import { normalizarTexto, isBairroPrioritario, ordenarComPrioridade } from '../../../core/constants/regioes-prioritarias.constant';
 
 type PreCadastroEdit = PreCadastro & { id: string };
 
@@ -682,13 +683,19 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
 
   // ===== Derived UI data (PESSOAS) =====
   bairrosDisponiveis = computed<string[]>(() => {
-    const set = new Set<string>();
+    const map = new Map<string, string>(); // normalizado → valor original
     for (const x of this.itens()) {
       const b = (x.bairro ?? '').trim();
-      if (b) set.add(b);
+      if (!b) continue;
+      const key = normalizarTexto(b);
+      if (!map.has(key)) map.set(key, b);
     }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b));
   });
+
+  bairrosOrdenados = computed(() =>
+    ordenarComPrioridade(this.bairrosDisponiveis(), isBairroPrioritario)
+  );
 
   origensDisponiveis = computed<string[]>(() => {
     const set = new Set<string>();
@@ -769,7 +776,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       if (hasEmail === 'nao' && temEmail) return false;
 
       // Bairro
-      if (bairro && (i.bairro ?? '') !== bairro) return false;
+      if (bairro && normalizarTexto(i.bairro ?? '') !== normalizarTexto(bairro)) return false;
 
       // Origem
       if (origem && (i.origem ?? '') !== origem) return false;
