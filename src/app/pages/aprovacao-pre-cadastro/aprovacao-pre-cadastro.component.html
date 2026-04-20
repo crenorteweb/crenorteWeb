@@ -54,12 +54,22 @@
         <span class="input-group-text">Cidade</span>
         <select class="form-select" [value]="filtroCidade()" #selCidade (change)="onFiltroCidadeChange(selCidade.value)">
           <option value="">Todas</option>
-          <option *ngFor="let c of cidadesOptions()" [value]="c">{{ c }}</option>
+          <optgroup label="── Prioritárias ──" *ngIf="cidadesOptions().prio.length">
+            <option *ngFor="let c of cidadesOptions().prio" [value]="c">{{ c }}</option>
+          </optgroup>
+          <optgroup label="── Demais ──" *ngIf="cidadesOptions().demais.length">
+            <option *ngFor="let c of cidadesOptions().demais" [value]="c">{{ c }}</option>
+          </optgroup>
         </select>
         <span class="input-group-text">Bairro</span>
         <select class="form-select" [value]="filtroBairro()" #selBairro (change)="onFiltroBairroChange(selBairro.value)">
           <option value="">Todos</option>
-          <option *ngFor="let b of bairrosOptions()" [value]="b">{{ b }}</option>
+          <optgroup label="── Prioritários ──" *ngIf="bairrosOptions().prio.length">
+            <option *ngFor="let b of bairrosOptions().prio" [value]="b">{{ b }}</option>
+          </optgroup>
+          <optgroup label="── Demais ──" *ngIf="bairrosOptions().demais.length">
+            <option *ngFor="let b of bairrosOptions().demais" [value]="b">{{ b }}</option>
+          </optgroup>
         </select>
       </div>
 
