@@ -92,7 +92,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   selected = signal<Record<string, string>>({});
 
   // ===== Filtros =====
-  filtroAprovacao = signal<'todos' | 'apto' | 'inapto' | 'nao_verificado'>('todos');
+  filtroAprovacao = signal<'todos' | 'apto' | 'inapto' | 'nao_verificado'>('nao_verificado');
   filtroAssessor = signal<string>('todos'); // UID do autor (createdByUid)
   filtroDataDe = signal<string>('');        // yyyy-MM-dd
   filtroDataAte = signal<string>('');
@@ -163,12 +163,16 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
   /** Opções de origem únicas presentes nos dados carregados */
   origensOptions = computed(() => {
-    const set = new Set<string>();
+    const map = new Map<string, string>();
     this.preCadastros().forEach(it => {
       const o = ((it as any).origem || '').trim();
-      if (o) set.add(o);
+      if (!o) return;
+      const key = o.toLowerCase();
+      if (!map.has(key)) map.set(key, o);
     });
-    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .map(([key, label]) => ({ key, label }));
   });
 
   /** Apenas a data de aprovação (sem fallback para createdAt) */
@@ -238,7 +242,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
     if (origem) {
       base = base.filter(i =>
-        ((i as any).origem || '') === origem
+        ((i as any).origem || '').trim().toLowerCase() === origem
       );
     }
 
@@ -367,8 +371,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     try {
       const qAss = query(
         collection(this.fs, 'colaboradores'),
-        where('papel', '==', 'assessor'),
-        where('status', '==', 'ativo')
+        where('papel', '==', 'assessor')
       );
 
       const [snapAss, snap1, snap2] = await Promise.all([

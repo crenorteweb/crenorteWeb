@@ -10,6 +10,8 @@ import {
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import { PreCadastro } from '../../models/pre-cadastro.model';
 import { filtrarUfsNorte } from '../../services/pre-cadastro.service';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 type Papel =
   | 'admin' | 'supervisor' | 'coordenador' | 'assessor'
@@ -40,13 +42,14 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
   private nomesSignal = signal<Record<string, string>>({});
 
   // ===== Filtros =====
-  filtroElegivel = signal<'todos' | 'nao_verificado' | 'sim' | 'nao'>('todos');
+  filtroElegivel = signal<'todos' | 'nao_verificado' | 'sim' | 'nao'>('nao_verificado');
   filtroDataDe = signal<string>('');
   filtroDataAte = signal<string>('');
   filtroCidade = signal<string>('');
   filtroUf = signal<string>('');
   filtroBairro = signal<string>('');
   filtroCpf = signal<string>('');
+  filtroOrigem = signal<string>('');
 
   // ===== Paginação =====
   pageSize = 20;
@@ -88,6 +91,7 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
   onFiltroUfChange(v: string) { this.filtroUf.set(v); this.currentPage = 1; }
   onFiltroBairroChange(v: string) { this.filtroBairro.set(v); this.currentPage = 1; }
   onFiltroCpfChange(v: string) { this.filtroCpf.set(v.replace(/\D/g, '')); this.currentPage = 1; }
+  onFiltroOrigemChange(v: string) { this.filtroOrigem.set(v); this.currentPage = 1; }
 
   // ===== Carregar dados (apenas aptos) =====
   async carregarTudo(): Promise<void> {
@@ -127,6 +131,19 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     }
   }
 
+  origensOptions = computed(() => {
+    const map = new Map<string, string>();
+    this.preCadastros().forEach(it => {
+      const o = ((it as any).origem || '').trim();
+      if (!o) return;
+      const key = o.toLowerCase();
+      if (!map.has(key)) map.set(key, o);
+    });
+    return Array.from(map.entries())
+      .sort(([a], [b]) => a.localeCompare(b, 'pt-BR'))
+      .map(([key, label]) => ({ key, label }));
+  });
+
   // ===== Computed: filtrados =====
   filtrados = computed(() => {
     const list = [...this.preCadastros()];
@@ -137,6 +154,7 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     const uf = this.filtroUf().toLowerCase();
     const bairro = this.filtroBairro().toLowerCase();
     const cpf = this.filtroCpf().replace(/\D/g, '');
+    const origem = this.filtroOrigem();
 
     let base = list;
 
@@ -148,6 +166,7 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
     if (uf) base = base.filter(i => ((i as any).uf || '').toLowerCase().includes(uf));
     if (bairro) base = base.filter(i => ((i as any).bairro || '').toLowerCase().includes(bairro));
     if (cpf) base = base.filter(i => ((i as any).cpf || '').replace(/\D/g, '').includes(cpf));
+    if (origem) base = base.filter(i => ((i as any).origem || '').trim().toLowerCase() === origem);
 
     const dtDe = de ? new Date(de + 'T00:00:00') : null;
     const dtAte = ate ? new Date(ate + 'T23:59:59') : null;
@@ -292,5 +311,59 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
         if (s.exists()) this.setNome(uid, (s.data() as any)?.nome || uid);
       } catch { }
     }
+  }
+
+  // ===== Exportar PDF =====
+  exportarPDF() {
+    const lista = this.filtrados();
+    const docPdf = new jsPDF({ orientation: 'p', unit: 'pt' });
+
+    docPdf.setFontSize(14);
+    docPdf.text('Lista de CPFs – Verificação de Elegibilidade', 40, 40);
+
+    const filtros: string[] = [];
+    const f = this.filtroElegivel();
+    if (f !== 'todos') filtros.push(`Elegibilidade: ${f === 'nao_verificado' ? 'Não verificado' : f === 'sim' ? 'Elegível' : 'Não elegível'}`);
+    if (this.filtroDataDe()) filtros.push(`De: ${this.filtroDataDe()}`);
+    if (this.filtroDataAte()) filtros.push(`Até: ${this.filtroDataAte()}`);
+    if (this.filtroUf()) filtros.push(`UF: ${this.filtroUf()}`);
+    if (this.filtroCidade()) filtros.push(`Cidade: ${this.filtroCidade()}`);
+    if (this.filtroBairro()) filtros.push(`Bairro: ${this.filtroBairro()}`);
+    if (this.filtroOrigem()) filtros.push(`Origem: ${this.filtroOrigem()}`);
+
+    docPdf.setFontSize(9);
+    docPdf.text(
+      filtros.length ? `Filtros: ${filtros.join(' • ')}` : 'Sem filtros ativos',
+      40, 58
+    );
+    docPdf.setFontSize(9);
+    docPdf.text(`Total: ${lista.length} registro(s)   Gerado em: ${new Date().toLocaleString('pt-BR')}`, 40, 72);
+
+    autoTable(docPdf, {
+      startY: 84,
+      head: [['#', 'Nome', 'CPF', 'Cidade/UF', 'Bairro', 'Origem', 'Elegibilidade']],
+      body: lista.map((it, idx) => {
+        const elegLabel =
+          this.elegivelStatus(it) === 'sim' ? 'Elegível' :
+          this.elegivelStatus(it) === 'nao' ? 'Não elegível' : 'Não verificado';
+        return [
+          String(idx + 1),
+          it.nomeCompleto || '',
+          this.cpfMask(it.cpf),
+          `${(it as any).cidade || ''}/${(it as any).uf || ''}`,
+          (it as any).bairro || '',
+          (it as any).origem || '—',
+          elegLabel,
+        ];
+      }),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [33, 110, 57] },
+      columnStyles: { 0: { cellWidth: 24 }, 2: { cellWidth: 80 }, 6: { cellWidth: 72 } },
+    });
+
+    const stamp = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fname = `elegibilidade-cpfs-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`;
+    docPdf.save(fname);
   }
 }

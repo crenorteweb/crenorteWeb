@@ -43,6 +43,16 @@
           (input)="onFiltroBairroChange($any($event.target).value)">
       </div>
 
+      <!-- Filtro: Origem -->
+      <div class="input-group">
+        <span class="input-group-text">Origem</span>
+        <select class="form-select" [value]="filtroOrigem()" #selOrigem
+          (change)="onFiltroOrigemChange(selOrigem.value)">
+          <option value="">Todas</option>
+          <option *ngFor="let o of origensOptions()" [value]="o.key">{{ o.label }}</option>
+        </select>
+      </div>
+
       <!-- Filtro CPF -->
       <div class="input-group">
         <span class="input-group-text">CPF</span>
@@ -55,6 +65,12 @@
         <span *ngIf="loading()" class="spinner-border spinner-border-sm me-1" role="status"></span>
         <i *ngIf="!loading()" class="bi bi-arrow-clockwise me-1"></i>
         Atualizar
+      </button>
+
+      <!-- Exportar PDF -->
+      <button class="btn btn-outline-danger" (click)="exportarPDF()" [disabled]="loading() || !filtrados().length">
+        <i class="bi bi-file-earmark-pdf me-1"></i>
+        Exportar PDF
       </button>
     </div>
   </div>
@@ -100,6 +116,7 @@
           <div class="text-muted small">
             CPF {{ cpfMask(item.cpf) }} • {{ item.cidade }}/{{ $any(item).uf }} • {{ item.bairro }}
             <ng-container *ngIf="item.modalidade"> • {{ item.modalidade }}</ng-container>
+            <ng-container *ngIf="$any(item).origem"> • Origem: {{ $any(item).origem }}</ng-container>
           </div>
 
           <div class="small text-muted mt-1">

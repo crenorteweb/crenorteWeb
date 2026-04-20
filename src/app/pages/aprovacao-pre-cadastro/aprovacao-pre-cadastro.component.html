@@ -40,7 +40,7 @@
         <select class="form-select" [value]="filtroOrigem()" #selOrigem
           (change)="onFiltroOrigemChange(selOrigem.value)">
           <option value="">Todas</option>
-          <option *ngFor="let o of origensOptions()" [value]="o">{{ o }}</option>
+          <option *ngFor="let o of origensOptions()" [value]="o.key">{{ o.label }}</option>
         </select>
       </div>
 
