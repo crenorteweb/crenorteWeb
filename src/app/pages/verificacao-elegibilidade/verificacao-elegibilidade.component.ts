@@ -342,24 +342,20 @@ export class VerificacaoElegibilidadeComponent implements OnInit, OnDestroy {
 
     autoTable(docPdf, {
       startY: 84,
-      head: [['#', 'Nome', 'CPF', 'Cidade/UF', 'Bairro', 'Origem', 'Elegibilidade']],
+      head: [['#', 'Nome', 'CPF', 'Telefone', 'Cidade/UF', 'Bairro']],
       body: lista.map((it, idx) => {
-        const elegLabel =
-          this.elegivelStatus(it) === 'sim' ? 'Elegível' :
-          this.elegivelStatus(it) === 'nao' ? 'Não elegível' : 'Não verificado';
         return [
           String(idx + 1),
           it.nomeCompleto || '',
           this.cpfMask(it.cpf),
+          (it as any).telefone || '—',
           `${(it as any).cidade || ''}/${(it as any).uf || ''}`,
           (it as any).bairro || '',
-          (it as any).origem || '—',
-          elegLabel,
         ];
       }),
       styles: { fontSize: 8 },
       headStyles: { fillColor: [33, 110, 57] },
-      columnStyles: { 0: { cellWidth: 24 }, 2: { cellWidth: 80 }, 6: { cellWidth: 72 } },
+      columnStyles: { 0: { cellWidth: 24 }, 2: { cellWidth: 80 }, 3: { cellWidth: 80 } },
     });
 
     const stamp = new Date();
