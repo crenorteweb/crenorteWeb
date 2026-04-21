@@ -143,7 +143,7 @@
             </li>
             <li *ngIf="item.createdAt as ts">
               <i class="bi bi-calendar me-1"></i><span class="fw-semibold">Cadastrado em:</span>
-              {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+              {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy HH:mm' }}
             </li>
           </ul>
 

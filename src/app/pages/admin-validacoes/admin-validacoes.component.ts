@@ -2,12 +2,12 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  Firestore, collection, getDocs, updateDoc, deleteDoc, doc, writeBatch,
+  Firestore, collection, getDocs, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc,
 } from '@angular/fire/firestore';
 import { HeaderComponent } from '../shared/header/header.component';
 import * as XLSX from 'xlsx';
 
-type Aba = 'normalizacao' | 'cpfs' | 'exportar';
+type Aba = 'normalizacao' | 'cpfs' | 'exportar' | 'criador' | 'status';
 type Campo = 'cidade' | 'bairro' | 'origem';
 
 interface Registro {
@@ -127,6 +127,55 @@ export class AdminValidacoesComponent implements OnInit {
 
   // IDs já excluídos do Firestore mas ainda não removidos da lista
   deletadosCpf = signal<Set<string>>(new Set());
+
+  // ── Aba Status (pendente → nao_verificado) ──────────────────────────────
+  buscaStatus = signal('');
+  selecionadosStatus = signal<Set<string>>(new Set());
+
+  registrosStatusFiltrados = computed<Registro[]>(() => {
+    const busca = this.norm(this.buscaStatus());
+    return this.todosRegistros().filter(r => {
+      const aprovStatus = r['aprovacao']?.status;
+      if (aprovStatus !== 'pendente') return false;
+      if (!busca) return true;
+      return (
+        this.norm(r.nomeCompleto || '').includes(busca) ||
+        (r.cpf || '').replace(/\D/g, '').includes(busca.replace(/\D/g, ''))
+      );
+    });
+  });
+
+  todosStatusSelecionados = computed<boolean>(() => {
+    const regs = this.registrosStatusFiltrados();
+    if (!regs.length) return false;
+    return regs.every(r => this.selecionadosStatus().has(r.id));
+  });
+
+  // ── Aba Criador do Cadastro ──────────────────────────────────────────────
+  buscaCriador = signal('');
+  novoUidInput = signal('');
+  selecionadosCriador = signal<Set<string>>(new Set());
+
+  registrosFiltradosCriador = computed<Registro[]>(() => {
+    const busca = this.norm(this.buscaCriador());
+    return this.todosRegistros().filter(r => {
+      const ehSitePortal =
+        r['createdByUid'] === 'site_portal' && r['createdByNome'] === 'Site Crenorte';
+      if (!ehSitePortal) return false;
+      if (!busca) return true;
+      return (
+        this.norm(r.nomeCompleto || '').includes(busca) ||
+        (r.cpf || '').replace(/\D/g, '').includes(busca.replace(/\D/g, ''))
+      );
+    });
+  });
+
+  todosCriadorSelecionados = computed<boolean>(() => {
+    const regs = this.registrosFiltradosCriador();
+    if (!regs.length) return false;
+    const sel = this.selecionadosCriador();
+    return regs.every(r => sel.has(r.id));
+  });
 
   ngOnInit() { this.carregarTudo(); }
 
@@ -268,6 +317,113 @@ export class AdminValidacoesComponent implements OnInit {
       this.showToast('Registro excluído.', 'success');
     } catch {
       this.showToast('Erro ao excluir.', 'danger');
+    } finally {
+      this.salvando.set(false);
+    }
+  }
+
+  // ── Criador do Cadastro ──────────────────────────────────────────────────
+
+  toggleSelecionadoCriador(id: string) {
+    const s = new Set(this.selecionadosCriador());
+    s.has(id) ? s.delete(id) : s.add(id);
+    this.selecionadosCriador.set(s);
+  }
+
+  toggleTodosCriador() {
+    const regs = this.registrosFiltradosCriador();
+    const sel = this.selecionadosCriador();
+    const nova = new Set(sel);
+    if (regs.every(r => sel.has(r.id))) {
+      regs.forEach(r => nova.delete(r.id));
+    } else {
+      regs.forEach(r => nova.add(r.id));
+    }
+    this.selecionadosCriador.set(nova);
+  }
+
+  async aplicarCriador() {
+    const uid = this.novoUidInput().trim();
+    if (!uid) { this.showToast('Informe o UID do colaborador.', 'danger'); return; }
+    const ids = Array.from(this.selecionadosCriador());
+    if (!ids.length) { this.showToast('Selecione ao menos um registro.', 'danger'); return; }
+
+    this.salvando.set(true);
+    try {
+      // Resolve nome: tenta document ID primeiro (assessores), depois campo uid (analistas)
+      let nome: string | null = null;
+      const docSnap = await getDoc(doc(this.fs, 'colaboradores', uid));
+      if (docSnap.exists()) {
+        nome = (docSnap.data() as any)['nome'] || null;
+      } else {
+        const snap = await getDocs(query(collection(this.fs, 'colaboradores'), where('uid', '==', uid)));
+        if (!snap.empty) nome = (snap.docs[0].data() as any)['nome'] || null;
+      }
+      if (!nome) {
+        this.showToast('UID não encontrado na coleção de colaboradores.', 'danger');
+        return;
+      }
+
+      const colMap: Record<string, string> = {};
+      for (const r of this.todosRegistros()) {
+        if (ids.includes(r.id)) colMap[r.id] = r['__col'] ?? 'pre_cadastros';
+      }
+      await this.batchUpdate(ids, colMap, { createdByUid: uid, createdByNome: nome });
+      this.todosRegistros.update(lista =>
+        lista.map(r => ids.includes(r.id) ? { ...r, createdByUid: uid, createdByNome: nome } : r)
+      );
+      this.selecionadosCriador.set(new Set());
+      this.novoUidInput.set('');
+      this.showToast(`${ids.length} registro(s) atualizados para "${nome}".`, 'success');
+    } catch {
+      this.showToast('Erro ao salvar.', 'danger');
+    } finally {
+      this.salvando.set(false);
+    }
+  }
+
+  // ── Status (pendente → nao_verificado) ──────────────────────────────────
+
+  toggleSelecionadoStatus(id: string) {
+    const s = new Set(this.selecionadosStatus());
+    s.has(id) ? s.delete(id) : s.add(id);
+    this.selecionadosStatus.set(s);
+  }
+
+  toggleTodosStatus() {
+    const regs = this.registrosStatusFiltrados();
+    const sel = this.selecionadosStatus();
+    const nova = new Set(sel);
+    if (regs.every(r => sel.has(r.id))) {
+      regs.forEach(r => nova.delete(r.id));
+    } else {
+      regs.forEach(r => nova.add(r.id));
+    }
+    this.selecionadosStatus.set(nova);
+  }
+
+  async aplicarResetStatus() {
+    const ids = Array.from(this.selecionadosStatus());
+    if (!ids.length) { this.showToast('Selecione ao menos um registro.', 'danger'); return; }
+    if (!confirm(`Alterar aprovacao.status de "pendente" para "nao_verificado" em ${ids.length} registro(s)?`)) return;
+
+    this.salvando.set(true);
+    try {
+      const colMap: Record<string, string> = {};
+      for (const r of this.todosRegistros()) {
+        if (ids.includes(r.id)) colMap[r.id] = r['__col'] ?? 'pre_cadastros';
+      }
+      await this.batchUpdate(ids, colMap, { 'aprovacao.status': 'nao_verificado' });
+      this.todosRegistros.update(lista =>
+        lista.map(r => ids.includes(r.id)
+          ? { ...r, aprovacao: { ...(r['aprovacao'] ?? {}), status: 'nao_verificado' } }
+          : r
+        )
+      );
+      this.selecionadosStatus.set(new Set());
+      this.showToast(`${ids.length} registro(s) atualizados para "nao_verificado".`, 'success');
+    } catch {
+      this.showToast('Erro ao salvar.', 'danger');
     } finally {
       this.salvando.set(false);
     }

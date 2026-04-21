@@ -5,7 +5,7 @@ import { HeaderComponent } from '../shared/header/header.component';
 
 import {
   Firestore, collection, query, where, updateDoc, doc,
-  serverTimestamp, getDocs, setDoc, getDoc
+  serverTimestamp, getDocs, getDocsFromServer, setDoc, getDoc
 } from '@angular/fire/firestore';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import jsPDF from 'jspdf';
@@ -296,8 +296,8 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const dtAte = ate ? new Date(ate + 'T23:59:59') : null;
     if (dtDe || dtAte) {
       base = base.filter(i => {
-        const d = this.aprovacaoEmOf(i);       // <-- somente data de aprovação
-        if (!d) return false;                  // sem aprovação, não entra no filtro de data
+        const d = this.createdOf(i);           // <-- data de criação do cadastro
+        if (!d) return false;
         if (dtDe && d < dtDe) return false;
         if (dtAte && d > dtAte) return false;
         return true;
@@ -415,9 +415,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       );
 
       const [snapAss, snap1, snap2] = await Promise.all([
-        getDocs(qAss),
-        getDocs(collection(this.fs, 'pre_cadastros')),
-        getDocs(collection(this.fs, 'pre-cadastros')),
+        getDocsFromServer(qAss),
+        getDocsFromServer(collection(this.fs, 'pre_cadastros')),
+        getDocsFromServer(collection(this.fs, 'pre-cadastros')),
       ]);
 
       // Assessores
@@ -448,7 +448,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      const arr = filtrarUfsNorte(Array.from(acc.values()));
+      const todos = Array.from(acc.values());
+      const norteIds = new Set(filtrarUfsNorte(todos).map((r: any) => r.id));
+      const arr = todos.filter((r: any) =>
+        norteIds.has(r.id) || r?.createdByUid === 'site_portal'
+      );
       this.preCadastros.set(arr);
       this.rebuildTotaisPorAutor(arr);
       await this.preloadColabNames(Array.from(needNames));
