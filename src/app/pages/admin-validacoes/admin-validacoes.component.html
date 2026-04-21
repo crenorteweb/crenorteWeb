@@ -126,6 +126,7 @@
                   <th>Nome</th>
                   <th>CPF</th>
                   <th>{{ campo() | titlecase }}</th>
+                  <th>Criado por</th>
                 </tr>
               </thead>
               <tbody>
@@ -133,6 +134,7 @@
                   <td>{{ r.nomeCompleto || '—' }}</td>
                   <td>{{ cpfMask(r.cpf) }}</td>
                   <td>{{ r[campo()] || '—' }}</td>
+                  <td>{{ r['createdByNome'] || '—' }}</td>
                 </tr>
               </tbody>
             </table>
@@ -253,10 +255,13 @@
                 </div>
 
               </div>
-              <!-- Info ID + data -->
+              <!-- Info ID + data + criador -->
               <div class="d-flex gap-3 text-muted mt-1" style="font-size:.7rem">
                 <span>ID: {{ r.id }}</span>
                 <span *ngIf="r['createdAt']">Cadastrado em: {{ toDataStr(r['createdAt']) }}</span>
+                <span *ngIf="r['createdByNome']">
+                  <i class="bi bi-person me-1"></i>Criado por: {{ r['createdByNome'] }}
+                </span>
               </div>
             </div>
           </div>
