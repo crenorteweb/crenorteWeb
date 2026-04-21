@@ -47,6 +47,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   filtroUf = signal<string>('');
   filtroBairro = signal<string>('');
   filtroCpf = signal<string>('');
+  filtroTelefone = signal<string>('');
   filtroOrigem = signal<string>('');
   filtroAtendente = signal<string>('');
 
@@ -215,6 +216,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   onFiltroUfChange(v: string) { this.filtroUf.set(v); this.filtroCidade.set(''); this.filtroBairro.set(''); this.currentPage = 1; }
   onFiltroBairroChange(v: string) { this.filtroBairro.set(v); this.currentPage = 1; }
   onFiltroCpfChange(v: string) { this.filtroCpf.set(v.replace(/\D/g, '')); this.currentPage = 1; }
+  onFiltroTelefoneChange(v: string) { this.filtroTelefone.set(v.replace(/\D/g, '')); this.currentPage = 1; }
   onFiltroOrigemChange(v: string) { this.filtroOrigem.set(v); this.currentPage = 1; }
   onFiltroAtendenteChange(v: string) { this.filtroAtendente.set(v); this.currentPage = 1; }
 
@@ -338,6 +340,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     const uf = this.filtroUf().toUpperCase();
     const bairro = normalizarTexto(this.filtroBairro());
     const cpf = this.filtroCpf().replace(/\D/g, '');
+    const telefone = this.filtroTelefone().replace(/\D/g, '');
     const origem = this.filtroOrigem();
 
     let base = [...this.preCadastros()];
@@ -348,6 +351,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     if (uf) base = base.filter(i => ((i as any).uf || '').toUpperCase().includes(uf));
     if (bairro) base = base.filter(i => normalizarTexto((i as any).bairro || '').includes(bairro));
     if (cpf) base = base.filter(i => ((i as any).cpf || '').replace(/\D/g, '').includes(cpf));
+    if (telefone) base = base.filter(i => ((i as any).telefone || '').replace(/\D/g, '').includes(telefone));
     if (origem) base = base.filter(i => ((i as any).origem || '').trim().toLowerCase() === origem);
     const atendente = this.filtroAtendente();
     if (atendente) base = base.filter(i => i.atendimento?.porUid === atendente);

@@ -152,6 +152,9 @@
         <span class="input-group-text">CPF</span>
         <input type="text" class="form-control" placeholder="000.000.000-00"
           (input)="onFiltroCpfChange($any($event.target).value)">
+        <span class="input-group-text">Telefone</span>
+        <input type="text" class="form-control" placeholder="(91) 9XXXX-XXXX"
+          (input)="onFiltroTelefoneChange($any($event.target).value)">
       </div>
     </div>
 
