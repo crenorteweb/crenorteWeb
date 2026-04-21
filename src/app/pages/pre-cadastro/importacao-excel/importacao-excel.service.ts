@@ -140,7 +140,7 @@ export class ImportacaoExcelService {
       .map((l) => l.cpfNumeros);
 
     // Divide em chunks de 30 (limite do Firestore para o operador `in`)
-    const cpfsDuplicadosFirestore = new Set<string>();
+    const cpfsDuplicadosFirestore = new Map<string, string>(); // cpf → createdByNome
     if (cpfsParaVerificar.length > 0) {
       const chunks: string[][] = [];
       for (let i = 0; i < cpfsParaVerificar.length; i += 30) {
@@ -152,8 +152,11 @@ export class ImportacaoExcelService {
         const q = query(colRef, where('cpf', 'in', chunk));
         const snap = await getDocs(q);
         snap.forEach((d) => {
-          const cpf = (d.data() as any)?.cpf;
-          if (cpf) cpfsDuplicadosFirestore.add(cpf);
+          const data = d.data() as any;
+          const cpf = data?.cpf;
+          if (cpf && !cpfsDuplicadosFirestore.has(cpf)) {
+            cpfsDuplicadosFirestore.set(cpf, data?.createdByNome ?? '');
+          }
         });
       }
     }
@@ -172,9 +175,13 @@ export class ImportacaoExcelService {
 
       // Duplicata no Firestore
       if (cpfsDuplicadosFirestore.has(l.cpfNumeros)) {
+        const criador = cpfsDuplicadosFirestore.get(l.cpfNumeros);
+        const msg = criador
+          ? `CPF já cadastrado no sistema (cadastrado por: ${criador})`
+          : 'CPF já cadastrado no sistema';
         return {
           ...l,
-          erros: [...l.erros, 'CPF já cadastrado no sistema'],
+          erros: [...l.erros, msg],
           valida: false,
         };
       }
