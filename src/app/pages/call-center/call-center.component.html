@@ -308,8 +308,9 @@
   <!-- ===================== ABA MEUS ATENDIMENTOS ===================== -->
   <ng-container *ngIf="abaAtiva() === 'meus'">
 
-    <!-- Filtro por atendente (somente admin) -->
+    <!-- Filtros admin: atendente + período -->
     <div *ngIf="currentUser()?.papel === 'admin'" class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+
       <div class="input-group" style="max-width:320px">
         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
         <select class="form-select" [ngModel]="meusFiltroPorAtendente()"
@@ -318,6 +319,23 @@
           <option *ngFor="let a of atendentesOptions()" [value]="a.uid">{{ a.nome }}</option>
         </select>
       </div>
+
+      <div class="input-group" style="max-width:360px">
+        <span class="input-group-text"><i class="bi bi-calendar-range"></i></span>
+        <input type="date" class="form-control" placeholder="De"
+          [ngModel]="meusDataInicio()"
+          (ngModelChange)="meusDataInicio.set($event); meusCurrentPage = 1">
+        <span class="input-group-text">até</span>
+        <input type="date" class="form-control" placeholder="Até"
+          [ngModel]="meusDataFim()"
+          (ngModelChange)="meusDataFim.set($event); meusCurrentPage = 1">
+        <button *ngIf="meusDataInicio() || meusDataFim()" class="btn btn-outline-secondary" type="button"
+          (click)="meusDataInicio.set(''); meusDataFim.set(''); meusCurrentPage = 1"
+          title="Limpar datas">
+          <i class="bi bi-x"></i>
+        </button>
+      </div>
+
       <span class="text-muted small">{{ meusFiltrado().length }} atendimento(s)</span>
     </div>
 

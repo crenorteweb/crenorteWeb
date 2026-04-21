@@ -383,6 +383,8 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   // ===== Computed: meus / todos os atendimentos =====
   meusFiltroPorAtendente = signal<string>('');
+  meusDataInicio = signal<string>('');
+  meusDataFim = signal<string>('');
 
   meusFiltrado = computed(() => {
     const cu = this.currentUser();
@@ -390,6 +392,21 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
     const isAdmin = cu.papel === 'admin';
     const filtroUid = this.meusFiltroPorAtendente();
+    const dataInicio = this.meusDataInicio();
+    const dataFim = this.meusDataFim();
+
+    // Converte 'YYYY-MM-DD' para timestamps de início e fim do dia
+    const inicioDia = dataInicio ? new Date(dataInicio + 'T00:00:00').getTime() : null;
+    const fimDia    = dataFim    ? new Date(dataFim    + 'T23:59:59').getTime() : null;
+
+    const tsAtendimento = (i: PreCadastro): number => {
+      const em = (i as any).atendimento?.em;
+      if (!em) return 0;
+      if (typeof em.toMillis === 'function') return em.toMillis();
+      if (typeof em.seconds === 'number') return em.seconds * 1000;
+      if (em instanceof Date) return em.getTime();
+      return 0;
+    };
 
     return this.preCadastros()
       .filter(i => {
@@ -397,15 +414,18 @@ export class CallCenterComponent implements OnInit, OnDestroy {
         const porUid = i.atendimento?.porUid;
         if (st !== 'em_atendimento' && st !== 'finalizado') return false;
         if (isAdmin) {
-          // Admin vê todos; com filtro opcional por atendente
-          return filtroUid ? porUid === filtroUid : true;
+          if (filtroUid && porUid !== filtroUid) return false;
+          const ts = tsAtendimento(i);
+          if (inicioDia && ts && ts < inicioDia) return false;
+          if (fimDia    && ts && ts > fimDia)    return false;
+          return true;
         }
         return porUid === cu.uid;
       })
       .sort((a, b) => {
         if (a.atendimento?.status === 'em_atendimento' && b.atendimento?.status !== 'em_atendimento') return -1;
         if (b.atendimento?.status === 'em_atendimento' && a.atendimento?.status !== 'em_atendimento') return 1;
-        return 0;
+        return tsAtendimento(b) - tsAtendimento(a);
       });
   });
 
