@@ -107,7 +107,7 @@
                 <span class="crn-value">
                   <!-- aceita createdAt (Timestamp) OU criadoEm (Timestamp/Date/string) -->
                   {{
-                    (asDate(i.createdAt) || asDate(i.criadoEm)) ? ((asDate(i.createdAt) || asDate(i.criadoEm)) | date:'dd/MM/yyyy HH:mm') : '—'
+                    (asDate(i.createdAt) || asDate(i.criadoEm)) ? ((asDate(i.createdAt) || asDate(i.criadoEm)) | date:'dd/MM/yyyy') : '—'
                   }}
                 </span>
               </div>
@@ -163,7 +163,7 @@
         <div class="min-w-0">
           <div class="fw-semibold truncate-2 text-crn-dark">{{ v.nomeCompleto || '—' }}</div>
           <small class="text-muted">
-            {{ (asDate(v.createdAt) || asDate(v.criadoEm)) ? ((asDate(v.createdAt) || asDate(v.criadoEm)) | date:'dd/MM/yyyy HH:mm') : '—' }}
+            {{ (asDate(v.createdAt) || asDate(v.criadoEm)) ? ((asDate(v.createdAt) || asDate(v.criadoEm)) | date:'dd/MM/yyyy') : '—' }}
           </small>
         </div>
       </div>

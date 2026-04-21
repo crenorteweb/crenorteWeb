@@ -256,6 +256,14 @@
                   </span>
                 </div>
 
+                <!-- Cadastrado em -->
+                <div class="crn-field" *ngIf="$any(i).createdAt">
+                  <span class="crn-label">Cadastrado em</span>
+                  <span class="crn-value">
+                    {{ ($any(i).createdAt?.toDate ? $any(i).createdAt.toDate() : $any(i).createdAt) | date:'dd/MM/yyyy' }}
+                  </span>
+                </div>
+
                 <!-- Aprovação -->
                 <div class="crn-field">
                   <span class="crn-label">Aprovação</span>
@@ -1105,6 +1113,11 @@
         <div class="col-12" *ngIf="v.observacoes">
           <strong>Observações:</strong>
           <div class="text-break">{{ v.observacoes }}</div>
+        </div>
+
+        <div class="col-md-4" *ngIf="$any(v).createdAt">
+          <strong>Cadastrado em:</strong>
+          <div>{{ ($any(v).createdAt?.toDate ? $any(v).createdAt.toDate() : $any(v).createdAt) | date:'dd/MM/yyyy' }}</div>
         </div>
 
         <div class="col-12">

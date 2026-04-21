@@ -59,8 +59,8 @@ export class BotoesExportacao {
   }
 
   private getCabecalhos(): string[] {
-    const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'Bairro'];
-    if (this.modoAdicionados) return [...base, 'Assessor', 'Origem', 'Horário de Criação'];
+    const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro'];
+    if (this.modoAdicionados) return base;
     if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário'];
     if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
     if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário'];
@@ -75,10 +75,11 @@ export class BotoesExportacao {
         r.cpf || '—',
         r.telefone || '—',
         r.municipio || '—',
+        r.uf || '—',
         r.bairro || '—',
       ];
       if (this.modoAdicionados)
-        return [...base, r.assessorNome || '—', r.origem || '—', this.formatarHora(r.criadoEm)];
+        return base;
       if (this.cargo === 'assessor')
         return [...base, r.status || '—', this.formatarHora(r.encaminhadoEm)];
       if (this.cargo === 'analista')

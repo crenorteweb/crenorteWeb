@@ -369,32 +369,53 @@
     </span>
   </div>
 
-  <!-- Corpo compacto -->
+  <!-- Corpo -->
   <div class="card-body py-2 px-3 small">
-    <div class="text-muted">{{ cpfMask(item.cpf) }} • {{ $any(item).cidade }}/{{ $any(item).uf }}<ng-container *ngIf="item.bairro"> • {{ item.bairro }}</ng-container></div>
-    <div *ngIf="item.telefone"><i class="bi bi-telephone text-muted me-1"></i>{{ item.telefone }}</div>
-    <div *ngIf="item.email"><i class="bi bi-envelope text-muted me-1"></i>{{ item.email }}</div>
-    <div *ngIf="item.modalidade || $any(item).origem" class="text-muted">
-      <ng-container *ngIf="item.modalidade">{{ item.modalidade }}</ng-container>
-      <ng-container *ngIf="item.modalidade && $any(item).origem"> • </ng-container>
-      <ng-container *ngIf="$any(item).origem">Origem: {{ $any(item).origem }}</ng-container>
-    </div>
-    <div *ngIf="$any(item).agendamentoData" class="text-primary">
-      <i class="bi bi-calendar-check me-1"></i>{{ $any(item).agendamentoData }}
-      <ng-container *ngIf="$any(item).agendamentoHora"> às {{ $any(item).agendamentoHora }}</ng-container>
-    </div>
-    <div *ngIf="item.encaminhamento?.assessorNome" class="text-success">
-      <i class="bi bi-send me-1"></i>{{ item.encaminhamento?.assessorNome }}
-    </div>
-    <div *ngIf="item.atendimento?.porNome" class="text-muted">
-      <i class="bi bi-person me-1"></i>{{ item.atendimento?.porNome }}
-      <ng-container *ngIf="item.atendimento?.em as aem">
-        · {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM HH:mm' }}
-      </ng-container>
-    </div>
-    <div *ngIf="item.atendimento?.observacao" class="text-muted fst-italic">
-      <i class="bi bi-chat-left-text me-1"></i>{{ item.atendimento?.observacao }}
-    </div>
+    <ul class="list-unstyled mb-0" style="line-height:1.9">
+      <li class="text-muted">
+        <i class="bi bi-person-vcard me-1"></i><span class="fw-semibold">CPF:</span> {{ cpfMask(item.cpf) }}
+      </li>
+      <li class="text-muted">
+        <i class="bi bi-geo-alt me-1"></i><span class="fw-semibold">Local:</span>
+        {{ $any(item).cidade || '—' }}<ng-container *ngIf="$any(item).uf">/{{ $any(item).uf }}</ng-container>
+        <ng-container *ngIf="item.bairro"> · {{ item.bairro }}</ng-container>
+      </li>
+      <li *ngIf="item.telefone" class="text-muted">
+        <i class="bi bi-telephone me-1"></i><span class="fw-semibold">Telefone:</span> {{ item.telefone }}
+      </li>
+
+      <li *ngIf="item.modalidade" class="text-muted">
+        <i class="bi bi-tag me-1"></i><span class="fw-semibold">Modalidade:</span> {{ item.modalidade }}
+      </li>
+      <li *ngIf="$any(item).origem" class="text-muted">
+        <i class="bi bi-signpost me-1"></i><span class="fw-semibold">Origem:</span> {{ $any(item).origem }}
+      </li>
+      <li *ngIf="$any(item).createdByUid" class="text-muted">
+        <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Criado por:</span>
+        {{ nomeDoAutor($any(item).createdByUid) }}
+      </li>
+      <li *ngIf="$any(item).createdAt as ts" class="text-muted">
+        <i class="bi bi-calendar me-1"></i><span class="fw-semibold">Cadastrado em:</span>
+        {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+      </li>
+      <li *ngIf="$any(item).agendamentoData" class="text-primary">
+        <i class="bi bi-calendar-check me-1"></i><span class="fw-semibold">Agendado:</span>
+        {{ $any(item).agendamentoData }}
+        <ng-container *ngIf="$any(item).agendamentoHora"> às {{ $any(item).agendamentoHora }}</ng-container>
+      </li>
+      <li *ngIf="item.encaminhamento?.assessorNome" class="text-success">
+        <i class="bi bi-send me-1"></i><span class="fw-semibold">Assessor:</span> {{ item.encaminhamento?.assessorNome }}
+      </li>
+      <li *ngIf="item.atendimento?.porNome" class="text-muted">
+        <i class="bi bi-person me-1"></i><span class="fw-semibold">Atendido por:</span> {{ item.atendimento?.porNome }}
+        <ng-container *ngIf="item.atendimento?.em as aem">
+          · {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM HH:mm' }}
+        </ng-container>
+      </li>
+      <li *ngIf="item.atendimento?.observacao" class="text-muted fst-italic">
+        <i class="bi bi-chat-left-text me-1"></i>{{ item.atendimento?.observacao }}
+      </li>
+    </ul>
   </div>
 
   <!-- Rodapé com ações -->

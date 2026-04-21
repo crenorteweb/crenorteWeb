@@ -80,6 +80,7 @@
               <i *ngIf="sortField==='dataPreenchimento' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
             </div>
           </th>
+          <th style="width:150px">Cadastrado em</th>
           <th>Status</th>
           <th style="width:160px">Ações</th>
         </tr>
@@ -96,6 +97,7 @@
           </td>
           <td class="text-truncate" style="max-width: 160px;">{{ c.cidade || '—' }}</td>
           <td>{{ toBRDate(c.dataPreenchimento) }}</td>
+          <td>{{ toBRDate(c.criadoEm) }}</td>
           <td>
             <span class="badge {{ statusClass(c.status) }}">{{ statusLabel(c.status) }}</span>
           </td>
@@ -129,6 +131,7 @@
         <div><i class="fa-solid fa-id-card-clip me-1"></i> {{ maskCPF(c.cpf) }}</div>
         <div *ngIf="c.cidade"><i class="fa-solid fa-location-dot me-1"></i> {{ c.cidade }}</div>
         <div *ngIf="c.dataPreenchimento"><i class="fa-regular fa-calendar me-1"></i> {{ toBRDate(c.dataPreenchimento) }}</div>
+        <div *ngIf="c.criadoEm"><i class="fa-regular fa-clock me-1"></i> Cad.: {{ toBRDate(c.criadoEm) }}</div>
       </div>
       <div class="mt-2" (click)="$event.stopPropagation()">
         <button class="btn btn-outline-success w-100" (click)="openModal(c)">
@@ -166,6 +169,10 @@
               <div class="col-md-6">
                 <div class="fw-bold">Preenchido em</div>
                 <div class="text-muted">{{ toBRDate(c.dataPreenchimento) }}</div>
+              </div>
+              <div class="col-md-6" *ngIf="c.criadoEm">
+                <div class="fw-bold">Cadastrado em</div>
+                <div class="text-muted">{{ toBRDate(c.criadoEm) }}</div>
               </div>
             </div>
 
