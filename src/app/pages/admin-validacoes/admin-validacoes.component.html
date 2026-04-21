@@ -20,6 +20,14 @@
               (click)="aba.set('exportar')">
         <i class="bi bi-download me-1"></i> Exportar
       </button>
+      <button class="btn" [ngClass]="aba()==='criador' ? 'btn-success' : 'btn-outline-success'"
+              (click)="aba.set('criador')">
+        <i class="bi bi-person-gear me-1"></i> Criador
+      </button>
+      <button class="btn" [ngClass]="aba()==='status' ? 'btn-success' : 'btn-outline-success'"
+              (click)="aba.set('status')">
+        <i class="bi bi-arrow-repeat me-1"></i> Resetar Status
+      </button>
     </div>
   </div>
 
@@ -267,6 +275,193 @@
           </div>
         </div>
 
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: CRIADOR DO CADASTRO
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'criador'">
+
+    <!-- Info do filtro fixo -->
+    <div class="alert alert-info py-2 d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-funnel-fill"></i>
+      Exibindo apenas registros com <strong class="mx-1">createdByUid = "site_portal"</strong> e
+      <strong class="mx-1">createdByNome = "Site Crenorte"</strong>
+    </div>
+
+    <!-- Painel de ação -->
+    <div class="card border-0 shadow-sm mb-3 border-start border-primary border-3">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-end">
+
+          <!-- Busca por nome/CPF -->
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">Filtrar por nome ou CPF</label>
+            <input class="form-control" placeholder="Nome ou CPF do cadastro…"
+                   [ngModel]="buscaCriador()" (ngModelChange)="buscaCriador.set($event)" />
+          </div>
+
+          <!-- Novo UID -->
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">Novo UID do criador</label>
+            <input class="form-control font-monospace" placeholder="Cole o Auth UID…"
+                   [ngModel]="novoUidInput()" (ngModelChange)="novoUidInput.set($event)" />
+          </div>
+
+          <!-- Botão aplicar -->
+          <div class="col-12 col-md-4">
+            <button class="btn btn-success w-100"
+                    (click)="aplicarCriador()"
+                    [disabled]="salvando() || !novoUidInput().trim() || selecionadosCriador().size === 0">
+              <span *ngIf="salvando()" class="spinner-border spinner-border-sm me-1"></span>
+              <i *ngIf="!salvando()" class="bi bi-person-fill-up me-1"></i>
+              Aplicar a {{ selecionadosCriador().size }} registro(s)
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Contador -->
+    <p class="text-muted small mb-2">
+      <strong>{{ registrosFiltradosCriador().length }}</strong> registro(s) encontrado(s) ·
+      <strong>{{ selecionadosCriador().size }}</strong> selecionado(s)
+    </p>
+
+    <div *ngIf="!loading() && registrosFiltradosCriador().length === 0" class="alert alert-success">
+      <i class="bi bi-check-circle me-1"></i> Nenhum registro com criador "Site Crenorte" encontrado.
+    </div>
+
+    <!-- Tabela -->
+    <div *ngIf="registrosFiltradosCriador().length > 0" class="card border-0 shadow-sm">
+      <div class="table-responsive" style="max-height:520px;overflow-y:auto">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th style="width:40px">
+                <input type="checkbox" class="form-check-input"
+                       [checked]="todosCriadorSelecionados()"
+                       (change)="toggleTodosCriador()" />
+              </th>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th>Criado por (nome)</th>
+              <th>Criado por (UID)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of registrosFiltradosCriador()"
+                [ngClass]="selecionadosCriador().has(r.id) ? 'table-primary' : ''"
+                style="cursor:pointer"
+                (click)="toggleSelecionadoCriador(r.id)">
+              <td (click)="$event.stopPropagation()">
+                <input type="checkbox" class="form-check-input"
+                       [checked]="selecionadosCriador().has(r.id)"
+                       (change)="toggleSelecionadoCriador(r.id)" />
+              </td>
+              <td>{{ r.nomeCompleto || '—' }}</td>
+              <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
+              <td>{{ r['createdByNome'] || '—' }}</td>
+              <td class="text-muted" style="font-size:.75rem;font-family:monospace">{{ r['createdByUid'] || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: RESETAR STATUS (pendente → nao_verificado)
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'status'">
+
+    <!-- Info -->
+    <div class="alert alert-warning py-2 d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      Exibindo apenas registros com <strong class="mx-1">aprovacao.status = "pendente"</strong>.
+      A ação altera para <strong class="mx-1">"nao_verificado"</strong>.
+    </div>
+
+    <!-- Painel de ação -->
+    <div class="card border-0 shadow-sm mb-3 border-start border-warning border-3">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-end">
+
+          <!-- Busca por nome/CPF -->
+          <div class="col-12 col-md-6">
+            <label class="form-label fw-semibold">Filtrar por nome ou CPF</label>
+            <input class="form-control" placeholder="Nome ou CPF do cadastro…"
+                   [ngModel]="buscaStatus()" (ngModelChange)="buscaStatus.set($event)" />
+          </div>
+
+          <!-- Botão aplicar -->
+          <div class="col-12 col-md-6">
+            <button class="btn btn-warning w-100"
+                    (click)="aplicarResetStatus()"
+                    [disabled]="salvando() || selecionadosStatus().size === 0">
+              <span *ngIf="salvando()" class="spinner-border spinner-border-sm me-1"></span>
+              <i *ngIf="!salvando()" class="bi bi-arrow-repeat me-1"></i>
+              Alterar {{ selecionadosStatus().size }} registro(s) para "nao_verificado"
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- Contador -->
+    <p class="text-muted small mb-2">
+      <strong>{{ registrosStatusFiltrados().length }}</strong> registro(s) com status "pendente" ·
+      <strong>{{ selecionadosStatus().size }}</strong> selecionado(s)
+    </p>
+
+    <div *ngIf="!loading() && registrosStatusFiltrados().length === 0" class="alert alert-success">
+      <i class="bi bi-check-circle me-1"></i> Nenhum registro com status "pendente" encontrado.
+    </div>
+
+    <!-- Tabela -->
+    <div *ngIf="registrosStatusFiltrados().length > 0" class="card border-0 shadow-sm">
+      <div class="table-responsive" style="max-height:520px;overflow-y:auto">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th style="width:40px">
+                <input type="checkbox" class="form-check-input"
+                       [checked]="todosStatusSelecionados()"
+                       (change)="toggleTodosStatus()" />
+              </th>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th>Cidade</th>
+              <th>Cadastrado em</th>
+              <th>Criado por</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of registrosStatusFiltrados()"
+                [ngClass]="selecionadosStatus().has(r.id) ? 'table-warning' : ''"
+                style="cursor:pointer"
+                (click)="toggleSelecionadoStatus(r.id)">
+              <td (click)="$event.stopPropagation()">
+                <input type="checkbox" class="form-check-input"
+                       [checked]="selecionadosStatus().has(r.id)"
+                       (change)="toggleSelecionadoStatus(r.id)" />
+              </td>
+              <td>{{ r.nomeCompleto || '—' }}</td>
+              <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
+              <td>{{ r.cidade || '—' }}</td>
+              <td>{{ toDataStr(r['createdAt']) }}</td>
+              <td>{{ r['createdByNome'] || '—' }}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
