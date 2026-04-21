@@ -381,16 +381,26 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     });
   });
 
-  // ===== Computed: meus atendimentos =====
+  // ===== Computed: meus / todos os atendimentos =====
+  meusFiltroPorAtendente = signal<string>('');
+
   meusFiltrado = computed(() => {
-    const uid = this.currentUser()?.uid;
-    if (!uid) return [];
+    const cu = this.currentUser();
+    if (!cu?.uid) return [];
+
+    const isAdmin = cu.papel === 'admin';
+    const filtroUid = this.meusFiltroPorAtendente();
 
     return this.preCadastros()
       .filter(i => {
         const st = i.atendimento?.status ?? 'nao_atendido';
         const porUid = i.atendimento?.porUid;
-        return (st === 'em_atendimento' || st === 'finalizado') && porUid === uid;
+        if (st !== 'em_atendimento' && st !== 'finalizado') return false;
+        if (isAdmin) {
+          // Admin vê todos; com filtro opcional por atendente
+          return filtroUid ? porUid === filtroUid : true;
+        }
+        return porUid === cu.uid;
       })
       .sort((a, b) => {
         if (a.atendimento?.status === 'em_atendimento' && b.atendimento?.status !== 'em_atendimento') return -1;

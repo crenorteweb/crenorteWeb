@@ -22,7 +22,8 @@
     </li>
     <li class="nav-item">
       <button class="nav-link" [class.active]="abaAtiva() === 'meus'" (click)="abaAtiva.set('meus')">
-        <i class="bi bi-person-lines-fill me-1"></i>Meus Atendimentos
+        <i class="bi bi-person-lines-fill me-1"></i>
+        {{ currentUser()?.papel === 'admin' ? 'Todos os Atendimentos' : 'Meus Atendimentos' }}
         <span class="badge text-bg-primary ms-1">{{ meusFiltrado().length }}</span>
       </button>
     </li>
@@ -307,8 +308,21 @@
   <!-- ===================== ABA MEUS ATENDIMENTOS ===================== -->
   <ng-container *ngIf="abaAtiva() === 'meus'">
 
+    <!-- Filtro por atendente (somente admin) -->
+    <div *ngIf="currentUser()?.papel === 'admin'" class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+      <div class="input-group" style="max-width:320px">
+        <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
+        <select class="form-select" [ngModel]="meusFiltroPorAtendente()"
+          (ngModelChange)="meusFiltroPorAtendente.set($event); meusCurrentPage = 1">
+          <option value="">Todos os atendentes</option>
+          <option *ngFor="let a of atendentesOptions()" [value]="a.uid">{{ a.nome }}</option>
+        </select>
+      </div>
+      <span class="text-muted small">{{ meusFiltrado().length }} atendimento(s)</span>
+    </div>
+
     <div *ngIf="!meusFiltrado().length && !loading()" class="text-muted text-center py-4">
-      Você ainda não tem atendimentos em andamento ou finalizados.
+      {{ currentUser()?.papel === 'admin' ? 'Nenhum atendimento encontrado.' : 'Você ainda não tem atendimentos em andamento ou finalizados.' }}
     </div>
 
     <!-- Paginação topo -->
