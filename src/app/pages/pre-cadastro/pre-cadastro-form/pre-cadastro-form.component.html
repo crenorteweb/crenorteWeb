@@ -46,6 +46,7 @@
             </div>
             <div *ngIf="cpfJaCadastrado() && !cpfChecandoDuplicata()" class="invalid-feedback d-block mt-1">
               Este CPF já está cadastrado no sistema.
+              <span *ngIf="cpfCriadorNome()"> Cadastrado por: <strong>{{ cpfCriadorNome() }}</strong>.</span>
             </div>
           </div>
 

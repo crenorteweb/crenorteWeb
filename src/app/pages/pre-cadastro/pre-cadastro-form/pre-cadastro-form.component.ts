@@ -84,6 +84,7 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   loading = signal(false);
   cpfJaCadastrado = signal(false);
   cpfChecandoDuplicata = signal(false);
+  cpfCriadorNome = signal<string | null>(null);
 
   // mensagens de feedback (sucesso/erro)
   msg = signal<string | null>(null);
@@ -375,6 +376,7 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   private async verificarCpfDuplicado(cpf: string): Promise<void> {
     this.cpfChecandoDuplicata.set(true);
     this.cpfJaCadastrado.set(false);
+    this.cpfCriadorNome.set(null);
     try {
       const encontrados = await this.service.buscarPorCpf(cpf);
       const duplicatas = encontrados.filter(d => {
@@ -385,6 +387,10 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
         return true;
       });
       this.cpfJaCadastrado.set(duplicatas.length > 0);
+      if (duplicatas.length > 0) {
+        const criador = (duplicatas[0] as any).createdByNome ?? null;
+        this.cpfCriadorNome.set(criador);
+      }
     } catch (e) {
       console.error('[PreCadastro] Erro ao verificar CPF duplicado:', e);
     } finally {
@@ -858,7 +864,9 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
       if (!this.editMode && payloadBase.cpf) {
         await this.verificarCpfDuplicado(payloadBase.cpf);
         if (this.cpfJaCadastrado()) {
-          this.showMsg('danger', 'CPF já cadastrado no sistema. Verifique os dados antes de continuar.', 7000);
+          const criador = this.cpfCriadorNome();
+          const sufixo = criador ? ` Cadastrado por: ${criador}.` : '';
+          this.showMsg('danger', `CPF já cadastrado no sistema.${sufixo} Verifique os dados antes de continuar.`, 8000);
           return;
         }
       }
