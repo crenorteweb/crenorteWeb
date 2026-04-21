@@ -362,6 +362,14 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       return 0;
     };
     return base.sort((a, b) => {
+      const tA = this.temTentativas(a);
+      const tB = this.temTentativas(b);
+      // Clientes com tentativas de contato vêm primeiro
+      if (tA && !tB) return -1;
+      if (!tA && tB) return 1;
+      // Ambos têm tentativas: mais recente primeiro
+      if (tA && tB) return this.ultimaTentativaMs(b) - this.ultimaTentativaMs(a);
+      // Sem tentativas: mantém ordem por status → mais recente
       const oa = order[a.atendimento?.status ?? 'nao_atendido'] ?? 1;
       const ob = order[b.atendimento?.status ?? 'nao_atendido'] ?? 1;
       if (oa !== ob) return oa - ob;
@@ -669,6 +677,32 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   // ===== Helpers =====
   atendimentoStatus(item: PreCadastro): 'nao_atendido' | 'em_atendimento' | 'finalizado' {
     return (item.atendimento?.status ?? 'nao_atendido') as any;
+  }
+
+  temTentativas(item: PreCadastro): boolean {
+    const t = (item as any).tentativasContato;
+    return Array.isArray(t) && t.length > 0;
+  }
+
+  ultimaTentativaMs(item: PreCadastro): number {
+    const t = (item as any).tentativasContato as any[];
+    if (!Array.isArray(t) || !t.length) return 0;
+    const ultimo = t[t.length - 1];
+    if (!ultimo) return 0;
+    if (typeof ultimo.toMillis === 'function') return ultimo.toMillis();
+    if (typeof ultimo.seconds === 'number') return ultimo.seconds * 1000;
+    if (ultimo instanceof Date) return ultimo.getTime();
+    return 0;
+  }
+
+  ultimaTentativaData(item: PreCadastro): Date | null {
+    const ms = this.ultimaTentativaMs(item);
+    return ms ? new Date(ms) : null;
+  }
+
+  contarTentativas(item: PreCadastro): number {
+    const t = (item as any).tentativasContato;
+    return Array.isArray(t) ? t.length : 0;
   }
 
   contarPorStatus(status: string): number {
