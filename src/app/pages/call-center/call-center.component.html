@@ -184,8 +184,9 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
       <div *ngFor="let item of pageItems()" class="col">
         <div class="card h-100"
-          [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
-          [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+          [class.border-warning]="temTentativas(item) || atendimentoStatus(item) === 'em_atendimento'"
+          [class.border-2]="temTentativas(item)"
+          [class.border-success]="!temTentativas(item) && atendimentoStatus(item) === 'finalizado'">
           <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
         </div>
       </div>
@@ -325,8 +326,9 @@
     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
       <div *ngFor="let item of meusPageItems()" class="col">
         <div class="card h-100"
-          [class.border-warning]="atendimentoStatus(item) === 'em_atendimento'"
-          [class.border-success]="atendimentoStatus(item) === 'finalizado'">
+          [class.border-warning]="temTentativas(item) || atendimentoStatus(item) === 'em_atendimento'"
+          [class.border-2]="temTentativas(item)"
+          [class.border-success]="!temTentativas(item) && atendimentoStatus(item) === 'finalizado'">
           <ng-container *ngTemplateOutlet="cardCliente; context: { item: item }"></ng-container>
         </div>
       </div>
@@ -353,8 +355,22 @@
 <!-- ===================== TEMPLATE COMPARTILHADO: card do cliente ===================== -->
 <ng-template #cardCliente let-item="item">
 
+  <!-- Faixa de alerta: tentativa de contato -->
+  <div *ngIf="temTentativas(item)"
+    class="px-3 py-1 d-flex align-items-center gap-2"
+    style="background:#fff3cd;border-bottom:1px solid #ffc107">
+    <i class="bi bi-telephone-inbound-fill text-warning"></i>
+    <span class="fw-semibold text-warning-emphasis small">Novo Contato</span>
+    <span class="text-muted small ms-auto">
+      {{ ultimaTentativaData(item) | date:'dd/MM/yyyy HH:mm' }}
+      <span *ngIf="contarTentativas(item) > 1" class="ms-1">({{ contarTentativas(item) }}ª tentativa)</span>
+      <span *ngIf="contarTentativas(item) === 1" class="ms-1">(1ª tentativa)</span>
+    </span>
+  </div>
+
   <!-- Cabeçalho do card -->
-  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center">
+  <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center"
+    [class.border-top-0]="temTentativas(item)">
     <span class="fw-semibold text-truncate me-2" style="max-width:200px" [title]="item.nomeCompleto">
       {{ item.nomeCompleto }}
     </span>
@@ -414,6 +430,12 @@
       </li>
       <li *ngIf="item.atendimento?.observacao" class="text-muted fst-italic">
         <i class="bi bi-chat-left-text me-1"></i>{{ item.atendimento?.observacao }}
+      </li>
+      <li *ngIf="temTentativas(item)" class="text-warning-emphasis">
+        <i class="bi bi-telephone-inbound me-1"></i>
+        <span class="fw-semibold">Tentativas de contato:</span>
+        {{ contarTentativas(item) }} —
+        <span>última em {{ ultimaTentativaData(item) | date:'dd/MM/yyyy HH:mm' }}</span>
       </li>
     </ul>
   </div>
