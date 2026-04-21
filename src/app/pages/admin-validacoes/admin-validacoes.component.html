@@ -1,0 +1,342 @@
+<app-header></app-header>
+<br><br><br><br><br>
+<div class="container py-4">
+
+  <!-- Cabeçalho + Tabs -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+    <h3 class="mb-0 fw-bold text-success">
+      <i class="bi bi-shield-check me-2"></i> Validações Admin
+    </h3>
+    <div class="btn-group">
+      <button class="btn" [ngClass]="aba()==='normalizacao' ? 'btn-success' : 'btn-outline-success'"
+              (click)="aba.set('normalizacao')">
+        <i class="bi bi-pencil-square me-1"></i> Normalização
+      </button>
+      <button class="btn" [ngClass]="aba()==='cpfs' ? 'btn-success' : 'btn-outline-success'"
+              (click)="aba.set('cpfs')">
+        <i class="bi bi-people me-1"></i> CPFs Duplicados
+      </button>
+      <button class="btn" [ngClass]="aba()==='exportar' ? 'btn-success' : 'btn-outline-success'"
+              (click)="aba.set('exportar')">
+        <i class="bi bi-download me-1"></i> Exportar
+      </button>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div *ngIf="toast()" class="alert py-2"
+       [ngClass]="toast()!.tipo === 'success' ? 'alert-success' : 'alert-danger'">
+    {{ toast()!.msg }}
+  </div>
+
+  <!-- Loading -->
+  <div *ngIf="loading()" class="alert alert-info py-2">
+    <span class="spinner-border spinner-border-sm me-2"></span> Carregando dados…
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: NORMALIZAÇÃO
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'normalizacao'">
+
+    <!-- Controles -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-4">
+            <label class="form-label fw-semibold">Campo</label>
+            <select class="form-select" [ngModel]="campo()" (ngModelChange)="campo.set($any($event))">
+              <option value="cidade">Cidade</option>
+              <option value="bairro">Bairro</option>
+              <option value="origem">Origem</option>
+            </select>
+          </div>
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-semibold">Buscar valor</label>
+            <input class="form-control" placeholder="Filtrar grupos…"
+                   [ngModel]="buscaNorm()" (ngModelChange)="buscaNorm.set($event)" />
+          </div>
+          <div class="col-12 col-md-3 text-md-end">
+            <button class="btn btn-outline-success" (click)="carregarTudo()" [disabled]="loading()">
+              <i class="bi bi-arrow-clockwise me-1"></i> Recarregar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Totais -->
+    <p class="text-muted small mb-2">
+      <strong>{{ gruposFiltrados().length }}</strong> grupo(s) encontrado(s) ·
+      <strong>{{ todosRegistros().length }}</strong> registros no total
+    </p>
+
+    <!-- Lista de grupos -->
+    <div *ngIf="!loading() && gruposFiltrados().length === 0" class="alert alert-secondary">
+      Nenhum grupo encontrado para "{{ campo() }}".
+    </div>
+
+    <div *ngFor="let g of gruposFiltrados()" class="card border-0 shadow-sm mb-2">
+      <div class="card-body py-2 px-3">
+
+        <!-- Linha principal -->
+        <div class="d-flex flex-wrap align-items-center gap-2">
+
+          <!-- Indicador de inconsistência -->
+          <span *ngIf="temVariantes(g)" class="badge bg-warning text-dark"
+                title="Múltiplas grafias encontradas">
+            <i class="bi bi-exclamation-triangle-fill"></i> {{ g.variantes.length }} variantes
+          </span>
+          <span *ngIf="!temVariantes(g)" class="badge bg-success-subtle text-success">
+            <i class="bi bi-check-circle"></i> ok
+          </span>
+
+          <!-- Campo de edição -->
+          <input class="form-control form-control-sm"
+                 style="max-width:280px"
+                 [ngModel]="getEditando(norm(g.valorOriginal), g.valorOriginal)"
+                 (ngModelChange)="setEditando(norm(g.valorOriginal), $event)" />
+
+          <!-- Botão aplicar -->
+          <button class="btn btn-sm btn-success"
+                  (click)="aplicarNormalizacao(g)"
+                  [disabled]="salvando()">
+            <span *ngIf="salvando()" class="spinner-border spinner-border-sm me-1"></span>
+            Aplicar ({{ g.count }})
+          </button>
+
+          <!-- Expand -->
+          <button class="btn btn-sm btn-outline-secondary ms-auto"
+                  (click)="toggleExpandido(norm(g.valorOriginal))">
+            <i class="bi" [ngClass]="expandido() === norm(g.valorOriginal) ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+        </div>
+
+        <!-- Variantes expandidas -->
+        <div *ngIf="expandido() === norm(g.valorOriginal)" class="mt-2 ps-1">
+          <div class="mb-1 text-muted small fw-semibold">Grafias encontradas:</div>
+          <div class="d-flex flex-wrap gap-1 mb-2">
+            <span *ngFor="let v of g.variantes" class="badge bg-light text-dark border">{{ v }}</span>
+          </div>
+          <div class="mb-1 text-muted small fw-semibold">Registros afetados ({{ g.registros.length }}):</div>
+          <div class="table-responsive" style="max-height:220px;overflow-y:auto">
+            <table class="table table-sm table-hover mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>Nome</th>
+                  <th>CPF</th>
+                  <th>{{ campo() | titlecase }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of g.registros">
+                  <td>{{ r.nomeCompleto || '—' }}</td>
+                  <td>{{ cpfMask(r.cpf) }}</td>
+                  <td>{{ r[campo()] || '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: CPFs DUPLICADOS
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'cpfs'">
+
+    <!-- Busca -->
+    <div class="card border-0 shadow-sm mb-3">
+      <div class="card-body py-2">
+        <div class="row g-3 align-items-end">
+          <div class="col-12 col-md-5">
+            <label class="form-label fw-semibold">Buscar CPF</label>
+            <input class="form-control" placeholder="Digite o CPF para filtrar…"
+                   [ngModel]="buscaCpf()" (ngModelChange)="buscaCpf.set($event)" />
+          </div>
+          <div class="col-12 col-md-auto">
+            <span class="text-muted small">
+              <strong>{{ gruposCpfFiltrados().length }}</strong> grupo(s) de CPFs duplicados
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!loading() && gruposCpfFiltrados().length === 0" class="alert alert-success">
+      <i class="bi bi-check-circle me-1"></i> Nenhum CPF duplicado encontrado.
+    </div>
+
+    <!-- Grupos de CPF duplicados -->
+    <div *ngFor="let g of gruposCpfFiltrados()" class="card border-0 shadow-sm mb-2 border-start border-warning border-3">
+      <div class="card-body py-2 px-3">
+
+        <!-- Cabeçalho do grupo -->
+        <div class="d-flex align-items-center gap-2">
+          <span class="badge bg-warning text-dark">
+            <i class="bi bi-people-fill me-1"></i> {{ g.registros.length }} registros
+          </span>
+          <span class="fw-semibold font-monospace">{{ cpfMask(g.cpf) }}</span>
+          <button class="btn btn-sm btn-outline-secondary ms-auto"
+                  (click)="toggleCpfExpandido(g.cpf)">
+            <i class="bi" [ngClass]="cpfExpandido() === g.cpf ? 'bi-chevron-up' : 'bi-chevron-down'"></i>
+          </button>
+        </div>
+
+        <!-- Registros expandidos -->
+        <div *ngIf="cpfExpandido() === g.cpf" class="mt-3">
+          <div *ngFor="let r of g.registros" class="card border mb-2"
+               [ngClass]="deletadosCpf().has(r.id) ? 'border-danger bg-danger-subtle opacity-75' : ''">
+            <div class="card-body py-2 px-3">
+
+              <!-- Badge de excluído -->
+              <div *ngIf="deletadosCpf().has(r.id)" class="d-flex align-items-center gap-2 mb-2">
+                <span class="badge bg-danger">
+                  <i class="bi bi-trash-fill me-1"></i> Excluído
+                </span>
+                <small class="text-danger">Este cadastro foi removido e será retirado da lista quando o CPF deixar de ser duplicado.</small>
+              </div>
+
+              <div class="row g-2 align-items-end" [ngClass]="deletadosCpf().has(r.id) ? 'opacity-50 pe-none' : ''">
+
+                <!-- Nome -->
+                <div class="col-12 col-md-4">
+                  <label class="form-label form-label-sm mb-1">Nome</label>
+                  <input class="form-control form-control-sm"
+                         [ngModel]="getEditandoCpfReg(r.id, 'nomeCompleto', r.nomeCompleto || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'nomeCompleto', $event)" />
+                </div>
+
+                <!-- Cidade -->
+                <div class="col-6 col-md-2">
+                  <label class="form-label form-label-sm mb-1">Cidade</label>
+                  <input class="form-control form-control-sm"
+                         [ngModel]="getEditandoCpfReg(r.id, 'cidade', r.cidade || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'cidade', $event)" />
+                </div>
+
+                <!-- Bairro -->
+                <div class="col-6 col-md-2">
+                  <label class="form-label form-label-sm mb-1">Bairro</label>
+                  <input class="form-control form-control-sm"
+                         [ngModel]="getEditandoCpfReg(r.id, 'bairro', r.bairro || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'bairro', $event)" />
+                </div>
+
+                <!-- Origem -->
+                <div class="col-6 col-md-2">
+                  <label class="form-label form-label-sm mb-1">Origem</label>
+                  <input class="form-control form-control-sm"
+                         [ngModel]="getEditandoCpfReg(r.id, 'origem', r.origem || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'origem', $event)" />
+                </div>
+
+                <!-- Ações -->
+                <div class="col-6 col-md-2 d-flex gap-1 justify-content-end">
+                  <button class="btn btn-sm btn-success"
+                          (click)="salvarEdicaoCpf(r)"
+                          [disabled]="salvando()"
+                          title="Salvar edições">
+                    <i class="bi bi-floppy"></i>
+                  </button>
+                  <button class="btn btn-sm btn-outline-danger"
+                          (click)="excluirRegistro(r)"
+                          [disabled]="salvando()"
+                          title="Excluir registro">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+
+              </div>
+              <!-- Info ID + data -->
+              <div class="d-flex gap-3 text-muted mt-1" style="font-size:.7rem">
+                <span>ID: {{ r.id }}</span>
+                <span *ngIf="r['createdAt']">Cadastrado em: {{ toDataStr(r['createdAt']) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: EXPORTAR
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'exportar'">
+
+    <div class="row g-3">
+
+      <!-- Cidades -->
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-geo-alt-fill fs-2 text-success mb-2 d-block"></i>
+            <h6 class="fw-semibold">Cidades</h6>
+            <p class="text-muted small">Lista de todas as cidades com contagem de registros.</p>
+            <button class="btn btn-outline-success btn-sm" (click)="exportarLista('cidade')">
+              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bairros -->
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-building fs-2 text-success mb-2 d-block"></i>
+            <h6 class="fw-semibold">Bairros</h6>
+            <p class="text-muted small">Lista de todos os bairros com contagem de registros.</p>
+            <button class="btn btn-outline-success btn-sm" (click)="exportarLista('bairro')">
+              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Origens -->
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-tags-fill fs-2 text-success mb-2 d-block"></i>
+            <h6 class="fw-semibold">Origens</h6>
+            <p class="text-muted small">Lista de todas as origens com contagem de registros.</p>
+            <button class="btn btn-outline-success btn-sm" (click)="exportarLista('origem')">
+              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CPFs Duplicados -->
+      <div class="col-12 col-md-6 col-lg-3">
+        <div class="card border-0 shadow-sm h-100">
+          <div class="card-body text-center py-4">
+            <i class="bi bi-person-fill-exclamation fs-2 text-warning mb-2 d-block"></i>
+            <h6 class="fw-semibold">CPFs Duplicados</h6>
+            <p class="text-muted small">Relatório com todos os grupos de CPFs repetidos.</p>
+            <button class="btn btn-outline-warning btn-sm" (click)="exportarCpfsDuplicados()"
+                    [disabled]="gruposCpf().length === 0">
+              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+              <span *ngIf="gruposCpf().length > 0" class="badge bg-warning text-dark ms-1">
+                {{ gruposCpf().length }}
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </ng-container>
+
+</div>

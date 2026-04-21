@@ -15,6 +15,7 @@
         <th>Telefone</th>
         <th>Município</th>
         <th>Bairro</th>
+        <th style="width:130px">Cadastrado em</th>
 
         <ng-container *ngIf="cargo === 'assessor'">
           <th>Status</th>
@@ -54,6 +55,12 @@
         <td class="small">{{ item.telefone || '—' }}</td>
         <td class="small">{{ item.municipio || '—' }}</td>
         <td class="small">{{ item.bairro || '—' }}</td>
+        <td class="small text-muted">
+          <ng-container *ngIf="item.criadoEm as ts">
+            {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+          </ng-container>
+          <ng-container *ngIf="!item.criadoEm">—</ng-container>
+        </td>
 
         <ng-container *ngIf="cargo === 'assessor'">
           <td><span [class]="getBadgeClasse(item)">{{ getStatusLabel(item) }}</span></td>

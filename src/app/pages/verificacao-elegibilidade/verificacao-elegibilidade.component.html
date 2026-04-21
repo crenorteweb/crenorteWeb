@@ -128,20 +128,26 @@
       <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
 
         <!-- ESQUERDA: dados do cliente -->
-        <div class="pe-3 flex-grow-1">
-          <strong>{{ item.nomeCompleto }}</strong>
-          <div class="text-muted small">
-            CPF {{ cpfMask(item.cpf) }} • {{ item.cidade }}/{{ $any(item).uf }} • {{ item.bairro }}
-            <ng-container *ngIf="item.modalidade"> • {{ item.modalidade }}</ng-container>
-            <ng-container *ngIf="$any(item).origem"> • Origem: {{ $any(item).origem }}</ng-container>
-          </div>
+        <div class="flex-grow-1">
+          <strong class="d-block mb-2">{{ item.nomeCompleto }}</strong>
 
-          <div class="small text-muted mt-1">
-            Criado por: <strong>{{ nomeDoAutor(item.createdByUid) }}</strong>
-          </div>
+          <ul class="list-unstyled mb-2 small text-muted" style="line-height:1.8">
+            <li><i class="bi bi-person-vcard me-1"></i><span class="fw-semibold">CPF:</span> {{ cpfMask(item.cpf) }}</li>
+            <li><i class="bi bi-geo-alt me-1"></i><span class="fw-semibold">Local:</span> {{ item.cidade || '—' }}<ng-container *ngIf="$any(item).uf">/{{ $any(item).uf }}</ng-container> · {{ item.bairro || '—' }}</li>
+            <li *ngIf="item.modalidade"><i class="bi bi-tag me-1"></i><span class="fw-semibold">Modalidade:</span> {{ item.modalidade }}</li>
+            <li *ngIf="$any(item).origem"><i class="bi bi-signpost me-1"></i><span class="fw-semibold">Origem:</span> {{ $any(item).origem }}</li>
+            <li>
+              <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Criado por:</span>
+              {{ nomeDoAutor(item.createdByUid) }}
+            </li>
+            <li *ngIf="item.createdAt as ts">
+              <i class="bi bi-calendar me-1"></i><span class="fw-semibold">Cadastrado em:</span>
+              {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+            </li>
+          </ul>
 
           <!-- Status aprovação -->
-          <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
+          <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
             <span class="badge text-bg-success">Apto</span>
             <small class="text-muted" *ngIf="$any(item)?.aprovacao?.porNome">
               por {{ $any(item).aprovacao.porNome }}
@@ -152,9 +158,8 @@
           </div>
 
           <!-- Status elegibilidade -->
-          <div class="mt-2 d-flex flex-wrap align-items-center gap-2">
-            <span class="fw-semibold">Elegibilidade:</span>
-
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <span class="fw-semibold small">Elegibilidade:</span>
             <span class="badge" [ngClass]="{
               'text-bg-secondary': elegivelStatus(item) === 'nao_verificado',
               'text-bg-success':   elegivelStatus(item) === 'sim',
@@ -163,7 +168,6 @@
               {{ elegivelStatus(item) === 'nao_verificado' ? 'Não verificado'
                : elegivelStatus(item) === 'sim' ? 'Elegível' : 'Não elegível' }}
             </span>
-
             <small class="text-muted" *ngIf="item.elegivel?.porNome">
               por {{ item.elegivel?.porNome }}
               <ng-container *ngIf="item.elegivel?.em as eem">

@@ -52,6 +52,13 @@
               <span class="campo-label">Sexo</span>
               <div>{{ cliente()?.sexo || '—' }}</div>
             </div>
+            <div class="col-12 col-sm-6">
+              <span class="campo-label">Cadastrado em</span>
+              <ng-container *ngIf="(cliente()?.criadoEm || preCadastro?.criadoEm) as ts; else semDataCad">
+                <div>{{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}</div>
+              </ng-container>
+              <ng-template #semDataCad><div>—</div></ng-template>
+            </div>
           </div>
         </section>
 

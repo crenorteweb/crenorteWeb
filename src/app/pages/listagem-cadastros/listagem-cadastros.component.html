@@ -89,6 +89,7 @@
               <i *ngIf="sortField==='dataPreenchimento' && sortDir==='desc'" class="fa-solid fa-arrow-down"></i>
             </div>
           </th>
+          <th style="width:160px">Cadastrado em</th>
           <th style="width:140px">Status</th>
           <th style="width:170px">Ações</th>
         </tr>
@@ -122,6 +123,8 @@
 
           <td>{{ toBRDate(c.dataPreenchimento) }}</td>
 
+          <td>{{ toBRDate(c.criadoEm) }}</td>
+
           <td>
             <span class="badge px-3 py-2" [ngClass]="statusClass(c.status)">
               {{ statusLabel(c.status) }}
@@ -141,7 +144,7 @@
         </tr>
 
         <tr *ngIf="!carregando && clientesPaginados.length === 0">
-          <td colspan="7" class="text-center text-muted py-4">Nenhum cadastro encontrado</td>
+          <td colspan="8" class="text-center text-muted py-4">Nenhum cadastro encontrado</td>
         </tr>
       </tbody>
     </table>
@@ -188,6 +191,9 @@
             </div>
             <div class="text-truncate" *ngIf="c.dataPreenchimento">
               <i class="fa-regular fa-calendar me-1"></i> {{ toBRDate(c.dataPreenchimento) }}
+            </div>
+            <div class="text-truncate" *ngIf="c.criadoEm">
+              <i class="fa-regular fa-clock me-1"></i> Cad.: {{ toBRDate(c.criadoEm) }}
             </div>
           </div>
 

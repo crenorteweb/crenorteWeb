@@ -199,6 +199,15 @@ export const routes: Routes = [
       import('./pages/grupos/grupos-relatorio/grupos-relatorio.component').then(m => m.GruposRelatorioComponent),
   },
 
+  // === Admin Validações ===
+  {
+    path: 'admin-validacoes',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin'] as Papel[] },
+    loadComponent: () =>
+      import('./pages/admin-validacoes/admin-validacoes.component').then(m => m.AdminValidacoesComponent),
+  },
+
   // === Internos ===
   {
     path: 'rotas',

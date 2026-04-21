@@ -39,6 +39,12 @@ export const CIDADES_PRIORITARIAS: string[] = [
 
   // Região Metropolitana de Belém
   'Belém', 'Ananindeua', 'Marituba', 'Benevides', 'Santa Izabel',
+
+  // Amazonas
+  'Manaus',
+
+  // Amapá
+  'Macapá',
 ];
 
 export const BAIRROS_PRIORITARIOS: string[] = [

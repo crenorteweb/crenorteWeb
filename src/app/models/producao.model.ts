@@ -15,6 +15,7 @@ export interface PreCadastro {
   cpf?: string;
   telefone?: string;
   municipio?: string;
+  uf?: string;
   bairro?: string;
   status?: string;
   assessorId?: string;
@@ -52,6 +53,7 @@ export interface Cliente {
   dataNascimento?: string;
   sexo?: string;
   status?: string;
+  criadoEm?: any;
 }
 
 export type CargoFiltro = 'assessor' | 'analista' | 'supervisor' | 'geral';

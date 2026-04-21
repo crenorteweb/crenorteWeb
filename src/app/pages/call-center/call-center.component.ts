@@ -353,10 +353,19 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     if (atendente) base = base.filter(i => i.atendimento?.porUid === atendente);
 
     const order: Record<string, number> = { em_atendimento: 0, nao_atendido: 1, finalizado: 2 };
+    const toMs = (item: PreCadastro): number => {
+      const ts = (item as any).createdAt;
+      if (!ts) return 0;
+      if (typeof ts.toMillis === 'function') return ts.toMillis();
+      if (typeof ts.seconds === 'number') return ts.seconds * 1000;
+      if (ts instanceof Date) return ts.getTime();
+      return 0;
+    };
     return base.sort((a, b) => {
       const oa = order[a.atendimento?.status ?? 'nao_atendido'] ?? 1;
       const ob = order[b.atendimento?.status ?? 'nao_atendido'] ?? 1;
-      return oa - ob;
+      if (oa !== ob) return oa - ob;
+      return toMs(b) - toMs(a); // mais recente primeiro
     });
   });
 
