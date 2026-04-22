@@ -157,6 +157,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   naoElegivelAberto = signal(false);
   private naoElegivelId = signal<string | null>(null);
 
+  // ===== Modal EXPORTAR PDF =====
+  pdfModalAberto = signal(false);
+  pdfTipoData = signal<'aprovacao' | 'elegivel'>('aprovacao');
+  pdfDataDe = signal('');
+  pdfDataAte = signal('');
+
   // ===== unsubscribers =====
   private unsubsAss: (() => void)[] = [];
   private unsubsPre: (() => void)[] = [];
@@ -788,18 +794,46 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   }
 
   // ===== Exportar PDF de Elegibilidade =====
+  confirmarExportarPdf() {
+    this.pdfModalAberto.set(false);
+    this.exportarElegibilidadePDF();
+  }
+
   exportarElegibilidadePDF() {
-    const lista = this.filtrados();
+    const tipoData = this.pdfTipoData();
+    const de = this.pdfDataDe();
+    const ate = this.pdfDataAte();
+    const dtDe = de ? new Date(de + 'T00:00:00') : null;
+    const dtAte = ate ? new Date(ate + 'T23:59:59') : null;
+
+    let lista = this.filtrados();
+
+    if (dtDe || dtAte) {
+      lista = lista.filter(it => {
+        let d: Date | null = null;
+        if (tipoData === 'aprovacao') {
+          const raw = (it as any)?.aprovacao?.em;
+          d = raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
+        } else {
+          const raw = (it as any)?.elegivel?.em;
+          d = raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
+        }
+        if (!d) return false;
+        if (dtDe && d < dtDe) return false;
+        if (dtAte && d > dtAte) return false;
+        return true;
+      });
+    }
     const docPdf = new jsPDF({ orientation: 'p', unit: 'pt' });
 
     docPdf.setFontSize(14);
     docPdf.text('Lista de CPFs – Verificação de Elegibilidade', 40, 40);
 
     const filtros: string[] = [];
+    const tipoLabel = tipoData === 'aprovacao' ? 'Data de Aprovação' : 'Data de Elegibilidade';
+    if (dtDe || dtAte) filtros.push(`${tipoLabel}: ${de || '...'} a ${ate || '...'}`);
     const f = this.filtroElegivel();
     if (f !== 'todos') filtros.push(`Elegibilidade: ${f === 'nao_verificado' ? 'Não verificado' : f === 'sim' ? 'Elegível' : 'Não elegível'}`);
-    if (this.filtroDataDe()) filtros.push(`De: ${this.filtroDataDe()}`);
-    if (this.filtroDataAte()) filtros.push(`Até: ${this.filtroDataAte()}`);
     if (this.filtroUf()) filtros.push(`UF: ${this.filtroUf()}`);
     if (this.filtroCidade()) filtros.push(`Cidade: ${this.filtroCidade()}`);
     if (this.filtroBairro()) filtros.push(`Bairro: ${this.filtroBairro()}`);
