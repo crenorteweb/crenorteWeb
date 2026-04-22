@@ -6,6 +6,7 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { HeaderComponent } from '../shared/header/header.component';
 
 // Firebase
 import { db } from '../../firebase.config';
@@ -62,7 +63,7 @@ const TEL_REGEX = /^\d{10,11}$/;
 @Component({
   standalone: true,
   selector: 'app-colaboradores',
-  imports: [CommonModule, ReactiveFormsModule, FormsModule, CpfMaskPipe],
+  imports: [CommonModule, ReactiveFormsModule, FormsModule, CpfMaskPipe, HeaderComponent],
   templateUrl: './colaboradores.component.html',
   styleUrls: ['./colaboradores.component.css']
 })
