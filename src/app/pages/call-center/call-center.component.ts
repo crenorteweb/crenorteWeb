@@ -37,6 +37,11 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   private nomePorUid = new Map<string, string>();
   private nomesSignal = signal<Record<string, string>>({});
 
+  private readonly RMB = new Set([
+    'belem', 'ananindeua', 'marituba',
+    'benevides', 'santa barbara do para', 'santa izabel do para',
+  ]);
+
   // ===== Abas =====
   abaAtiva = signal<'geral' | 'meus' | 'agenda'>('geral');
 
@@ -257,14 +262,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      const RMB = new Set([
-        'belem', 'ananindeua', 'marituba',
-        'benevides', 'santa barbara do para', 'santa izabel do para',
-      ]);
-      const arr = Array.from(acc.values()).filter((it: any) =>
-        RMB.has(normalizarTexto(it.cidade || ''))
-      );
-      this.preCadastros.set(arr);
+      this.preCadastros.set(Array.from(acc.values()));
       await this.preloadColabNames(Array.from(needNames));
     } catch (e) {
       console.error('[CallCenter] erro ao carregar:', e);
@@ -371,19 +369,24 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       if (ts instanceof Date) return ts.getTime();
       return 0;
     };
+    const isRmb = (item: PreCadastro) => this.RMB.has(normalizarTexto((item as any).cidade || ''));
     return base.sort((a, b) => {
+      // 1. RMB tem prioridade sobre outras localidades
+      const rA = isRmb(a) ? 0 : 1;
+      const rB = isRmb(b) ? 0 : 1;
+      if (rA !== rB) return rA - rB;
       const tA = this.temTentativas(a);
       const tB = this.temTentativas(b);
-      // Clientes com tentativas de contato vêm primeiro
+      // 2. Clientes com tentativas de contato vêm primeiro
       if (tA && !tB) return -1;
       if (!tA && tB) return 1;
-      // Ambos têm tentativas: mais recente primeiro
+      // 3. Ambos têm tentativas: mais recente primeiro
       if (tA && tB) return this.ultimaTentativaMs(b) - this.ultimaTentativaMs(a);
-      // Sem tentativas: mantém ordem por status → mais recente
+      // 4. Sem tentativas: por status → mais recente
       const oa = order[a.atendimento?.status ?? 'nao_atendido'] ?? 1;
       const ob = order[b.atendimento?.status ?? 'nao_atendido'] ?? 1;
       if (oa !== ob) return oa - ob;
-      return toMs(b) - toMs(a); // mais recente primeiro
+      return toMs(b) - toMs(a);
     });
   });
 
