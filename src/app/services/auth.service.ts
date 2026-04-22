@@ -1,4 +1,5 @@
 import { Injectable, inject, EnvironmentInjector, runInInjectionContext } from '@angular/core';
+import { Router } from '@angular/router';
 
 // AngularFire Auth
 import {
@@ -32,6 +33,7 @@ export class AuthService {
   private auth = inject(Auth);
   private db = inject(Firestore);
   private injector = inject(EnvironmentInjector);
+  private router = inject(Router);
 
   /** Usuário bruto do Firebase (null quando deslogado) */
   firebaseUser$ = user(this.auth);
@@ -72,6 +74,7 @@ export class AuthService {
   /** Logout */
   async logout(): Promise<void> {
     await signOut(this.auth);
+    this.router.navigate(['/login']);
   }
 
   /** Envia e-mail de redefinição de senha */
