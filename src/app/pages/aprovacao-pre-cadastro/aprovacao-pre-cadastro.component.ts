@@ -151,6 +151,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   inaptoAberto = signal<boolean>(false);
   private inaptoId = signal<string | null>(null);
   motivoInapto = signal<string>('');
+  inaptoTipo = signal<'scr_prejuizo' | 'outros'>('outros');
 
   // ===== Modal NÃO ELEGÍVEL =====
   naoElegivelAberto = signal(false);
@@ -267,7 +268,8 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     if (f === 'pendente') {
       base = base.filter(i =>
         statusOf(i) === 'nao_verificado' ||
-        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
+        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado') ||
+        (statusOf(i) === 'inapto' && (i as any)?.aprovacao?.motivoTipo === 'outros' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
       );
     } else if (f !== 'todos') {
       base = base.filter(i => statusOf(i) === f);
@@ -548,6 +550,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   }
   aptoHabilitado(item: PreCadastro) { return this.aprovStatus(item) !== 'apto'; }
   inaptoHabilitado(item: PreCadastro) { return this.aprovStatus(item) !== 'inapto'; }
+
+  /** Elegibilidade pode ser verificada se: apto, OU inapto com motivoTipo = 'outros' */
+  podeVerificarElegivel(item: PreCadastro): boolean {
+    if (this.aprovStatus(item) === 'apto') return true;
+    return this.aprovStatus(item) === 'inapto' && (item as any)?.aprovacao?.motivoTipo === 'outros';
+  }
   enviarHabilitado(item: PreCadastro) {
     const status = this.aprovStatus(item);
     const ja = !!(item as any)?.encaminhamento?.assessorUid;
@@ -598,12 +606,14 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   abrirModalInapto(item: PreCadastro) {
     this.inaptoId.set(item.id);
     this.motivoInapto.set('');
+    this.inaptoTipo.set('outros');
     this.inaptoAberto.set(true);
   }
   fecharModalInapto() {
     this.inaptoAberto.set(false);
     this.inaptoId.set(null);
     this.motivoInapto.set('');
+    this.inaptoTipo.set('outros');
   }
 
   async confirmarInapto(motivo: string) {
@@ -614,8 +624,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const obs = (motivo ?? '').trim();
     if (!obs) { alert('Informe a observação/justificativa.'); return; }
 
+    const tipo = this.inaptoTipo();
+
     const patch: any = {
       'aprovacao.status': 'inapto',
+      'aprovacao.motivoTipo': tipo,
       'aprovacao.observacao': obs,
       'aprovacao.motivo': obs,
       'aprovacao.porUid': cu.uid,
@@ -632,10 +645,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       updateDoc(doc(this.fs, 'pre-cadastros', id), patch).catch(() => { }),
     ]);
 
-    // Atualiza o signal localmente para refletir na UI sem esperar o onSnapshot
     this.preCadastros.update(list =>
       list.map(it => it.id === id
-        ? { ...it as any, aprovacao: { ...(it as any).aprovacao, status: 'inapto', motivo: obs, observacao: obs } }
+        ? { ...it as any, aprovacao: { ...(it as any).aprovacao, status: 'inapto', motivoTipo: tipo, motivo: obs, observacao: obs } }
         : it
       )
     );
