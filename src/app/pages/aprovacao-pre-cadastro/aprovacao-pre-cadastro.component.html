@@ -27,14 +27,22 @@
           (input)="onFiltroDataAteChange($any($event.target).value)">
       </div>
 
-      <!-- Filtro: Status + Origem -->
+      <!-- Filtro: Status + Elegibilidade + Origem -->
       <div class="input-group">
         <span class="input-group-text">Aprovação</span>
         <select class="form-select" [value]="filtroAprovacao()" #selAprov (change)="onChangeAprovacao(selAprov.value)">
+          <option value="pendente">Pendentes</option>
           <option value="todos">Todos</option>
           <option value="nao_verificado">Não verificados</option>
           <option value="apto">Aptos</option>
           <option value="inapto">Inaptos</option>
+        </select>
+        <span class="input-group-text">Elegibilidade</span>
+        <select class="form-select" [value]="filtroElegivel()" #selEleg (change)="onChangeElegivel(selEleg.value)">
+          <option value="todos">Todos</option>
+          <option value="nao_verificado">Não verificado</option>
+          <option value="sim">Elegível</option>
+          <option value="nao">Não elegível</option>
         </select>
         <span class="input-group-text">Origem</span>
         <select class="form-select" [value]="filtroOrigem()" #selOrigem
@@ -91,6 +99,11 @@
       <button class="btn btn-outline-secondary" (click)="relatorioAberto.set(true)">
         Relatório de Aprovação
       </button>
+
+      <!-- Exportar PDF Elegibilidade -->
+      <button class="btn btn-outline-danger" (click)="exportarElegibilidadePDF()" [disabled]="loading() || !filtrados().length">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF CPFs
+      </button>
     </div>
   </div>
 
@@ -121,69 +134,116 @@
     </div>
   </nav>
 
-  <!-- Lista -->
-  <div *ngFor="let item of pageItems()" class="card mb-3">
-    <div class="card-body">
-      <div class="d-flex justify-content-between gap-3">
+  <!-- Grid de cards -->
+  <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-2">
+    <div *ngFor="let item of pageItems()" class="col">
+      <div class="card h-100"
+        [class.border-success]="aprovStatus(item) === 'apto' && elegivelStatus(item) === 'sim'"
+        [class.border-danger]="aprovStatus(item) === 'inapto'"
+        [class.border-warning]="aprovStatus(item) === 'apto' && elegivelStatus(item) === 'nao_verificado'"
+        [class.border-2]="aprovStatus(item) !== 'nao_verificado'">
 
-        <!-- ESQUERDA: dados do cliente -->
-        <div class="flex-grow-1">
-          <strong class="d-block mb-2">{{ item.nomeCompleto }}</strong>
-
-          <ul class="list-unstyled mb-2 small text-muted" style="line-height:1.8">
-            <li><i class="bi bi-person-vcard me-1"></i><span class="fw-semibold">CPF:</span> {{ item.cpf || '—' }}</li>
-            <li><i class="bi bi-geo-alt me-1"></i><span class="fw-semibold">Local:</span> {{ item.cidade || '—' }}<ng-container *ngIf="item.uf">/{{ item.uf }}</ng-container> · {{ item.bairro || '—' }}</li>
-            <li *ngIf="item.modalidade"><i class="bi bi-tag me-1"></i><span class="fw-semibold">Modalidade:</span> {{ item.modalidade }}</li>
-            <li *ngIf="item.origem"><i class="bi bi-signpost me-1"></i><span class="fw-semibold">Origem:</span> {{ item.origem }}</li>
-            <li *ngIf="item.valorSolicitado"><i class="bi bi-cash me-1"></i><span class="fw-semibold">Solicitado:</span> R${{ item.valorSolicitado | number:'1.0-0' }}</li>
-            <li>
-              <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Criado por:</span>
-              {{ nomeDoAutor(item.createdByUid) }}
-              <ng-container *ngIf="item.createdByUid"> ({{ totalDoAutor(item.createdByUid) }} cadastros)</ng-container>
-            </li>
-            <li *ngIf="item.createdAt as ts">
-              <i class="bi bi-calendar me-1"></i><span class="fw-semibold">Cadastrado em:</span>
-              {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy HH:mm' }}
-            </li>
-          </ul>
-
-          <!-- Status aprovação -->
-          <div class="d-flex flex-wrap align-items-center gap-2">
-            <span class="fw-semibold small">Status:</span>
+        <!-- Cabeçalho -->
+        <div class="card-header py-2 px-3 d-flex justify-content-between align-items-center gap-2">
+          <span class="fw-semibold text-truncate me-1" style="max-width:180px" [title]="item.nomeCompleto">
+            {{ item.nomeCompleto }}
+          </span>
+          <div class="d-flex gap-1 flex-shrink-0">
             <span class="badge" [ngClass]="{
-                'text-bg-secondary': (item.aprovacao?.status || 'nao_verificado')==='nao_verificado',
-                'text-bg-danger':    (item.aprovacao?.status || 'nao_verificado')==='inapto',
-                'text-bg-success':   (item.aprovacao?.status || 'nao_verificado')==='apto'
-              }">
-              {{ (item.aprovacao?.status || 'nao_verificado')==='nao_verificado' ? 'Não verificado'
-               : (item.aprovacao?.status==='apto' ? 'Apto' : 'Inapto') }}
+              'text-bg-secondary': aprovStatus(item) === 'nao_verificado',
+              'text-bg-danger':    aprovStatus(item) === 'inapto',
+              'text-bg-success':   aprovStatus(item) === 'apto'
+            }">
+              {{ aprovStatus(item) === 'nao_verificado' ? 'Não verif.' : aprovStatus(item) === 'apto' ? 'Apto' : 'Inapto' }}
             </span>
-            <small class="text-danger" *ngIf="(item.aprovacao?.status||'')==='inapto'">
-              Motivo: {{ item.aprovacao?.motivo || item.aprovacao?.observacao || '—' }}
-            </small>
-            <small class="text-muted" *ngIf="$any(item)?.aprovacao?.porNome">
-              por {{ $any(item).aprovacao.porNome }}
-              <ng-container *ngIf="$any(item)?.aprovacao?.em as aem">
-                — {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM/yyyy HH:mm' }}
-              </ng-container>
-            </small>
-            <span *ngIf="item.encaminhamento?.assessorNome" class="badge text-bg-primary">
-              Enviado: {{ item.encaminhamento?.assessorNome }}
+            <span class="badge" [ngClass]="{
+              'text-bg-secondary': elegivelStatus(item) === 'nao_verificado',
+              'text-bg-success':   elegivelStatus(item) === 'sim',
+              'text-bg-danger':    elegivelStatus(item) === 'nao'
+            }">
+              {{ elegivelStatus(item) === 'nao_verificado' ? 'Eleg.?' : elegivelStatus(item) === 'sim' ? 'Elegível' : 'Não eleg.' }}
             </span>
           </div>
         </div>
 
-        <!-- DIREITA: ações -->
-        <div class="d-flex flex-column gap-2 flex-shrink-0">
+        <!-- Corpo -->
+        <div class="card-body py-2 px-3 small">
+          <ul class="list-unstyled mb-0" style="line-height:1.9">
+            <li class="text-muted">
+              <i class="bi bi-person-vcard me-1"></i><span class="fw-semibold">CPF:</span> {{ cpfMask(item.cpf) }}
+            </li>
+            <li class="text-muted">
+              <i class="bi bi-geo-alt me-1"></i><span class="fw-semibold">Local:</span>
+              {{ item.cidade || '—' }}<ng-container *ngIf="item.uf">/{{ item.uf }}</ng-container>
+              <ng-container *ngIf="item.bairro"> · {{ item.bairro }}</ng-container>
+            </li>
+            <li *ngIf="item.modalidade" class="text-muted">
+              <i class="bi bi-tag me-1"></i><span class="fw-semibold">Modalidade:</span> {{ item.modalidade }}
+            </li>
+            <li *ngIf="item.origem" class="text-muted">
+              <i class="bi bi-signpost me-1"></i><span class="fw-semibold">Origem:</span> {{ item.origem }}
+            </li>
+            <li *ngIf="item.valorSolicitado" class="text-muted">
+              <i class="bi bi-cash me-1"></i><span class="fw-semibold">Solicitado:</span> R${{ item.valorSolicitado | number:'1.0-0' }}
+            </li>
+            <li class="text-muted">
+              <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Criado por:</span>
+              {{ nomeDoAutor(item.createdByUid) }}
+              <ng-container *ngIf="item.createdByUid"> ({{ totalDoAutor(item.createdByUid) }})</ng-container>
+            </li>
+            <li *ngIf="item.createdAt as ts" class="text-muted">
+              <i class="bi bi-calendar me-1"></i><span class="fw-semibold">Cadastrado:</span>
+              {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
+            </li>
+            <li *ngIf="aprovStatus(item) === 'inapto'" class="text-danger">
+              <i class="bi bi-exclamation-circle me-1"></i><span class="fw-semibold">Motivo:</span>
+              {{ item.aprovacao?.motivo || item.aprovacao?.observacao || '—' }}
+            </li>
+            <li *ngIf="$any(item)?.aprovacao?.porNome" class="text-muted">
+              <i class="bi bi-check2 me-1"></i><span class="fw-semibold">Aprovado por:</span>
+              {{ $any(item).aprovacao.porNome }}
+              <ng-container *ngIf="$any(item)?.aprovacao?.em as aem">
+                — {{ (aem?.toDate ? aem.toDate() : aem) | date:'dd/MM HH:mm' }}
+              </ng-container>
+            </li>
+            <li *ngIf="item.elegivel?.porNome" class="text-muted">
+              <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Eleg. por:</span>
+              {{ item.elegivel?.porNome }}
+              <ng-container *ngIf="item.elegivel?.em as eem">
+                — {{ (eem?.toDate ? eem.toDate() : eem) | date:'dd/MM HH:mm' }}
+              </ng-container>
+            </li>
+            <li *ngIf="item.encaminhamento?.assessorNome" class="text-primary">
+              <i class="bi bi-send me-1"></i><span class="fw-semibold">Assessor:</span>
+              {{ item.encaminhamento?.assessorNome }}
+            </li>
+          </ul>
+        </div>
+
+        <!-- Rodapé com ações -->
+        <div class="card-footer py-1 px-2 d-flex flex-wrap gap-1">
           <button class="btn btn-outline-success btn-sm"
-            [disabled]="(item.aprovacao?.status || 'nao_verificado')==='apto'"
+            [disabled]="aprovStatus(item) === 'apto'"
             (click)="marcarApto(item)">
-            <i class="bi bi-check-lg me-1"></i>Aprovar (Apto)
+            <i class="bi bi-check-lg"></i> Apto
           </button>
           <button class="btn btn-outline-danger btn-sm"
-            [disabled]="(item.aprovacao?.status || 'nao_verificado')==='inapto'"
+            [disabled]="aprovStatus(item) === 'inapto'"
             (click)="abrirModalInapto(item)">
-            <i class="bi bi-x-lg me-1"></i>Marcar Inapto
+            <i class="bi bi-x-lg"></i> Inapto
+          </button>
+          <div class="vr mx-1"></div>
+          <button class="btn btn-outline-success btn-sm"
+            [disabled]="aprovStatus(item) !== 'apto' || elegivelStatus(item) === 'sim'"
+            [title]="aprovStatus(item) !== 'apto' ? 'Disponível apenas para clientes aptos' : ''"
+            (click)="marcarElegivel(item)">
+            <i class="bi bi-check-circle"></i> Elegível
+          </button>
+          <button class="btn btn-outline-danger btn-sm"
+            [disabled]="aprovStatus(item) !== 'apto' || elegivelStatus(item) === 'nao'"
+            [title]="aprovStatus(item) !== 'apto' ? 'Disponível apenas para clientes aptos' : ''"
+            (click)="abrirModalNaoElegivel(item)">
+            <i class="bi bi-x-circle"></i> Não eleg.
           </button>
         </div>
 
@@ -219,6 +279,26 @@
     </div>
   </nav>
 
+</div>
+
+<!-- ===== Modal: Confirmar Não Elegível ===== -->
+<div *ngIf="naoElegivelAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background: rgba(0,0,0,.35); z-index:1055;">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(480px, 96vw);">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">Confirmar: Não Elegível</h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalNaoElegivel()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <p class="mb-0">Deseja marcar este cliente como <strong>Não Elegível</strong>?</p>
+      <small class="text-muted">Essa ação ficará registrada com seu nome e a data/hora.</small>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalNaoElegivel()">Cancelar</button>
+      <button class="btn btn-danger" (click)="confirmarNaoElegivel()">Confirmar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Modal: Marcar Inapto ===== -->

@@ -39,7 +39,8 @@ type Colaborador = {
 export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
   // ===== Handlers simples para o template =====
-  onChangeAprovacao(v: string) { this.filtroAprovacao.set(v as any); this.currentPage = 1; }
+  onChangeAprovacao(v: string) { this.filtroAprovacao.set(v as any); this.filtroElegivel.set('todos'); this.currentPage = 1; }
+  onChangeElegivel(v: string) { this.filtroElegivel.set(v as any); this.currentPage = 1; }
   onChangeMotivoInapto(v: string) { this.motivoInapto.set(v); }
   onRelFiltroAssessorChange(v: string) { this.relFiltroAssessor.set(v); }
   onRelFiltroDataDeChange(v: string) { this.relFiltroDataDe.set(v); }
@@ -96,7 +97,8 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   selected = signal<Record<string, string>>({});
 
   // ===== Filtros =====
-  filtroAprovacao = signal<'todos' | 'apto' | 'inapto' | 'nao_verificado'>('nao_verificado');
+  filtroAprovacao = signal<'todos' | 'pendente' | 'apto' | 'inapto' | 'nao_verificado'>('pendente');
+  filtroElegivel = signal<'todos' | 'nao_verificado' | 'sim' | 'nao'>('todos');
   filtroAssessor = signal<string>('todos'); // UID do autor (createdByUid)
   filtroDataDe = signal<string>('');        // yyyy-MM-dd
   filtroDataAte = signal<string>('');
@@ -149,6 +151,10 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   inaptoAberto = signal<boolean>(false);
   private inaptoId = signal<string | null>(null);
   motivoInapto = signal<string>('');
+
+  // ===== Modal NÃO ELEGÍVEL =====
+  naoElegivelAberto = signal(false);
+  private naoElegivelId = signal<string | null>(null);
 
   // ===== unsubscribers =====
   private unsubsAss: (() => void)[] = [];
@@ -244,6 +250,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   filtrados = computed(() => {
     const list = [...this.preCadastros()];
     const f = this.filtroAprovacao();
+    const elegivel = this.filtroElegivel();
     const assUid = this.filtroAssessor();
     const de = this.filtroDataDe();
     const ate = this.filtroDataAte();
@@ -257,7 +264,15 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       (x?.aprovacao?.status ?? 'nao_verificado') as 'apto' | 'inapto' | 'nao_verificado';
 
     let base = list;
-    if (f !== 'todos') base = base.filter(i => statusOf(i) === f);
+    if (f === 'pendente') {
+      base = base.filter(i =>
+        statusOf(i) === 'nao_verificado' ||
+        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
+      );
+    } else if (f !== 'todos') {
+      base = base.filter(i => statusOf(i) === f);
+    }
+    if (elegivel !== 'todos') base = base.filter(i => (i.elegivel?.status ?? 'nao_verificado') === elegivel);
     if (assUid !== 'todos') base = base.filter(i => (i as any)?.createdByUid === assUid);
 
     // ==== FILTRO POR DATA USANDO APROVAÇÃO (aprovacao.em) ====
@@ -680,6 +695,128 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     );
 
     this.setSelected(item.id, realUid);
+  }
+
+  // ===== Ações: Elegibilidade =====
+  elegivelStatus(item: PreCadastro): 'nao_verificado' | 'sim' | 'nao' {
+    return (item.elegivel?.status ?? 'nao_verificado') as any;
+  }
+
+  async marcarElegivel(item: PreCadastro) {
+    const cu = this.currentUser();
+    if (!cu) return;
+
+    let porNome = cu.nome ?? 'Analista';
+    try {
+      const snap = await getDocs(query(collection(this.fs, 'colaboradores'), where('uid', '==', cu.uid)));
+      const hit = snap.docs[0]?.data() as any;
+      porNome = hit?.nome || porNome;
+      if (porNome) this.setNome(cu.uid, porNome);
+    } catch { }
+
+    const payload: any = {
+      'elegivel.status': 'sim',
+      'elegivel.porUid': cu.uid,
+      'elegivel.porNome': porNome,
+      'elegivel.em': serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await Promise.all([
+      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+    ]);
+
+    this.preCadastros.update(list =>
+      list.map(it => it.id === item.id
+        ? { ...it as any, elegivel: { status: 'sim', porNome, porUid: cu.uid } }
+        : it
+      )
+    );
+  }
+
+  abrirModalNaoElegivel(item: PreCadastro) {
+    this.naoElegivelId.set(item.id);
+    this.naoElegivelAberto.set(true);
+  }
+
+  fecharModalNaoElegivel() {
+    this.naoElegivelAberto.set(false);
+    this.naoElegivelId.set(null);
+  }
+
+  async confirmarNaoElegivel() {
+    const id = this.naoElegivelId();
+    const cu = this.currentUser();
+    if (!id || !cu) return;
+
+    const porNome = this.nomeDoAutor(cu.uid) || cu.nome || 'Analista';
+
+    const payload: any = {
+      'elegivel.status': 'nao',
+      'elegivel.porUid': cu.uid,
+      'elegivel.porNome': porNome,
+      'elegivel.em': serverTimestamp(),
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await Promise.all([
+      updateDoc(doc(this.fs, 'pre_cadastros', id), payload).catch(() => { }),
+      updateDoc(doc(this.fs, 'pre-cadastros', id), payload).catch(() => { }),
+    ]);
+
+    this.preCadastros.update(list =>
+      list.map(it => it.id === id
+        ? { ...it as any, elegivel: { status: 'nao', porNome, porUid: cu.uid } }
+        : it
+      )
+    );
+
+    this.fecharModalNaoElegivel();
+  }
+
+  // ===== Exportar PDF de Elegibilidade =====
+  exportarElegibilidadePDF() {
+    const lista = this.filtrados();
+    const docPdf = new jsPDF({ orientation: 'p', unit: 'pt' });
+
+    docPdf.setFontSize(14);
+    docPdf.text('Lista de CPFs – Verificação de Elegibilidade', 40, 40);
+
+    const filtros: string[] = [];
+    const f = this.filtroElegivel();
+    if (f !== 'todos') filtros.push(`Elegibilidade: ${f === 'nao_verificado' ? 'Não verificado' : f === 'sim' ? 'Elegível' : 'Não elegível'}`);
+    if (this.filtroDataDe()) filtros.push(`De: ${this.filtroDataDe()}`);
+    if (this.filtroDataAte()) filtros.push(`Até: ${this.filtroDataAte()}`);
+    if (this.filtroUf()) filtros.push(`UF: ${this.filtroUf()}`);
+    if (this.filtroCidade()) filtros.push(`Cidade: ${this.filtroCidade()}`);
+    if (this.filtroBairro()) filtros.push(`Bairro: ${this.filtroBairro()}`);
+    if (this.filtroOrigem()) filtros.push(`Origem: ${this.filtroOrigem()}`);
+
+    docPdf.setFontSize(9);
+    docPdf.text(filtros.length ? `Filtros: ${filtros.join(' • ')}` : 'Sem filtros ativos', 40, 58);
+    docPdf.text(`Total: ${lista.length} registro(s)   Gerado em: ${new Date().toLocaleString('pt-BR')}`, 40, 72);
+
+    autoTable(docPdf, {
+      startY: 84,
+      head: [['#', 'Nome', 'CPF', 'Telefone', 'Cidade/UF', 'Bairro']],
+      body: lista.map((it, idx) => [
+        String(idx + 1),
+        it.nomeCompleto || '',
+        this.cpfMask(it.cpf),
+        (it as any).telefone || '—',
+        `${(it as any).cidade || ''}/${(it as any).uf || ''}`,
+        (it as any).bairro || '',
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [33, 110, 57] },
+      columnStyles: { 0: { cellWidth: 24 }, 2: { cellWidth: 80 }, 3: { cellWidth: 80 } },
+    });
+
+    const stamp = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const fname = `elegibilidade-cpfs-${stamp.getFullYear()}${pad(stamp.getMonth() + 1)}${pad(stamp.getDate())}-${pad(stamp.getHours())}${pad(stamp.getMinutes())}.pdf`;
+    docPdf.save(fname);
   }
 
   // ===== Relatório: Exportar PDF =====
