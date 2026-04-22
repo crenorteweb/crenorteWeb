@@ -116,15 +116,8 @@ export const routes: Routes = [
       import('./pages/producao/producao.component').then(m => m.ProducaoComponent),
   },
 
-  // === Verificação de Elegibilidade ===
-  {
-    path: 'verificacao-elegibilidade',
-    canActivate: [authGuard, roleGuard],
-    data: { roles: ['admin', 'supervisor', 'analista', 'operacional'] as Papel[] },
-    loadComponent: () =>
-      import('./pages/verificacao-elegibilidade/verificacao-elegibilidade.component')
-        .then(m => m.VerificacaoElegibilidadeComponent),
-  },
+  // === Verificação de Elegibilidade (fundida com aprovacao-pre-cadastro) ===
+  { path: 'verificacao-elegibilidade', redirectTo: 'aprovacao-pre-cadastro', pathMatch: 'full' },
 
   // === Call Center ===
   {
