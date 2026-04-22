@@ -309,7 +309,7 @@
   <ng-container *ngIf="abaAtiva() === 'meus'">
 
     <!-- Filtros admin: atendente + período -->
-    <div *ngIf="currentUser()?.papel === 'admin'" class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <div *ngIf="currentUser()?.papel === 'admin'" class="d-flex flex-wrap gap-2 mb-2 align-items-center">
 
       <div class="input-group" style="max-width:320px">
         <span class="input-group-text"><i class="bi bi-person-badge"></i></span>
@@ -334,6 +334,31 @@
           title="Limpar datas">
           <i class="bi bi-x"></i>
         </button>
+      </div>
+
+    </div>
+
+    <!-- Filtros comuns: nome, cpf, telefone -->
+    <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+      <div class="input-group" style="max-width:280px">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" placeholder="Buscar por nome..."
+          [ngModel]="meusNome()"
+          (ngModelChange)="meusNome.set($event); meusCurrentPage = 1">
+      </div>
+
+      <div class="input-group" style="max-width:220px">
+        <span class="input-group-text">CPF</span>
+        <input type="text" class="form-control" placeholder="000.000.000-00"
+          [ngModel]="meusCpf()"
+          (ngModelChange)="meusCpf.set($event); meusCurrentPage = 1">
+      </div>
+
+      <div class="input-group" style="max-width:230px">
+        <span class="input-group-text">Telefone</span>
+        <input type="text" class="form-control" placeholder="(91) 9XXXX-XXXX"
+          [ngModel]="meusTelefone()"
+          (ngModelChange)="meusTelefone.set($event); meusCurrentPage = 1">
       </div>
 
       <span class="text-muted small">{{ meusFiltrado().length }} atendimento(s)</span>
