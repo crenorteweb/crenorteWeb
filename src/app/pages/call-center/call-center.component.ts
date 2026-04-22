@@ -257,7 +257,13 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      const arr = filtrarUfsNorte(Array.from(acc.values()));
+      const RMB = new Set([
+        'belem', 'ananindeua', 'marituba',
+        'benevides', 'santa barbara do para', 'santa izabel do para',
+      ]);
+      const arr = Array.from(acc.values()).filter((it: any) =>
+        RMB.has(normalizarTexto(it.cidade || ''))
+      );
       this.preCadastros.set(arr);
       await this.preloadColabNames(Array.from(needNames));
     } catch (e) {
