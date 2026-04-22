@@ -262,7 +262,10 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       processSnap(snap1, 'pre_cadastros');
       processSnap(snap2, 'pre-cadastros');
 
-      this.preCadastros.set(Array.from(acc.values()));
+      const todos = Array.from(acc.values()).filter((item: any) =>
+        (item.origem ?? '').trim().toLowerCase() === 'site / portal'
+      );
+      this.preCadastros.set(todos);
       await this.preloadColabNames(Array.from(needNames));
     } catch (e) {
       console.error('[CallCenter] erro ao carregar:', e);
