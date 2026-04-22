@@ -159,7 +159,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
   // ===== Modal EXPORTAR PDF =====
   pdfModalAberto = signal(false);
-  pdfTipoData = signal<'aprovacao' | 'elegivel'>('aprovacao');
+  pdfTipoData = signal<'aprovacao' | 'elegivel' | 'ambos'>('aprovacao');
   pdfDataDe = signal('');
   pdfDataAte = signal('');
 
@@ -808,20 +808,24 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
     let lista = this.filtrados();
 
+    const toDate = (raw: any): Date | null =>
+      raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
+
+    const inRange = (d: Date | null) => {
+      if (!d) return false;
+      if (dtDe && d < dtDe) return false;
+      if (dtAte && d > dtAte) return false;
+      return true;
+    };
+
     if (dtDe || dtAte) {
       lista = lista.filter(it => {
-        let d: Date | null = null;
-        if (tipoData === 'aprovacao') {
-          const raw = (it as any)?.aprovacao?.em;
-          d = raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
-        } else {
-          const raw = (it as any)?.elegivel?.em;
-          d = raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
-        }
-        if (!d) return false;
-        if (dtDe && d < dtDe) return false;
-        if (dtAte && d > dtAte) return false;
-        return true;
+        const dAprov = toDate((it as any)?.aprovacao?.em);
+        const dEleg  = toDate((it as any)?.elegivel?.em);
+        if (tipoData === 'aprovacao') return inRange(dAprov);
+        if (tipoData === 'elegivel')  return inRange(dEleg);
+        // ambos: deve ter aprovação E elegibilidade dentro do período
+        return inRange(dAprov) && inRange(dEleg);
       });
     }
     const docPdf = new jsPDF({ orientation: 'p', unit: 'pt' });
@@ -830,7 +834,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     docPdf.text('Lista de CPFs – Verificação de Elegibilidade', 40, 40);
 
     const filtros: string[] = [];
-    const tipoLabel = tipoData === 'aprovacao' ? 'Data de Aprovação' : 'Data de Elegibilidade';
+    const tipoLabel = tipoData === 'aprovacao' ? 'Data de Aprovação' : tipoData === 'elegivel' ? 'Data de Elegibilidade' : 'Aprovação e Elegibilidade';
     if (dtDe || dtAte) filtros.push(`${tipoLabel}: ${de || '...'} a ${ate || '...'}`);
     const f = this.filtroElegivel();
     if (f !== 'todos') filtros.push(`Elegibilidade: ${f === 'nao_verificado' ? 'Não verificado' : f === 'sim' ? 'Elegível' : 'Não elegível'}`);
