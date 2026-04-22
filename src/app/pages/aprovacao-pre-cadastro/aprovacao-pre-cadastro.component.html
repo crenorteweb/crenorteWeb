@@ -196,7 +196,9 @@
               {{ (ts?.toDate ? ts.toDate() : ts) | date:'dd/MM/yyyy' }}
             </li>
             <li *ngIf="aprovStatus(item) === 'inapto'" class="text-danger">
-              <i class="bi bi-exclamation-circle me-1"></i><span class="fw-semibold">Motivo:</span>
+              <i class="bi bi-exclamation-circle me-1"></i>
+              <span class="fw-semibold">Motivo:</span>
+              <span *ngIf="$any(item)?.aprovacao?.motivoTipo === 'scr_prejuizo'" class="badge text-bg-danger ms-1 me-1">SCR Prejuízo</span>
               {{ item.aprovacao?.motivo || item.aprovacao?.observacao || '—' }}
             </li>
             <li *ngIf="$any(item)?.aprovacao?.porNome" class="text-muted">
@@ -234,14 +236,14 @@
           </button>
           <div class="vr mx-1"></div>
           <button class="btn btn-outline-success btn-sm"
-            [disabled]="aprovStatus(item) !== 'apto' || elegivelStatus(item) === 'sim'"
-            [title]="aprovStatus(item) !== 'apto' ? 'Disponível apenas para clientes aptos' : ''"
+            [disabled]="!podeVerificarElegivel(item) || elegivelStatus(item) === 'sim'"
+            [title]="!podeVerificarElegivel(item) ? 'Disponível apenas para clientes aptos ou inaptos por outros motivos' : ''"
             (click)="marcarElegivel(item)">
             <i class="bi bi-check-circle"></i> Elegível
           </button>
           <button class="btn btn-outline-danger btn-sm"
-            [disabled]="aprovStatus(item) !== 'apto' || elegivelStatus(item) === 'nao'"
-            [title]="aprovStatus(item) !== 'apto' ? 'Disponível apenas para clientes aptos' : ''"
+            [disabled]="!podeVerificarElegivel(item) || elegivelStatus(item) === 'nao'"
+            [title]="!podeVerificarElegivel(item) ? 'Disponível apenas para clientes aptos ou inaptos por outros motivos' : ''"
             (click)="abrirModalNaoElegivel(item)">
             <i class="bi bi-x-circle"></i> Não eleg.
           </button>
@@ -312,9 +314,22 @@
     </div>
 
     <div class="p-3">
-      <label class="form-label">Descreva o motivo / observação</label>
-      <textarea #txtMotivo class="form-control" rows="4"
-        placeholder="Ex.: Documento divergente, cliente negativado, dados inconsistentes, etc."></textarea>
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Tipo de inaptidão <span class="text-danger">*</span></label>
+        <select class="form-select" [ngModel]="inaptoTipo()" (ngModelChange)="inaptoTipo.set($event)">
+          <option value="outros">Outros</option>
+          <option value="scr_prejuizo">SCR Prejuízo</option>
+        </select>
+        <small *ngIf="inaptoTipo() === 'scr_prejuizo'" class="text-danger mt-1 d-block">
+          <i class="bi bi-info-circle me-1"></i>O cliente será marcado como inapto e removido da fila de verificação de elegibilidade.
+        </small>
+        <small *ngIf="inaptoTipo() === 'outros'" class="text-muted mt-1 d-block">
+          <i class="bi bi-info-circle me-1"></i>Após marcar como inapto, ainda será possível verificar a elegibilidade do cliente.
+        </small>
+      </div>
+      <label class="form-label">Observação / justificativa <span class="text-danger">*</span></label>
+      <textarea #txtMotivo class="form-control" rows="3"
+        [placeholder]="inaptoTipo() === 'scr_prejuizo' ? 'Ex.: Cliente consta com prejuízo no SCR...' : 'Ex.: Documento divergente, dados inconsistentes, etc.'"></textarea>
       <small class="text-muted">Essa observação ficará registrada no histórico da aprovação.</small>
     </div>
 
