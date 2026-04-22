@@ -298,6 +298,7 @@
         <select class="form-select" [ngModel]="pdfTipoData()" (ngModelChange)="pdfTipoData.set($event)">
           <option value="aprovacao">Aprovação (marcado como Apto)</option>
           <option value="elegivel">Elegibilidade (marcado como Elegível)</option>
+          <option value="ambos">Ambos (Apto e Elegível)</option>
         </select>
       </div>
       <div class="row g-2">
