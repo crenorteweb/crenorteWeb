@@ -3,22 +3,29 @@
   <div class="container-fluid py-2">
     <div class="d-flex align-items-center justify-content-between px-2 flex-wrap">
 
-      <!-- Bloco ESQUERDA: avatar + nome + papel -->
+      <!-- Hambúrguer + user info -->
       <ng-container *ngIf="perfil$ | async as perfil; else entrar">
-        <div class="d-flex align-items-center gap-2 user-box">
-          <!-- Avatar -->
-          <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
-            style="width: 36px; height: 36px; font-size: 14px;">
-            {{ perfil.nome.charAt(0) | uppercase }} </div>
+        <div class="d-flex align-items-center gap-3">
 
-          <!-- Nome e papel -->
-          <div class="d-flex flex-column">
-            <span class="fw-semibold text-dark lh-1">{{ perfil.nome }}</span>
-            <small class="text-muted">{{ perfil.papel }}</small>
+          <!-- Botão hambúrguer -->
+          <button class="btn btn-sm btn-outline-secondary" (click)="sidebarAberto.set(!sidebarAberto())" title="Menu">
+            <i class="bi bi-list fs-5"></i>
+          </button>
+
+          <!-- Avatar + nome + papel -->
+          <div class="d-flex align-items-center gap-2 user-box">
+            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center"
+              style="width:36px;height:36px;font-size:14px;">
+              {{ perfil.nome.charAt(0) | uppercase }}
+            </div>
+            <div class="d-flex flex-column">
+              <span class="fw-semibold text-dark lh-1">{{ perfil.nome }}</span>
+              <small class="text-muted">{{ perfil.papel }}</small>
+            </div>
           </div>
         </div>
 
-        <!-- Bloco DIREITA: botão sair -->
+        <!-- Botão sair -->
         <div>
           <button class="btn btn-outline-danger btn-sm px-3" (click)="auth.logout()">
             <i class="bi bi-box-arrow-right"></i> Sair
@@ -38,3 +45,260 @@
     </div>
   </div>
 </header>
+
+<!-- Backdrop -->
+<div *ngIf="sidebarAberto()" class="sidebar-backdrop" (click)="fecharSidebar()"></div>
+
+<!-- Sidebar -->
+<nav class="app-sidebar" [class.open]="sidebarAberto()">
+
+  <ng-container *ngIf="perfil$ | async as perfil">
+
+    <!-- Cabeçalho sidebar -->
+    <div class="sidebar-header d-flex align-items-center justify-content-between px-3 py-3 border-bottom">
+      <span class="fw-bold text-success">Menu</span>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharSidebar()">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+
+    <!-- Dashboard (sempre visível) -->
+    <ul class="sidebar-nav list-unstyled px-2 mb-0 mt-2">
+      <li>
+        <a routerLink="/dashboard" routerLinkActive="active" (click)="fecharSidebar()"
+          class="sidebar-link d-flex align-items-center gap-2">
+          <i class="bi bi-house-door"></i> Dashboard
+        </a>
+      </li>
+    </ul>
+
+    <!-- ===== ASSESSOR ===== -->
+    <ng-container *ngIf="hasAny(perfil.papel, ['assessor'])">
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Módulos</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-0">
+        <li>
+          <a routerLink="/pre-cadastro/novo" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-person-plus"></i> Novo Pré-cadastro
+          </a>
+        </li>
+        <li>
+          <a routerLink="/pre-cadastro/minha-lista" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-clipboard2"></i> Minha Lista
+          </a>
+        </li>
+        <li>
+          <a routerLink="/agendamentos" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-calendar-plus"></i> Agendamentos
+          </a>
+        </li>
+      </ul>
+    </ng-container>
+
+    <!-- ===== ANALISTA / SUPERVISOR / COORDENADOR ===== -->
+    <ng-container *ngIf="hasAny(perfil.papel, ['analista', 'supervisor', 'coordenador'])">
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Módulos</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-0">
+        <li>
+          <a routerLink="/pre-cadastro/minha-lista" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-clipboard2"></i> Minha Lista
+          </a>
+        </li>
+        <li>
+          <a routerLink="/triagem-supervisao" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-diagram-2-fill"></i> Encaminhamento
+          </a>
+        </li>
+        <li>
+          <a routerLink="/aprovacao-pre-cadastro" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-check-square"></i> Aprovação
+          </a>
+        </li>
+        <li>
+          <a routerLink="/call-center" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-headset"></i> Call Center
+          </a>
+        </li>
+        <li>
+          <a routerLink="/producao" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line"></i> Produção
+          </a>
+        </li>
+        <li>
+          <a routerLink="/organograma" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-bezier"></i> Organograma
+          </a>
+        </li>
+      </ul>
+    </ng-container>
+
+    <!-- ===== OPERACIONAL ===== -->
+    <ng-container *ngIf="hasAny(perfil.papel, ['operacional'])">
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Módulos</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-0">
+        <li>
+          <a routerLink="/pre-cadastro/novo" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-person-plus"></i> Novo Pré-cadastro
+          </a>
+        </li>
+        <li>
+          <a routerLink="/pre-cadastro/minha-lista" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-clipboard2"></i> Minha Lista
+          </a>
+        </li>
+        <li>
+          <a routerLink="/pre-cadastro/triagem" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-diagram-3-fill"></i> Central da Triagem
+          </a>
+        </li>
+        <li>
+          <a routerLink="/aprovacao-pre-cadastro" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-check-square"></i> Aprovação
+          </a>
+        </li>
+        <li>
+          <a routerLink="/call-center" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-headset"></i> Call Center
+          </a>
+        </li>
+        <li>
+          <a routerLink="/cobranca" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-receipt-cutoff"></i> Central de Cobrança
+          </a>
+        </li>
+        <li>
+          <a routerLink="/organograma" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-bezier"></i> Organograma
+          </a>
+        </li>
+        <li>
+          <a routerLink="/colaboradores" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-people-fill"></i> Colaboradores
+          </a>
+        </li>
+      </ul>
+    </ng-container>
+
+    <!-- ===== ADMIN ===== -->
+    <ng-container *ngIf="hasAny(perfil.papel, ['admin'])">
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Módulos</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-0">
+        <li>
+          <a routerLink="/pre-cadastro/novo" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-person-plus"></i> Novo Pré-cadastro
+          </a>
+        </li>
+        <li>
+          <a routerLink="/pre-cadastro/minha-lista" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-clipboard2"></i> Minha Lista
+          </a>
+        </li>
+        <li>
+          <a routerLink="/pre-cadastro/triagem" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-diagram-3-fill"></i> Central da Triagem
+          </a>
+        </li>
+        <li>
+          <a routerLink="/triagem-supervisao" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-diagram-2-fill"></i> Encaminhamento
+          </a>
+        </li>
+        <li>
+          <a routerLink="/aprovacao-pre-cadastro" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-check-square"></i> Aprovação
+          </a>
+        </li>
+        <li>
+          <a routerLink="/call-center" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-headset"></i> Call Center
+          </a>
+        </li>
+        <li>
+          <a routerLink="/cobranca" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-receipt-cutoff"></i> Central de Cobrança
+          </a>
+        </li>
+        <li>
+          <a routerLink="/producao" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-bar-chart-line"></i> Produção
+          </a>
+        </li>
+        <li>
+          <a routerLink="/grupos/novo" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-people"></i> Criar Grupo Solidário
+          </a>
+        </li>
+        <li>
+          <a routerLink="/organograma" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-bezier"></i> Organograma
+          </a>
+        </li>
+        <li>
+          <a routerLink="/colaboradores" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-people-fill"></i> Colaboradores
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Relatórios</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-0">
+        <li>
+          <a routerLink="/pre-cadastros" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-card-text"></i> Listagem Pré-Cadastros
+          </a>
+        </li>
+        <li>
+          <a routerLink="/grupos" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-person-lines-fill"></i> Listagem Grupos
+          </a>
+        </li>
+        <li>
+          <a routerLink="/listagem-agendamentos" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-card-text"></i> Listagem Agendamentos
+          </a>
+        </li>
+      </ul>
+
+      <div class="sidebar-section-label px-3 mt-3 mb-1">Admin</div>
+      <ul class="sidebar-nav list-unstyled px-2 mb-2">
+        <li>
+          <a routerLink="/admin-validacoes" routerLinkActive="active" (click)="fecharSidebar()"
+            class="sidebar-link d-flex align-items-center gap-2">
+            <i class="bi bi-shield-check"></i> Validações
+          </a>
+        </li>
+      </ul>
+    </ng-container>
+
+  </ng-container>
+</nav>
