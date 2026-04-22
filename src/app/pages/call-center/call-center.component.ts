@@ -5,7 +5,7 @@ import { HeaderComponent } from '../shared/header/header.component';
 
 import {
   Firestore, collection, query, where, updateDoc, doc,
-  serverTimestamp, getDocs, getDoc, setDoc
+  serverTimestamp, getDocs, getDoc, setDoc, deleteField
 } from '@angular/fire/firestore';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import { PreCadastro } from '../../models/pre-cadastro.model';
@@ -139,7 +139,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   // ===== Modal: Encaminhar para assessor =====
   encaminharAberto = signal(false);
-  private encaminharItem = signal<PreCadastro | null>(null);
+  encaminharItem = signal<PreCadastro | null>(null);
   assessorSelecionado = signal<string>('');
 
   agendamentosAssessorEncaminhar = computed(() => {
@@ -598,6 +598,42 @@ export class CallCenterComponent implements OnInit, OnDestroy {
         ? { ...it as any, encaminhamento: { assessorUid: realUid, assessorNome, em: null }, caixaAtual: 'assessor' }
         : it
       )
+    );
+
+    this.fecharModalEncaminhar();
+  }
+
+  async retirarAssessor() {
+    const item = this.encaminharItem();
+    if (!item) return;
+
+    const payload: any = {
+      encaminhamento: deleteField(),
+      caixaAtual: deleteField(),
+      caixaUid: deleteField(),
+      destinatarioTipo: deleteField(),
+      destinatarioUid: deleteField(),
+      alocadoParaUid: deleteField(),
+      alocadoParaNome: deleteField(),
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await Promise.all([
+      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+    ]);
+
+    this.preCadastros.update(list =>
+      list.map(it => {
+        if (it.id !== item.id) return it;
+        const updated = { ...it as any };
+        delete updated.encaminhamento;
+        delete updated.caixaAtual;
+        delete updated.caixaUid;
+        delete updated.alocadoParaUid;
+        delete updated.alocadoParaNome;
+        return updated;
+      })
     );
 
     this.fecharModalEncaminhar();
