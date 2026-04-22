@@ -385,6 +385,9 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   meusFiltroPorAtendente = signal<string>('');
   meusDataInicio = signal<string>('');
   meusDataFim = signal<string>('');
+  meusNome = signal<string>('');
+  meusCpf = signal<string>('');
+  meusTelefone = signal<string>('');
 
   meusFiltrado = computed(() => {
     const cu = this.currentUser();
@@ -394,6 +397,9 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     const filtroUid = this.meusFiltroPorAtendente();
     const dataInicio = this.meusDataInicio();
     const dataFim = this.meusDataFim();
+    const nome = normalizarTexto(this.meusNome());
+    const cpf = this.meusCpf().replace(/\D/g, '');
+    const telefone = this.meusTelefone().replace(/\D/g, '');
 
     // Converte 'YYYY-MM-DD' para timestamps de início e fim do dia
     const inicioDia = dataInicio ? new Date(dataInicio + 'T00:00:00').getTime() : null;
@@ -418,9 +424,13 @@ export class CallCenterComponent implements OnInit, OnDestroy {
           const ts = tsAtendimento(i);
           if (inicioDia && ts && ts < inicioDia) return false;
           if (fimDia    && ts && ts > fimDia)    return false;
-          return true;
+        } else {
+          if (porUid !== cu.uid) return false;
         }
-        return porUid === cu.uid;
+        if (nome && !normalizarTexto(i.nomeCompleto || '').includes(nome)) return false;
+        if (cpf && !((i as any).cpf || '').replace(/\D/g, '').includes(cpf)) return false;
+        if (telefone && !((i as any).telefone || '').replace(/\D/g, '').includes(telefone)) return false;
+        return true;
       })
       .sort((a, b) => {
         if (a.atendimento?.status === 'em_atendimento' && b.atendimento?.status !== 'em_atendimento') return -1;
