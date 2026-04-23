@@ -417,7 +417,6 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     const atendente = this.filtroAtendente();
     if (atendente) base = base.filter(i => i.atendimento?.porUid === atendente);
 
-    const order: Record<string, number> = { em_atendimento: 0, nao_atendido: 1, finalizado: 2 };
     const toMs = (item: PreCadastro): number => {
       const ts = (item as any).createdAt;
       if (!ts) return 0;
@@ -428,21 +427,11 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     };
     const isRmb = (item: PreCadastro) => this.RMB.has(normalizarTexto((item as any).cidade || ''));
     return base.sort((a, b) => {
-      // 1. RMB tem prioridade sobre outras localidades
+      // 1. RMB tem prioridade
       const rA = isRmb(a) ? 0 : 1;
       const rB = isRmb(b) ? 0 : 1;
       if (rA !== rB) return rA - rB;
-      const tA = this.temTentativas(a);
-      const tB = this.temTentativas(b);
-      // 2. Clientes com tentativas de contato vêm primeiro
-      if (tA && !tB) return -1;
-      if (!tA && tB) return 1;
-      // 3. Ambos têm tentativas: mais recente primeiro
-      if (tA && tB) return this.ultimaTentativaMs(b) - this.ultimaTentativaMs(a);
-      // 4. Sem tentativas: por status → mais recente
-      const oa = order[a.atendimento?.status ?? 'nao_atendido'] ?? 1;
-      const ob = order[b.atendimento?.status ?? 'nao_atendido'] ?? 1;
-      if (oa !== ob) return oa - ob;
+      // 2. Mais recente primeiro
       return toMs(b) - toMs(a);
     });
   });
