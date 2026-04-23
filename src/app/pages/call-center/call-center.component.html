@@ -524,7 +524,7 @@
     <button class="btn btn-outline-success btn-sm" (click)="abrirModalEncaminhar(item)" title="Encaminhar para assessor">
       <i class="bi bi-send"></i>
     </button>
-    <button *ngIf="currentUser()?.papel === 'admin'"
+    <button *ngIf="isOperacional()"
       class="btn btn-outline-primary btn-sm" (click)="abrirModalDirecionar(item)" title="Direcionar para atendente">
       <i class="bi bi-person-up"></i>
     </button>
