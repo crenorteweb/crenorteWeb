@@ -5,7 +5,7 @@ import { HeaderComponent } from '../shared/header/header.component';
 
 import {
   Firestore, collection, query, where, updateDoc, doc,
-  serverTimestamp, getDocs, getDoc, setDoc, deleteField
+  serverTimestamp, getDocs, getDoc, setDoc, deleteField, onSnapshot
 } from '@angular/fire/firestore';
 import { Auth, onAuthStateChanged } from '@angular/fire/auth';
 import { PreCadastro } from '../../models/pre-cadastro.model';
@@ -37,6 +37,14 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   private nomePorUid = new Map<string, string>();
   private nomesSignal = signal<Record<string, string>>({});
+
+  // Real-time listeners
+  private snapMap1 = new Map<string, any>(); // pre_cadastros
+  private snapMap2 = new Map<string, any>(); // pre-cadastros
+  private unsub1?: () => void;
+  private unsub2?: () => void;
+  private primed1 = false;
+  private primed2 = false;
 
   private readonly RMB = new Set([
     'belem', 'ananindeua', 'marituba',
@@ -218,7 +226,10 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void { }
-  ngOnDestroy(): void { }
+  ngOnDestroy(): void {
+    this.unsub1?.();
+    this.unsub2?.();
+  }
 
   // ===== Handlers de filtro =====
   onFiltroAtendimentoChange(v: string) { this.filtroAtendimento.set(v as any); this.currentPage = 1; }
@@ -233,58 +244,88 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   // ===== Carregar dados =====
   async carregarTudo(): Promise<void> {
-    if (this.loading()) return;
+    // Cancela listeners anteriores e reinicia
+    this.unsub1?.();
+    this.unsub2?.();
+    this.snapMap1.clear();
+    this.snapMap2.clear();
+    this.primed1 = false;
+    this.primed2 = false;
     this.loading.set(true);
 
+    // Assessores e operacionais: carga única (mudam raramente)
     try {
-      const [snapAss, snapOp, snap1, snap2] = await Promise.all([
+      const [snapAss, snapOp] = await Promise.all([
         getDocs(query(collection(this.fs, 'colaboradores'), where('papel', '==', 'assessor'), where('status', '==', 'ativo'))),
         getDocs(query(collection(this.fs, 'colaboradores'), where('papel', '==', 'operacional'), where('status', '==', 'ativo'))),
-        getDocs(query(collection(this.fs, 'pre_cadastros'), where('elegivel.status', '==', 'sim'))),
-        getDocs(query(collection(this.fs, 'pre-cadastros'), where('elegivel.status', '==', 'sim'))),
       ]);
 
-      // Assessores
       const assRows = snapAss.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Assessor));
       assRows.forEach(a => { if (!a.uid) a.uid = a.id; this.setNome(a.uid!, a.nome); });
       assRows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
       this.assessores.set(assRows);
 
-      // Operacionais
       const opRows = snapOp.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Assessor));
       opRows.forEach(o => { if (!o.uid) o.uid = o.id; this.setNome(o.uid!, o.nome); });
       opRows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
       this.operacionais.set(opRows);
-
-      // Pré-cadastros elegíveis
-      const acc = new Map<string, any>();
-      const needNames = new Set<string>();
-
-      const processSnap = (snap: any, colName: string) => {
-        snap.forEach((d: any) => {
-          const raw = d.data() as any;
-          const item = { id: d.id, ...raw, __col: colName };
-          const prev = acc.get(item.id);
-          acc.set(item.id, prev ? { ...prev, ...item } : item);
-          if (item?.createdByUid) needNames.add(item.createdByUid);
-          if (item?.atendimento?.porUid) needNames.add(item.atendimento.porUid);
-          if (item?.encaminhamento?.assessorUid) needNames.add(item.encaminhamento.assessorUid);
-        });
-      };
-
-      processSnap(snap1, 'pre_cadastros');
-      processSnap(snap2, 'pre-cadastros');
-
-      const todos = Array.from(acc.values()).filter((item: any) =>
-        (item.origem ?? '').trim().toLowerCase() === 'site / portal'
-      );
-      this.preCadastros.set(todos);
-      await this.preloadColabNames(Array.from(needNames));
     } catch (e) {
-      console.error('[CallCenter] erro ao carregar:', e);
-    } finally {
-      this.loading.set(false);
+      console.error('[CallCenter] erro ao carregar colaboradores:', e);
     }
+
+    // Pré-cadastros: listeners em tempo real
+    const q1 = query(collection(this.fs, 'pre_cadastros'), where('elegivel.status', '==', 'sim'));
+    const q2 = query(collection(this.fs, 'pre-cadastros'), where('elegivel.status', '==', 'sim'));
+
+    const handleSnap = (snap: any, map: Map<string, any>, colName: string, onFirst: () => void) => {
+      map.clear();
+      const needNames = new Set<string>();
+      snap.forEach((d: any) => {
+        const raw = d.data() as any;
+        map.set(d.id, { id: d.id, ...raw, __col: colName });
+        if (raw?.createdByUid) needNames.add(raw.createdByUid);
+        if (raw?.atendimento?.porUid) needNames.add(raw.atendimento.porUid);
+        if (raw?.encaminhamento?.assessorUid) needNames.add(raw.encaminhamento.assessorUid);
+      });
+      this.preloadColabNames(Array.from(needNames));
+      onFirst();
+      this.mergeAndUpdate();
+    };
+
+    this.unsub1 = onSnapshot(
+      q1,
+      snap => {
+        handleSnap(snap, this.snapMap1, 'pre_cadastros', () => {
+          if (!this.primed1) { this.primed1 = true; if (this.primed2) this.loading.set(false); }
+        });
+      },
+      err => console.error('[CallCenter] listener pre_cadastros:', err)
+    );
+
+    this.unsub2 = onSnapshot(
+      q2,
+      snap => {
+        handleSnap(snap, this.snapMap2, 'pre-cadastros', () => {
+          if (!this.primed2) { this.primed2 = true; if (this.primed1) this.loading.set(false); }
+        });
+      },
+      err => console.error('[CallCenter] listener pre-cadastros:', err)
+    );
+  }
+
+  private mergeAndUpdate(): void {
+    const acc = new Map<string, any>();
+    // pre-cadastros como base, pre_cadastros sobrescreve campos
+    this.snapMap2.forEach((v, k) => acc.set(k, v));
+    this.snapMap1.forEach((v, k) => {
+      const prev = acc.get(k);
+      acc.set(k, prev ? { ...prev, ...v } : v);
+    });
+
+    const todos = Array.from(acc.values()).filter((item: any) =>
+      (item.origem ?? '').trim().toLowerCase() === 'site / portal'
+    );
+    this.preCadastros.set(todos);
   }
 
   atendentesOptions = computed(() => {
