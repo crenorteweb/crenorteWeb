@@ -32,6 +32,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   loading = signal(false);
   preCadastros = signal<PreCadastro[]>([]);
   assessores = signal<Assessor[]>([]);
+  operacionais = signal<Assessor[]>([]);
   currentUser = signal<{ uid: string; nome?: string; papel?: string } | null>(null);
 
   private nomePorUid = new Map<string, string>();
@@ -172,6 +173,11 @@ export class CallCenterComponent implements OnInit, OnDestroy {
   agendamentoData = signal<string>('');
   agendamentoHora = signal<string>('');
 
+  // ===== Modal: Direcionar para atendente =====
+  direcionarAberto = signal(false);
+  direcionarItem = signal<PreCadastro | null>(null);
+  atendenteParaDirecionar = signal<string>('');
+
   // ===== Modal: Editar cliente =====
   editarAberto = signal(false);
   private editarItem = signal<PreCadastro | null>(null);
@@ -231,8 +237,9 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     this.loading.set(true);
 
     try {
-      const [snapAss, snap1, snap2] = await Promise.all([
+      const [snapAss, snapOp, snap1, snap2] = await Promise.all([
         getDocs(query(collection(this.fs, 'colaboradores'), where('papel', '==', 'assessor'), where('status', '==', 'ativo'))),
+        getDocs(query(collection(this.fs, 'colaboradores'), where('papel', '==', 'operacional'), where('status', '==', 'ativo'))),
         getDocs(query(collection(this.fs, 'pre_cadastros'), where('elegivel.status', '==', 'sim'))),
         getDocs(query(collection(this.fs, 'pre-cadastros'), where('elegivel.status', '==', 'sim'))),
       ]);
@@ -242,6 +249,12 @@ export class CallCenterComponent implements OnInit, OnDestroy {
       assRows.forEach(a => { if (!a.uid) a.uid = a.id; this.setNome(a.uid!, a.nome); });
       assRows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
       this.assessores.set(assRows);
+
+      // Operacionais
+      const opRows = snapOp.docs.map(d => ({ id: d.id, ...(d.data() as any) } as Assessor));
+      opRows.forEach(o => { if (!o.uid) o.uid = o.id; this.setNome(o.uid!, o.nome); });
+      opRows.sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR', { sensitivity: 'base' }));
+      this.operacionais.set(opRows);
 
       // Pré-cadastros elegíveis
       const acc = new Map<string, any>();
@@ -659,6 +672,54 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     );
 
     this.fecharModalEncaminhar();
+  }
+
+  // ===== Modal: Direcionar para atendente =====
+  abrirModalDirecionar(item: PreCadastro) {
+    this.direcionarItem.set(item);
+    const jaVinculado = item.atendimento?.porUid ?? '';
+    this.atendenteParaDirecionar.set(jaVinculado);
+    this.direcionarAberto.set(true);
+  }
+
+  fecharModalDirecionar() {
+    this.direcionarAberto.set(false);
+    this.direcionarItem.set(null);
+    this.atendenteParaDirecionar.set('');
+  }
+
+  async confirmarDirecionar() {
+    const item = this.direcionarItem();
+    const chosen = this.atendenteParaDirecionar();
+    if (!item || !chosen) return;
+
+    const op = this.operacionais().find(o => (o.uid || o.id) === chosen);
+    const realUid = op?.uid || op?.id || chosen;
+    const porNome = op?.nome || this.nomeDoAutor(realUid) || 'Operacional';
+    if (op?.nome) this.setNome(realUid, op.nome);
+
+    const payload: any = {
+      'atendimento.status': 'em_atendimento',
+      'atendimento.porUid': realUid,
+      'atendimento.porNome': porNome,
+      'atendimento.em': serverTimestamp(),
+      'atendimento.observacao': null,
+      atualizadoEm: serverTimestamp(),
+    };
+
+    await Promise.all([
+      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+    ]);
+
+    this.preCadastros.update(list =>
+      list.map(it => it.id === item.id
+        ? { ...it as any, atendimento: { status: 'em_atendimento', porNome, porUid: realUid } }
+        : it
+      )
+    );
+
+    this.fecharModalDirecionar();
   }
 
   // ===== Modal: Agendamento =====
