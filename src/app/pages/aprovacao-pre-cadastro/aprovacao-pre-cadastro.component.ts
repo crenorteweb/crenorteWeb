@@ -806,7 +806,25 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     const dtDe = de ? new Date(de + 'T00:00:00') : null;
     const dtAte = ate ? new Date(ate + 'T23:59:59') : null;
 
-    let lista = this.filtrados();
+    // Base: parte de todos os pré-cadastros filtrados pelo tipo selecionado no modal,
+    // ignorando o filtroAprovacao da tela principal para não deixar o PDF vazio.
+    let lista: PreCadastro[] = this.preCadastros().filter(it => {
+      if (tipoData === 'aprovacao') return (it as any)?.aprovacao?.status === 'apto';
+      if (tipoData === 'elegivel')  return (it as any)?.elegivel?.status === 'sim';
+      // ambos
+      return (it as any)?.aprovacao?.status === 'apto' && (it as any)?.elegivel?.status === 'sim';
+    });
+
+    // Mantém filtros de localização/origem ativos na tela principal
+    const cidade = normalizarTexto(this.filtroCidade());
+    const uf = this.filtroUf().toUpperCase();
+    const bairro = normalizarTexto(this.filtroBairro());
+    const origem = this.filtroOrigem();
+
+    if (cidade) lista = lista.filter(it => normalizarTexto((it as any).cidade || '').includes(cidade));
+    if (uf)     lista = lista.filter(it => ((it as any).uf || (it as any).estado || '').toUpperCase().includes(uf));
+    if (bairro) lista = lista.filter(it => normalizarTexto((it as any).bairro || '').includes(bairro));
+    if (origem) lista = lista.filter(it => ((it as any).origem || '').trim().toLowerCase() === origem);
 
     const toDate = (raw: any): Date | null =>
       raw?.toDate ? raw.toDate() : raw instanceof Date ? raw : typeof raw === 'number' ? new Date(raw) : null;
