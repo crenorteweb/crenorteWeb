@@ -518,7 +518,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
 
-      this.pessoas = filtrarUfsNorte(norm) as typeof norm;
+      this.pessoas = filtrarUfsNorte(norm).filter(
+        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
+      ) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar pessoas:', e);
@@ -879,6 +881,22 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
   }
 
+  elegivelLabel(status?: string): string {
+    switch (status) {
+      case 'sim': return 'Elegível';
+      case 'nao': return 'Não elegível';
+      default:    return 'Eleg. não verificada';
+    }
+  }
+
+  elegivelClass(status?: string): string {
+    switch (status) {
+      case 'sim': return 'bg-success';
+      case 'nao': return 'bg-danger';
+      default:    return 'bg-secondary';
+    }
+  }
+
   // ====================================================
   // FILTROS / BUSCA
   // ====================================================
@@ -911,8 +929,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // Exclui inaptos permanentemente desta visão de triagem/encaminhamento
-    list = list.filter(p => ((p as any).aprovacao?.status || 'nao_verificado') !== 'inapto');
+    // Exibe somente aptos nesta visão de triagem/encaminhamento
+    list = list.filter(p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto');
 
     // filtro encaminhamento / elegibilidade
     if (this.filtrosEnvio.size > 0) {
