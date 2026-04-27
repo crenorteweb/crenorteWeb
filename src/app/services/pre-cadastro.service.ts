@@ -147,9 +147,21 @@ export class PreCadastroService {
    */
   async buscarPorCpf(cpf: string): Promise<PreCadastro[]> {
     if (!cpf) return [];
-    const qy = query(this.colRef, where('cpf', '==', cpf));
-    const snap = await getDocs(qy);
-    return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[];
+    const [snap1, snap2] = await Promise.all([
+      getDocs(query(collection(this.db, 'pre_cadastros'), where('cpf', '==', cpf))),
+      getDocs(query(collection(this.db, 'pre-cadastros'), where('cpf', '==', cpf))),
+    ]);
+    const seen = new Set<string>();
+    const result: PreCadastro[] = [];
+    for (const snap of [snap1, snap2]) {
+      snap.docs.forEach(d => {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          result.push({ id: d.id, ...(d.data() as any) } as PreCadastro);
+        }
+      });
+    }
+    return result;
   }
 
   async listarPorIds(ids: string[]): Promise<PreCadastro[]> {
