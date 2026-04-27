@@ -518,11 +518,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
 
-      const aptos = filtrarUfsNorte(norm).filter(
-        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
-      ) as typeof norm;
-
-      this.pessoas = aptos;
+      this.pessoas = filtrarUfsNorte(norm) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar pessoas:', e);
