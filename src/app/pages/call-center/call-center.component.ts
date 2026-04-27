@@ -406,6 +406,9 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
     let base = [...this.preCadastros()];
 
+    // Exclui clientes já encaminhados para assessor via módulo de encaminhamento
+    base = base.filter(i => !(i as any).encaminhadoParaUid);
+
     if (f !== 'todos') base = base.filter(i => (i.atendimento?.status ?? 'nao_atendido') === f);
     if (nome) base = base.filter(i => normalizarTexto(i.nomeCompleto || '').includes(nome));
     if (cidade) base = base.filter(i => normalizarTexto((i as any).cidade || '').includes(cidade));

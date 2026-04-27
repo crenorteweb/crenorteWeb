@@ -50,7 +50,7 @@
     </div>
     <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end">
       <button type="button" class="btn btn-sm btn-outline-secondary"
-        (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); limparCriador(); filtroUf = ''; filtroCidade = ''; filtroBairro = ''; aplicarFiltrosPessoas()">
+        (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); limparCriador(); filtroUf = ''; filtroCidade = ''; filtroBairro = ''; filtroAprovadorUid = ''; aplicarFiltrosPessoas()">
         <i class="bi bi-x-circle me-1"></i>Limpar filtros
       </button>
     </div>
@@ -120,10 +120,23 @@
 
     </div>
 
-    <!-- Linha 3: analisado por + criado por -->
+    <!-- Linha 3: aprovado por + analisado por + criado por -->
     <div class="row g-2 align-items-center">
 
-      <!-- Analisado por -->
+      <!-- Aprovado por (quem aprovou o CPF) -->
+      <div class="col-auto">
+        <label class="form-label form-label-sm text-muted mb-0 fw-semibold">Aprovado por:</label>
+      </div>
+      <div class="col-12 col-sm-auto">
+        <select class="form-select form-select-sm"
+          [(ngModel)]="filtroAprovadorUid"
+          (ngModelChange)="aplicarFiltrosPessoas()">
+          <option value="">Todos</option>
+          <option *ngFor="let a of aprovadoresDisponiveis" [value]="a.uid">{{ a.nome }}</option>
+        </select>
+      </div>
+
+      <!-- Analisado por (caixa do analista) -->
       <div class="col-auto">
         <label class="form-label form-label-sm text-muted mb-0 fw-semibold">Analisado por:</label>
       </div>
@@ -197,85 +210,100 @@
       </div>
     </div>
 
-    <!-- Lista de pessoas em card + list-group (estilo Central de Triagem) -->
-    <div class="card mb-2">
-      <div class="list-group list-group-flush">
-        <div class="list-group-item" *ngIf="!pessoasView.length">
-          Nenhum pré-cadastro encontrado na sua triagem.
-        </div>
+    <!-- Mensagem vazia -->
+    <div class="alert alert-secondary" *ngIf="!pessoasView.length">
+      Nenhum pré-cadastro encontrado na sua triagem.
+    </div>
 
-        <div class="list-group-item" *ngFor="let p of pessoasPaginadas">
-          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-            <!-- ESQUERDA: identificação e dados -->
+    <!-- Grid de cards -->
+    <div class="row g-3">
+      <div class="col-12 col-md-6 col-xl-4" *ngFor="let p of pessoasPaginadas">
+        <div class="card h-100 shadow-sm border-0"
+             [class.border-start]="true"
+             [class.border-3]="true"
+             [ngClass]="encaminhadoLabel(p) ? 'border-success' : 'border-warning'">
+
+          <!-- Cabeçalho: nome + badges -->
+          <div class="card-header bg-white border-bottom d-flex flex-wrap align-items-start justify-content-between gap-2 py-2">
             <div>
-              <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
-                <span>{{ p.nomeCompleto || 'Sem nome' }}</span>
+              <div class="fw-semibold">{{ p.nomeCompleto || 'Sem nome' }}</div>
+              <div class="d-flex flex-wrap gap-1 mt-1">
                 <span class="badge" [ngClass]="getStatusClass(p.aprovacao?.status)">
                   {{ getElegibilidadeLabel(p.aprovacao?.status) }}
                 </span>
                 <span class="badge bg-success-subtle text-success border border-success-subtle">
                   Apto
                 </span>
-              </div>
-
-              <div class="text-muted small mt-1">
-                <span *ngIf="p.cpf">CPF: {{ cpfMask(p.cpf) }} &nbsp;·&nbsp; Sexo: {{ p.sexo || '—' }}</span>
-                <br *ngIf="p.cpf">
-                <span>Telefone: {{ p.telefone || '—' }}</span>
-                <br>
-                <span>
-                  {{ p.cidade || '—' }}<ng-container *ngIf="p.uf">/{{ p.uf }}</ng-container>
-                  <ng-container *ngIf="p.bairro"> &nbsp;·&nbsp; {{ p.bairro }}</ng-container>
+                <span class="badge" [ngClass]="encaminhadoLabel(p) ? 'bg-success' : 'bg-warning text-dark'">
+                  {{ encaminhadoLabel(p) ? 'Encaminhado' : 'Não encaminhado' }}
                 </span>
-                <br>
-                <span *ngIf="p.cpf">
-                  Modalidade: {{ p.modalidade || '—' }}<ng-container *ngIf="p.origem"> &nbsp;·&nbsp; Origem: {{ p.origem }}</ng-container>
-                </span>
-                <br *ngIf="p.cpf">
-                <span>Criado por: {{ p.createdByNome || '—' }}</span>
-                <br>
-                <span>Aprovado por: {{ p.aprovacao?.porNome || '—' }}</span>
-              </div>
-
-              <!-- Informação de grupo (somente se tiver grupo) -->
-              <div class="text-muted small" *ngIf="p.grupoNome">
-                Grupo solidário:
-                {{ p.grupoNome }}
-                <span class="text-muted">
-                  ({{ p.papelNoGrupo || 'membro' }})
-                </span>
-              </div>
-
-              <!-- Informação de encaminhamento (sempre que tiver encaminhado, com ou sem grupo) -->
-              <div class="small" *ngIf="encaminhadoNome(p) as encNome">
-                <span class="text-muted">Encaminhado para </span>
-                <span class="text-body fw-medium">{{ encNome }}</span>
-                <span class="text-muted" *ngIf="encaminhadoData(p) as encData"
-                  style="opacity: 0.65"> ({{ encData }})</span>
               </div>
             </div>
-
-
-            <!-- DIREITA: status de encaminhamento + ação -->
-            <div class="d-flex align-items-center justify-content-end gap-3">
-
-              <div *ngIf="encaminhadoLabel(p)">
-                <span class="badge bg-success">
-                  Encaminhado
-                </span>
-              </div>
-              <div *ngIf="!encaminhadoLabel(p)">
-                <span class="badge bg-warning text-dark">
-                  Não encaminhado
-                </span>
-              </div>
-
-              <button type="button" class="btn btn-sm btn-outline-success" (click)="abrirModalAssessorPessoa(p)">
-                Encaminhar para assessor
-              </button>
-            </div>
-
           </div>
+
+          <!-- Corpo: dados do cliente -->
+          <div class="card-body py-2 small">
+            <div class="row g-1">
+
+              <!-- CPF + Sexo -->
+              <div class="col-12" *ngIf="p.cpf">
+                <span class="text-muted">CPF:</span> {{ cpfMask(p.cpf) }}
+                <span class="ms-2 text-muted">Sexo:</span> {{ p.sexo || '—' }}
+              </div>
+
+              <!-- Telefone -->
+              <div class="col-12">
+                <span class="text-muted">Tel:</span>
+                <a *ngIf="whatsHref(p.telefone) as wa" [href]="wa" target="_blank" class="ms-1 text-success">
+                  <i class="bi bi-whatsapp me-1"></i>{{ p.telefone }}
+                </a>
+                <span *ngIf="!whatsHref(p.telefone)" class="ms-1">{{ p.telefone || '—' }}</span>
+              </div>
+
+              <!-- Localidade -->
+              <div class="col-12">
+                <span class="text-muted">Local:</span>
+                {{ p.cidade || '—' }}<ng-container *ngIf="p.uf">/{{ p.uf }}</ng-container>
+                <ng-container *ngIf="p.bairro"> &nbsp;·&nbsp; {{ p.bairro }}</ng-container>
+              </div>
+
+              <!-- Modalidade + Origem -->
+              <div class="col-12" *ngIf="p.modalidade">
+                <span class="text-muted">Modalidade:</span> {{ p.modalidade }}
+                <ng-container *ngIf="p.origem">
+                  &nbsp;·&nbsp; <span class="text-muted">Origem:</span> {{ p.origem }}
+                </ng-container>
+              </div>
+
+              <!-- Grupo -->
+              <div class="col-12" *ngIf="p.grupoNome">
+                <span class="text-muted">Grupo:</span> {{ p.grupoNome }}
+                <span class="text-muted">({{ p.papelNoGrupo || 'membro' }})</span>
+              </div>
+
+              <!-- Criado + Aprovado -->
+              <div class="col-12 text-muted" style="font-size:.75rem">
+                Criado por: {{ p.createdByNome || '—' }}
+                &nbsp;·&nbsp; Aprovado por: {{ p.aprovacao?.porNome || '—' }}
+              </div>
+
+            </div>
+          </div>
+
+          <!-- Rodapé: encaminhamento -->
+          <div class="card-footer bg-white border-top py-2">
+            <div *ngIf="encaminhadoNome(p) as encNome" class="small text-muted mb-2">
+              <i class="bi bi-arrow-right-circle me-1 text-success"></i>
+              <span class="fw-medium text-body">{{ encNome }}</span>
+              <span *ngIf="encaminhadoData(p) as encData" class="ms-1" style="opacity:.65">({{ encData }})</span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline-success w-100"
+              (click)="abrirModalAssessorPessoa(p)">
+              <i class="bi bi-send me-1"></i>
+              {{ encaminhadoLabel(p) ? 'Redirecionar assessor' : 'Encaminhar para assessor' }}
+            </button>
+          </div>
+
         </div>
       </div>
     </div>
