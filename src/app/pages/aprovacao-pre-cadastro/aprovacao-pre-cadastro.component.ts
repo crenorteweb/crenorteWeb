@@ -157,6 +157,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   naoElegivelAberto = signal(false);
   private naoElegivelId = signal<string | null>(null);
 
+  // ===== Modal DESMARCAR =====
+  desmarcarAberto = signal(false);
+  desmarcarTipo = signal<'aprovacao' | 'elegivel'>('aprovacao');
+  private desmarcarItemSignal = signal<PreCadastro | null>(null);
+
   // ===== Modal EXPORTAR PDF =====
   pdfModalAberto = signal(false);
   pdfTipoData = signal<'aprovacao' | 'elegivel' | 'ambos'>('aprovacao');
@@ -273,9 +278,7 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
     let base = list;
     if (f === 'pendente') {
       base = base.filter(i =>
-        statusOf(i) === 'nao_verificado' ||
-        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado') ||
-        (statusOf(i) === 'inapto' && (i as any)?.aprovacao?.motivoTipo === 'outros' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
+        statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
       );
     } else if (f !== 'todos') {
       base = base.filter(i => statusOf(i) === f);
@@ -1096,6 +1099,66 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       body: this.resumoDiario().map(r => [r.data, String(r.aptos), String(r.inaptos), String(r.aptos + r.inaptos)]),
       styles: { fontSize: 9 }
     });
+  }
+
+  // ===== Ações: Desmarcar =====
+  abrirModalDesmarcar(item: PreCadastro, tipo: 'aprovacao' | 'elegivel') {
+    this.desmarcarItemSignal.set(item);
+    this.desmarcarTipo.set(tipo);
+    this.desmarcarAberto.set(true);
+  }
+
+  fecharModalDesmarcar() {
+    this.desmarcarAberto.set(false);
+    this.desmarcarItemSignal.set(null);
+  }
+
+  async confirmarDesmarcar() {
+    const item = this.desmarcarItemSignal();
+    const tipo = this.desmarcarTipo();
+    if (!item) return;
+
+    if (tipo === 'aprovacao') {
+      const payload: any = {
+        'aprovacao.status': 'nao_verificado',
+        'aprovacao.motivo': null,
+        'aprovacao.observacao': null,
+        'aprovacao.porUid': null,
+        'aprovacao.porNome': null,
+        'aprovacao.em': null,
+        atualizadoEm: serverTimestamp(),
+      };
+      await Promise.all([
+        updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+        updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+      ]);
+      this.preCadastros.update(list =>
+        list.map(it => it.id === item.id
+          ? { ...it as any, aprovacao: { ...(it as any).aprovacao, status: 'nao_verificado', motivo: null, observacao: null, porNome: null, porUid: null, em: null } }
+          : it
+        )
+      );
+    } else {
+      const payload: any = {
+        'elegivel.status': 'nao_verificado',
+        'elegivel.porUid': null,
+        'elegivel.porNome': null,
+        'elegivel.em': null,
+        atualizadoEm: serverTimestamp(),
+      };
+      await Promise.all([
+        updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
+        updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
+      ]);
+      this.preCadastros.update(list =>
+        list.map(it => it.id === item.id
+          ? { ...it as any, elegivel: { ...(it as any).elegivel, status: 'nao_verificado', porNome: null, porUid: null, em: null } }
+          : it
+        )
+      );
+    }
+
+    this.fecharModalDesmarcar();
   }
 
   private addInaptosToPdf(docPdf: jsPDF) {

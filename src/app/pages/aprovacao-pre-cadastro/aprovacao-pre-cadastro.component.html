@@ -234,6 +234,12 @@
             (click)="abrirModalInapto(item)">
             <i class="bi bi-x-lg"></i> Inapto
           </button>
+          <button class="btn btn-outline-secondary btn-sm"
+            [disabled]="aprovStatus(item) === 'nao_verificado'"
+            title="Desmarcar aprovação"
+            (click)="abrirModalDesmarcar(item, 'aprovacao')">
+            <i class="bi bi-arrow-counterclockwise"></i> Desmarcar
+          </button>
           <div class="vr mx-1"></div>
           <button class="btn btn-outline-success btn-sm"
             [disabled]="!podeVerificarElegivel(item) || elegivelStatus(item) === 'sim'"
@@ -246,6 +252,12 @@
             [title]="!podeVerificarElegivel(item) ? 'Disponível apenas para clientes aptos ou inaptos por outros motivos' : ''"
             (click)="abrirModalNaoElegivel(item)">
             <i class="bi bi-x-circle"></i> Não eleg.
+          </button>
+          <button class="btn btn-outline-secondary btn-sm"
+            [disabled]="elegivelStatus(item) === 'nao_verificado'"
+            title="Desmarcar elegibilidade"
+            (click)="abrirModalDesmarcar(item, 'elegivel')">
+            <i class="bi bi-arrow-counterclockwise"></i> Desmarcar eleg.
           </button>
         </div>
 
@@ -281,6 +293,32 @@
     </div>
   </nav>
 
+</div>
+
+<!-- ===== Modal: Confirmar Desmarcar ===== -->
+<div *ngIf="desmarcarAberto()" class="position-fixed top-0 start-0 w-100 h-100"
+  style="background: rgba(0,0,0,.35); z-index:1055;">
+  <div class="bg-white shadow rounded-3 position-absolute top-50 start-50 translate-middle"
+    style="width:min(420px, 96vw);">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+      <h5 class="mb-0">
+        <i class="bi bi-arrow-counterclockwise me-2 text-warning"></i>
+        {{ desmarcarTipo() === 'aprovacao' ? 'Desmarcar Aprovação' : 'Desmarcar Elegibilidade' }}
+      </h5>
+      <button class="btn btn-sm btn-outline-secondary" (click)="fecharModalDesmarcar()">Fechar</button>
+    </div>
+    <div class="p-3">
+      <p class="mb-1">Tem certeza que deseja desmarcar
+        <strong>{{ desmarcarTipo() === 'aprovacao' ? 'a aprovação (Apto/Inapto)' : 'a elegibilidade' }}</strong>
+        deste cliente?
+      </p>
+      <small class="text-muted">O status voltará para "Não verificado".</small>
+    </div>
+    <div class="p-3 border-top d-flex justify-content-end gap-2">
+      <button class="btn btn-light" (click)="fecharModalDesmarcar()">Cancelar</button>
+      <button class="btn btn-warning" (click)="confirmarDesmarcar()">Sim, desmarcar</button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== Modal: Exportar PDF CPFs ===== -->
