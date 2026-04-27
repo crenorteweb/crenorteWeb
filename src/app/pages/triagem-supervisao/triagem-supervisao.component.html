@@ -231,8 +231,8 @@
                 <span class="badge" [ngClass]="getStatusClass(p.aprovacao?.status)">
                   {{ getElegibilidadeLabel(p.aprovacao?.status) }}
                 </span>
-                <span class="badge bg-success-subtle text-success border border-success-subtle">
-                  Apto
+                <span class="badge" [ngClass]="elegivelClass($any(p).elegivel?.status)">
+                  <i class="bi bi-geo-alt me-1"></i>{{ elegivelLabel($any(p).elegivel?.status) }}
                 </span>
                 <span class="badge" [ngClass]="encaminhadoLabel(p) ? 'bg-success' : 'bg-warning text-dark'">
                   {{ encaminhadoLabel(p) ? 'Encaminhado' : 'Não encaminhado' }}
