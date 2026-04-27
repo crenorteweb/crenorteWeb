@@ -56,7 +56,7 @@
             <select class="form-select" [ngModel]="campo()" (ngModelChange)="campo.set($any($event))">
               <option value="cidade">Cidade</option>
               <option value="bairro">Bairro</option>
-              <option value="estado">Estado</option>
+              <option value="uf">UF</option>
               <option value="origem">Origem</option>
             </select>
           </div>
@@ -136,7 +136,7 @@
                   <th>CPF</th>
                   <th>Cidade</th>
                   <th>Bairro</th>
-                  <th>Estado</th>
+                  <th>UF</th>
                   <th>Criado por</th>
                 </tr>
               </thead>
@@ -146,7 +146,7 @@
                   <td>{{ cpfMask(r.cpf) }}</td>
                   <td>{{ r.cidade || '—' }}</td>
                   <td>{{ r.bairro || '—' }}</td>
-                  <td>{{ r.estado || '—' }}</td>
+                  <td>{{ r.uf || '—' }}</td>
                   <td>{{ r['createdByNome'] || '—' }}</td>
                 </tr>
               </tbody>
@@ -243,12 +243,12 @@
                          (ngModelChange)="setEditandoCpfReg(r.id, 'bairro', $event)" />
                 </div>
 
-                <!-- Estado -->
+                <!-- UF -->
                 <div class="col-6 col-md-1">
-                  <label class="form-label form-label-sm mb-1">Estado</label>
+                  <label class="form-label form-label-sm mb-1">UF</label>
                   <input class="form-control form-control-sm" maxlength="2" style="text-transform:uppercase"
-                         [ngModel]="getEditandoCpfReg(r.id, 'estado', r.estado || '')"
-                         (ngModelChange)="setEditandoCpfReg(r.id, 'estado', $event.toUpperCase())" />
+                         [ngModel]="getEditandoCpfReg(r.id, 'uf', r.uf || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'uf', $event.toUpperCase())" />
                 </div>
 
                 <!-- Origem -->
@@ -454,7 +454,7 @@
               <th>CPF</th>
               <th>Cidade</th>
               <th>Bairro</th>
-              <th>Estado</th>
+              <th>UF</th>
               <th>Cadastrado em</th>
               <th>Criado por</th>
             </tr>
@@ -473,7 +473,7 @@
               <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
               <td>{{ r.cidade || '—' }}</td>
               <td>{{ r.bairro || '—' }}</td>
-              <td>{{ r.estado || '—' }}</td>
+              <td>{{ r.uf || '—' }}</td>
               <td>{{ toDataStr(r['createdAt']) }}</td>
               <td>{{ r['createdByNome'] || '—' }}</td>
             </tr>
