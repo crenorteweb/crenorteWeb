@@ -56,6 +56,7 @@
             <select class="form-select" [ngModel]="campo()" (ngModelChange)="campo.set($any($event))">
               <option value="cidade">Cidade</option>
               <option value="bairro">Bairro</option>
+              <option value="estado">Estado</option>
               <option value="origem">Origem</option>
             </select>
           </div>
@@ -133,7 +134,9 @@
                 <tr>
                   <th>Nome</th>
                   <th>CPF</th>
-                  <th>{{ campo() | titlecase }}</th>
+                  <th>Cidade</th>
+                  <th>Bairro</th>
+                  <th>Estado</th>
                   <th>Criado por</th>
                 </tr>
               </thead>
@@ -141,7 +144,9 @@
                 <tr *ngFor="let r of g.registros">
                   <td>{{ r.nomeCompleto || '—' }}</td>
                   <td>{{ cpfMask(r.cpf) }}</td>
-                  <td>{{ r[campo()] || '—' }}</td>
+                  <td>{{ r.cidade || '—' }}</td>
+                  <td>{{ r.bairro || '—' }}</td>
+                  <td>{{ r.estado || '—' }}</td>
                   <td>{{ r['createdByNome'] || '—' }}</td>
                 </tr>
               </tbody>
@@ -215,7 +220,7 @@
               <div class="row g-2 align-items-end" [ngClass]="deletadosCpf().has(r.id) ? 'opacity-50 pe-none' : ''">
 
                 <!-- Nome -->
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-3">
                   <label class="form-label form-label-sm mb-1">Nome</label>
                   <input class="form-control form-control-sm"
                          [ngModel]="getEditandoCpfReg(r.id, 'nomeCompleto', r.nomeCompleto || '')"
@@ -236,6 +241,14 @@
                   <input class="form-control form-control-sm"
                          [ngModel]="getEditandoCpfReg(r.id, 'bairro', r.bairro || '')"
                          (ngModelChange)="setEditandoCpfReg(r.id, 'bairro', $event)" />
+                </div>
+
+                <!-- Estado -->
+                <div class="col-6 col-md-1">
+                  <label class="form-label form-label-sm mb-1">Estado</label>
+                  <input class="form-control form-control-sm" maxlength="2" style="text-transform:uppercase"
+                         [ngModel]="getEditandoCpfReg(r.id, 'estado', r.estado || '')"
+                         (ngModelChange)="setEditandoCpfReg(r.id, 'estado', $event.toUpperCase())" />
                 </div>
 
                 <!-- Origem -->
@@ -440,6 +453,8 @@
               <th>Nome</th>
               <th>CPF</th>
               <th>Cidade</th>
+              <th>Bairro</th>
+              <th>Estado</th>
               <th>Cadastrado em</th>
               <th>Criado por</th>
             </tr>
@@ -457,6 +472,8 @@
               <td>{{ r.nomeCompleto || '—' }}</td>
               <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
               <td>{{ r.cidade || '—' }}</td>
+              <td>{{ r.bairro || '—' }}</td>
+              <td>{{ r.estado || '—' }}</td>
               <td>{{ toDataStr(r['createdAt']) }}</td>
               <td>{{ r['createdByNome'] || '—' }}</td>
             </tr>
@@ -482,9 +499,14 @@
             <i class="bi bi-geo-alt-fill fs-2 text-success mb-2 d-block"></i>
             <h6 class="fw-semibold">Cidades</h6>
             <p class="text-muted small">Lista de todas as cidades com contagem de registros.</p>
-            <button class="btn btn-outline-success btn-sm" (click)="exportarLista('cidade')">
-              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
-            </button>
+            <div class="d-flex flex-column gap-2 align-items-center">
+              <button class="btn btn-outline-success btn-sm w-100" (click)="exportarLista('cidade')">
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+              </button>
+              <button class="btn btn-outline-danger btn-sm w-100" (click)="exportarListaPdf('cidade')">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -496,9 +518,14 @@
             <i class="bi bi-building fs-2 text-success mb-2 d-block"></i>
             <h6 class="fw-semibold">Bairros</h6>
             <p class="text-muted small">Lista de todos os bairros com contagem de registros.</p>
-            <button class="btn btn-outline-success btn-sm" (click)="exportarLista('bairro')">
-              <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
-            </button>
+            <div class="d-flex flex-column gap-2 align-items-center">
+              <button class="btn btn-outline-success btn-sm w-100" (click)="exportarLista('bairro')">
+                <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
+              </button>
+              <button class="btn btn-outline-danger btn-sm w-100" (click)="exportarListaPdf('bairro')">
+                <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
+              </button>
+            </div>
           </div>
         </div>
       </div>
