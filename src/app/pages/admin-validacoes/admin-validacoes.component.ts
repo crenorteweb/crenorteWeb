@@ -10,7 +10,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 type Aba = 'normalizacao' | 'cpfs' | 'exportar' | 'criador' | 'status';
-type Campo = 'cidade' | 'bairro' | 'estado' | 'origem';
+type Campo = 'cidade' | 'bairro' | 'uf' | 'origem';
 
 interface Registro {
   id: string;
@@ -18,7 +18,7 @@ interface Registro {
   cpf?: string;
   cidade?: string;
   bairro?: string;
-  estado?: string;
+  uf?: string;
   origem?: string;
   [key: string]: any;
 }
@@ -492,7 +492,7 @@ export class AdminValidacoesComponent implements OnInit {
         nome: r.nomeCompleto || '—',
         cidade: r.cidade || '—',
         bairro: r.bairro || '—',
-        estado: r.estado || '—',
+        uf: r.uf || '—',
         origem: r.origem || '—',
         id: r.id,
       }));
