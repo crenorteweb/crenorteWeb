@@ -87,6 +87,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   filtroUf = '';
   filtroCidade = '';
   filtroBairro = '';
+  filtroAprovadorUid = '';
 
   // ====== paginação ======
   paginaPessoas = 1;
@@ -206,6 +207,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.filtroUf = '';
     this.filtroCidade = '';
     this.filtroBairro = '';
+    this.filtroAprovadorUid = '';
     this.paginaPessoas = 1;
     this.paginaGrupos = 1;
   }
@@ -816,6 +818,18 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====================================================
   // VALORES DISPONÍVEIS (para selects de localidade)
   // ====================================================
+  get aprovadoresDisponiveis(): { uid: string; nome: string }[] {
+    const map = new Map<string, string>();
+    for (const p of this.pessoasTodos) {
+      const uid: string = (p as any).aprovacao?.porUid;
+      const nome: string = (p as any).aprovacao?.porNome;
+      if (uid && nome && !map.has(uid)) map.set(uid, nome);
+    }
+    return Array.from(map.entries())
+      .map(([uid, nome]) => ({ uid, nome }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+  }
+
   get ufsDisponiveis(): string[] {
     const set = new Set<string>();
     for (const p of this.pessoasTodos) {
@@ -935,6 +949,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     // filtro por bairro
     if (this.filtroBairro) {
       list = list.filter(p => this.normalize((p as any).bairro || '') === this.normalize(this.filtroBairro));
+    }
+
+    // filtro por quem aprovou o CPF
+    if (this.filtroAprovadorUid) {
+      list = list.filter(p => (p as any).aprovacao?.porUid === this.filtroAprovadorUid);
     }
 
     // filtro por analista do time (leads na caixa do analista ou encaminhados por ele)
