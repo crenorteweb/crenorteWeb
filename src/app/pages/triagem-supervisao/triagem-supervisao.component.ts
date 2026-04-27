@@ -83,6 +83,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   sugestoesCriador: ColaboradorItem[] = [];
   mostrarSugestoes = false;
 
+  // ====== filtros de localidade e elegibilidade ======
+  filtroUf = '';
+  filtroCidade = '';
+  filtroBairro = '';
+
   // ====== paginação ======
   paginaPessoas = 1;
   tamanhoPaginaPessoas = 25;
@@ -198,6 +203,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.filtroCriadorSelectUid = '';
     this.sugestoesCriador = [];
     this.mostrarSugestoes = false;
+    this.filtroUf = '';
+    this.filtroCidade = '';
+    this.filtroBairro = '';
     this.paginaPessoas = 1;
     this.paginaGrupos = 1;
   }
@@ -508,7 +516,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
 
-      this.pessoas = filtrarUfsNorte(norm) as typeof norm;
+      const aptos = filtrarUfsNorte(norm).filter(
+        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
+      ) as typeof norm;
+
+      this.pessoas = aptos;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar pessoas:', e);
@@ -638,8 +650,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           desistencia:  { status: desistencia.status  || 'nao_desistiu',    ...desistencia  },
         } as PreCadastro;
       });
-      this.pessoas = norm;
-      this.pessoasView = [...norm];
+      const aptos = norm.filter(r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto');
+      this.pessoas = aptos;
+      this.pessoasView = [...aptos];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao buscar pessoas por criador:', e);
       this.pessoas = [];
@@ -788,13 +801,71 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         }
       }
 
-      this.pessoas = Array.from(atuais.values());
+      this.pessoas = Array.from(atuais.values()).filter(
+        p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
+      );
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error(
         '[Grupos->Pessoas] erro geral ao mesclar membrosIds em TriagemSupervisao:',
         e
       );
+    }
+  }
+
+  // ====================================================
+  // VALORES DISPONÍVEIS (para selects de localidade)
+  // ====================================================
+  get ufsDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.pessoasTodos) {
+      if (((p as any).aprovacao?.status || 'nao_verificado') === 'inapto') continue;
+      const u = ((p as any).uf || '').trim();
+      if (u) set.add(u);
+    }
+    return Array.from(set).sort();
+  }
+
+  get cidadesDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.pessoasTodos) {
+      if (((p as any).aprovacao?.status || 'nao_verificado') === 'inapto') continue;
+      if (this.filtroUf && (p as any).uf !== this.filtroUf) continue;
+      const c = ((p as any).cidade || '').trim();
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort();
+  }
+
+  get bairrosDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.pessoasTodos) {
+      if (((p as any).aprovacao?.status || 'nao_verificado') === 'inapto') continue;
+      if (this.filtroUf && (p as any).uf !== this.filtroUf) continue;
+      if (this.filtroCidade && (p as any).cidade !== this.filtroCidade) continue;
+      const b = ((p as any).bairro || '').trim();
+      if (b) set.add(b);
+    }
+    return Array.from(set).sort();
+  }
+
+  onFiltroUfChange() {
+    this.filtroCidade = '';
+    this.filtroBairro = '';
+    this.aplicarFiltrosPessoas();
+  }
+
+  onFiltroCidadeChange() {
+    this.filtroBairro = '';
+    this.aplicarFiltrosPessoas();
+  }
+
+  getElegibilidadeLabel(status?: string): string {
+    switch (status) {
+      case 'apto':          return 'Elegível';
+      case 'inapto':        return 'Inelegível';
+      case 'nao_verificado':
+      default:              return 'Não verificado';
     }
   }
 
@@ -827,30 +898,44 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.aplicarFiltrosPessoas();
   }
 
-  private aplicarFiltrosPessoas() {
+  aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // filtro encaminhamento
+    // Exclui inaptos permanentemente desta visão de triagem/encaminhamento
+    list = list.filter(p => ((p as any).aprovacao?.status || 'nao_verificado') !== 'inapto');
+
+    // filtro encaminhamento / elegibilidade
     if (this.filtrosEnvio.size > 0) {
-      const temAprovacao = this.filtrosEnvio.has('apto') || this.filtrosEnvio.has('inapto');
+      const temAprovacao = this.filtrosEnvio.has('apto');
       const temEncaminhamento = this.filtrosEnvio.has('encaminhado') || this.filtrosEnvio.has('nao_encaminhado');
 
       list = list.filter((p) => {
-        // Grupo aprovação: OR interno — passa se o status bater com qualquer selecionado
         const passaAprovacao = !temAprovacao ||
           this.filtrosEnvio.has((p as any).aprovacao?.status || 'nao_verificado');
 
-        // Grupo encaminhamento: OR interno
         const enc = !!(p as any).encaminhadoParaUid;
         const passaEncaminhamento = !temEncaminhamento ||
           (this.filtrosEnvio.has('encaminhado') && enc) ||
           (this.filtrosEnvio.has('nao_encaminhado') && !enc);
 
-        // AND entre grupos
         return passaAprovacao && passaEncaminhamento;
       });
     }
 
+    // filtro por UF
+    if (this.filtroUf) {
+      list = list.filter(p => ((p as any).uf || '').toUpperCase() === this.filtroUf.toUpperCase());
+    }
+
+    // filtro por cidade
+    if (this.filtroCidade) {
+      list = list.filter(p => this.normalize((p as any).cidade || '') === this.normalize(this.filtroCidade));
+    }
+
+    // filtro por bairro
+    if (this.filtroBairro) {
+      list = list.filter(p => this.normalize((p as any).bairro || '') === this.normalize(this.filtroBairro));
+    }
 
     // filtro por analista do time (leads na caixa do analista ou encaminhados por ele)
     if (this.filtroAnalista !== 'todos') {
@@ -866,12 +951,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
 
     const term = this.normalize(this.searchTerm);
-    if (term === 'apto' || term === 'inapto' || term === 'nao_verificado') {
+    if (term === 'apto' || term === 'nao_verificado') {
       list = list.filter((p) => {
         const status = (p as any).aprovacao?.status || 'nao_verificado';
         return status === term;
       });
-
     } else if (term) {
       list = list.filter((p) => {
         const blob = this.normalize(
