@@ -229,7 +229,7 @@
               <div class="fw-semibold">{{ p.nomeCompleto || 'Sem nome' }}</div>
               <div class="d-flex flex-wrap gap-1 mt-1">
                 <span class="badge" [ngClass]="getStatusClass(p.aprovacao?.status)">
-                  {{ getElegibilidadeLabel(p.aprovacao?.status) }}
+                  {{ getAprovacaoLabel(p.aprovacao?.status) }}
                 </span>
                 <span class="badge" [ngClass]="elegivelClass($any(p).elegivel?.status)">
                   <i class="bi bi-geo-alt me-1"></i>{{ elegivelLabel($any(p).elegivel?.status) }}

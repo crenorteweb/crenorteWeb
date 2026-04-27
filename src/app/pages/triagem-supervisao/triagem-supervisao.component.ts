@@ -872,13 +872,18 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.aplicarFiltrosPessoas();
   }
 
-  getElegibilidadeLabel(status?: string): string {
+  getAprovacaoLabel(status?: string): string {
     switch (status) {
-      case 'apto':          return 'Elegível';
-      case 'inapto':        return 'Inelegível';
+      case 'apto':          return 'Apto';
+      case 'inapto':        return 'Inapto';
       case 'nao_verificado':
       default:              return 'Não verificado';
     }
+  }
+
+  /** @deprecated use getAprovacaoLabel */
+  getElegibilidadeLabel(status?: string): string {
+    return this.getAprovacaoLabel(status);
   }
 
   elegivelLabel(status?: string): string {
