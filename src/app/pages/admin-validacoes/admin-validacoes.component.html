@@ -492,37 +492,18 @@
 
     <div class="row g-3">
 
-      <!-- Cidades -->
+      <!-- Cidades e Bairros (unificado) -->
       <div class="col-12 col-md-6 col-lg-3">
         <div class="card border-0 shadow-sm h-100">
           <div class="card-body text-center py-4">
             <i class="bi bi-geo-alt-fill fs-2 text-success mb-2 d-block"></i>
-            <h6 class="fw-semibold">Cidades</h6>
-            <p class="text-muted small">Lista de todas as cidades com contagem de registros.</p>
+            <h6 class="fw-semibold">Cidades e Bairros</h6>
+            <p class="text-muted small">Lista unificada de UF + Cidade + Bairro com contagem de registros.</p>
             <div class="d-flex flex-column gap-2 align-items-center">
-              <button class="btn btn-outline-success btn-sm w-100" (click)="exportarLista('cidade')">
+              <button class="btn btn-outline-success btn-sm w-100" (click)="exportarListaLocalizacao()">
                 <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
               </button>
-              <button class="btn btn-outline-danger btn-sm w-100" (click)="exportarListaPdf('cidade')">
-                <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bairros -->
-      <div class="col-12 col-md-6 col-lg-3">
-        <div class="card border-0 shadow-sm h-100">
-          <div class="card-body text-center py-4">
-            <i class="bi bi-building fs-2 text-success mb-2 d-block"></i>
-            <h6 class="fw-semibold">Bairros</h6>
-            <p class="text-muted small">Lista de todos os bairros com contagem de registros.</p>
-            <div class="d-flex flex-column gap-2 align-items-center">
-              <button class="btn btn-outline-success btn-sm w-100" (click)="exportarLista('bairro')">
-                <i class="bi bi-file-earmark-excel me-1"></i> Exportar XLSX
-              </button>
-              <button class="btn btn-outline-danger btn-sm w-100" (click)="exportarListaPdf('bairro')">
+              <button class="btn btn-outline-danger btn-sm w-100" (click)="exportarListaLocalizacaoPdf()">
                 <i class="bi bi-file-earmark-pdf me-1"></i> Exportar PDF
               </button>
             </div>
