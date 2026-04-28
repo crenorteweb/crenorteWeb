@@ -107,7 +107,6 @@
         <select class="form-select" style="max-width:90px" [value]="filtroUf()" #selUf (change)="onFiltroUfChange(selUf.value)">
           <option value="">Todas</option>
           <option *ngFor="let u of ufsOptions().prio" [value]="u">{{ u }}</option>
-          <option *ngFor="let u of ufsOptions().demais" [value]="u">{{ u }}</option>
         </select>
         <span class="input-group-text">Cidade</span>
         <select class="form-select" [value]="filtroCidade()" #selCidade (change)="onFiltroCidadeChange(selCidade.value)">
