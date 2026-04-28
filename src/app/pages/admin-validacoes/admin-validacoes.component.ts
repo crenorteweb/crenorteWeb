@@ -452,36 +452,67 @@ export class AdminValidacoesComponent implements OnInit {
     XLSX.writeFile(wb, `lista_${campo}_${new Date().toISOString().slice(0, 10)}.xlsx`);
   }
 
-  exportarListaPdf(campo: Campo) {
+  exportarListaLocalizacao() {
     const map = new Map<string, number>();
     for (const r of this.todosRegistros()) {
-      const v = (r[campo] || '').trim();
-      if (!v) continue;
-      map.set(v, (map.get(v) ?? 0) + 1);
+      const uf     = (r['uf']     || '').trim().toUpperCase();
+      const cidade = (r['cidade'] || '').trim();
+      const bairro = (r['bairro'] || '').trim();
+      if (!uf && !cidade && !bairro) continue;
+      const key = `${uf}||${cidade}||${bairro}`;
+      map.set(key, (map.get(key) ?? 0) + 1);
     }
     const rows = Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
-      .map(([valor, count], i) => [i + 1, valor, count]);
+      .map(([key, total]) => {
+        const [uf, cidade, bairro] = key.split('||');
+        return { uf, cidade, bairro, total };
+      });
 
-    const titulo = campo === 'cidade' ? 'Lista de Cidades' : 'Lista de Bairros';
-    const colHeader = campo === 'cidade' ? 'Cidade' : 'Bairro';
+    const ws = XLSX.utils.json_to_sheet(rows);
+    ws['!cols'] = [{ wch: 6 }, { wch: 30 }, { wch: 30 }, { wch: 10 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Localizacao');
+    XLSX.writeFile(wb, `lista_localizacao_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  }
+
+  exportarListaLocalizacaoPdf() {
+    const map = new Map<string, number>();
+    for (const r of this.todosRegistros()) {
+      const uf     = (r['uf']     || '').trim().toUpperCase();
+      const cidade = (r['cidade'] || '').trim();
+      const bairro = (r['bairro'] || '').trim();
+      if (!uf && !cidade && !bairro) continue;
+      const key = `${uf}||${cidade}||${bairro}`;
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    const rows = Array.from(map.entries())
+      .sort((a, b) => b[1] - a[1])
+      .map(([key, total], i) => {
+        const [uf, cidade, bairro] = key.split('||');
+        return [i + 1, uf || '—', cidade || '—', bairro || '—', total];
+      });
 
     const pdf = new jsPDF();
     pdf.setFontSize(14);
-    pdf.text(`Crenorte – ${titulo}`, 14, 16);
+    pdf.text('Crenorte – Cidades e Bairros', 14, 16);
     pdf.setFontSize(9);
-    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}   Total: ${map.size} ${campo === 'cidade' ? 'cidade(s)' : 'bairro(s)'}`, 14, 22);
+    pdf.text(`Gerado em: ${new Date().toLocaleDateString('pt-BR')}   Total: ${map.size} combinação(ões)`, 14, 22);
 
     autoTable(pdf, {
       startY: 28,
-      head: [['#', colHeader, 'Total de registros']],
+      head: [['#', 'UF', 'Cidade', 'Bairro', 'Total']],
       body: rows,
-      styles: { fontSize: 9 },
+      styles: { fontSize: 8 },
       headStyles: { fillColor: [40, 167, 69] },
-      columnStyles: { 0: { cellWidth: 12 }, 2: { cellWidth: 36, halign: 'center' } },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 14 },
+        4: { cellWidth: 20, halign: 'center' },
+      },
     });
 
-    pdf.save(`lista_${campo}_${new Date().toISOString().slice(0, 10)}.pdf`);
+    pdf.save(`lista_localizacao_${new Date().toISOString().slice(0, 10)}.pdf`);
   }
 
   exportarCpfsDuplicados() {
