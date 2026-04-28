@@ -8,6 +8,9 @@ export const UFS_PRIORITARIAS: string[] = [
 ];
 
 export const CIDADES_PRIORITARIAS: string[] = [
+  // Capitais do Norte
+  'Belém', 'Manaus', 'Porto Velho', 'Boa Vista', 'Macapá', 'Rio Branco', 'Palmas',
+
   // Unidade Parauapebas / Carajás
   'Parauapebas', 'Eldorado dos Carajás', 'Curionópolis', 'Canaã dos Carajás',
   'Piçarra', 'Água Azul do Norte', 'Palmares I', 'Palmares II', 'Serra Pelada',
@@ -38,13 +41,7 @@ export const CIDADES_PRIORITARIAS: string[] = [
   'Breves', 'Portel', 'Ponta de Pedras', 'Cachoeira do Arari',
 
   // Região Metropolitana de Belém
-  'Belém', 'Ananindeua', 'Marituba', 'Benevides', 'Santa Izabel',
-
-  // Amazonas
-  'Manaus',
-
-  // Amapá
-  'Macapá',
+  'Ananindeua', 'Marituba', 'Benevides', 'Santa Izabel',
 ];
 
 export const BAIRROS_PRIORITARIOS: string[] = [
