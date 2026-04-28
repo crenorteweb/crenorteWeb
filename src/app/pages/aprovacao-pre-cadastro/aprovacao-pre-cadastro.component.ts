@@ -280,6 +280,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
       base = base.filter(i =>
         statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
       );
+    } else if (f === 'nao_verificado') {
+      // Permanece na lista enquanto QUALQUER DOS DOIS ainda não foi verificado
+      base = base.filter(i =>
+        statusOf(i) === 'nao_verificado' ||
+        (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
+      );
     } else if (f !== 'todos') {
       base = base.filter(i => statusOf(i) === f);
     }
