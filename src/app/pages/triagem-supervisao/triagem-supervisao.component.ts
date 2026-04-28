@@ -519,7 +519,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       });
 
       this.pessoas = filtrarUfsNorte(norm).filter(
-        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
+        r =>
+          ((r as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
+          (r as any).elegivel?.status === 'nao'
       ) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -650,7 +652,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           desistencia:  { status: desistencia.status  || 'nao_desistiu',    ...desistencia  },
         } as PreCadastro;
       });
-      const aptos = norm.filter(r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto');
+      const aptos = norm.filter(
+        r =>
+          ((r as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
+          (r as any).elegivel?.status === 'nao'
+      );
       this.pessoas = aptos;
       this.pessoasView = [...aptos];
     } catch (e) {
@@ -802,7 +808,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       }
 
       this.pessoas = Array.from(atuais.values()).filter(
-        p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
+        p =>
+          ((p as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
+          (p as any).elegivel?.status === 'nao'
       );
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -934,8 +942,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // Exibe somente aptos nesta visão de triagem/encaminhamento
-    list = list.filter(p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto');
+    // Exibe somente aptos e não elegíveis nesta visão de triagem/encaminhamento
+    list = list.filter(
+      p =>
+        ((p as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
+        (p as any).elegivel?.status === 'nao'
+    );
 
     // filtro encaminhamento / elegibilidade
     if (this.filtrosEnvio.size > 0) {
