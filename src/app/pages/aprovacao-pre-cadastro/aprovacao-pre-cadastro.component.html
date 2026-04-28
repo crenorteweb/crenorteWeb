@@ -240,25 +240,25 @@
             (click)="abrirModalDesmarcar(item, 'aprovacao')">
             <i class="bi bi-arrow-counterclockwise"></i> Desmarcar
           </button>
-          <ng-container *ngIf="aprovStatus(item) === 'apto'">
-            <div class="vr mx-1"></div>
-            <button class="btn btn-outline-success btn-sm"
-              [disabled]="elegivelStatus(item) === 'sim'"
-              (click)="marcarElegivel(item)">
-              <i class="bi bi-check-circle"></i> Elegível
-            </button>
-            <button class="btn btn-outline-danger btn-sm"
-              [disabled]="elegivelStatus(item) === 'nao'"
-              (click)="abrirModalNaoElegivel(item)">
-              <i class="bi bi-x-circle"></i> Não eleg.
-            </button>
-            <button class="btn btn-outline-secondary btn-sm"
-              [disabled]="elegivelStatus(item) === 'nao_verificado'"
-              title="Desmarcar elegibilidade"
-              (click)="abrirModalDesmarcar(item, 'elegivel')">
-              <i class="bi bi-arrow-counterclockwise"></i> Desmarcar eleg.
-            </button>
-          </ng-container>
+          <div class="vr mx-1"></div>
+          <button class="btn btn-outline-success btn-sm"
+            [disabled]="!podeVerificarElegivel(item) || elegivelStatus(item) === 'sim'"
+            [title]="!podeVerificarElegivel(item) ? 'Disponível apenas para clientes aptos ou inaptos por outros motivos' : ''"
+            (click)="marcarElegivel(item)">
+            <i class="bi bi-check-circle"></i> Elegível
+          </button>
+          <button class="btn btn-outline-danger btn-sm"
+            [disabled]="!podeVerificarElegivel(item) || elegivelStatus(item) === 'nao'"
+            [title]="!podeVerificarElegivel(item) ? 'Disponível apenas para clientes aptos ou inaptos por outros motivos' : ''"
+            (click)="abrirModalNaoElegivel(item)">
+            <i class="bi bi-x-circle"></i> Não eleg.
+          </button>
+          <button class="btn btn-outline-secondary btn-sm"
+            [disabled]="elegivelStatus(item) === 'nao_verificado'"
+            title="Desmarcar elegibilidade"
+            (click)="abrirModalDesmarcar(item, 'elegivel')">
+            <i class="bi bi-arrow-counterclockwise"></i> Desmarcar eleg.
+          </button>
         </div>
 
       </div>
