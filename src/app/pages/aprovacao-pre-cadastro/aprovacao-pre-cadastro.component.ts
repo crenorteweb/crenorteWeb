@@ -566,10 +566,9 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   aptoHabilitado(item: PreCadastro) { return this.aprovStatus(item) !== 'apto'; }
   inaptoHabilitado(item: PreCadastro) { return this.aprovStatus(item) !== 'inapto'; }
 
-  /** Elegibilidade pode ser verificada se: apto, OU inapto com motivoTipo = 'outros' */
+  /** Elegibilidade só pode ser verificada se o cadastro estiver marcado como apto */
   podeVerificarElegivel(item: PreCadastro): boolean {
-    if (this.aprovStatus(item) === 'apto') return true;
-    return this.aprovStatus(item) === 'inapto' && (item as any)?.aprovacao?.motivoTipo === 'outros';
+    return this.aprovStatus(item) === 'apto';
   }
   enviarHabilitado(item: PreCadastro) {
     const status = this.aprovStatus(item);
