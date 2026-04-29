@@ -281,10 +281,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
         statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
       );
     } else if (f === 'nao_verificado') {
-      // Permanece na lista enquanto QUALQUER DOS DOIS ainda não foi verificado
+      // Permanece se: aprovação ainda não decidida, OU apto mas elegibilidade ainda não verificada
+      // Inapto sai imediatamente
       base = base.filter(i =>
         statusOf(i) === 'nao_verificado' ||
-        (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
+        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
       );
     } else if (f !== 'todos') {
       base = base.filter(i => statusOf(i) === f);
