@@ -277,8 +277,11 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
     let base = list;
     if (f === 'pendente') {
+      // Mostra: aprovação não decidida ainda, OU apto aguardando elegibilidade
+      // Sai da lista: inapto (imediatamente) ou apto com elegibilidade já verificada
       base = base.filter(i =>
-        statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado'
+        statusOf(i) === 'nao_verificado' ||
+        (statusOf(i) === 'apto' && (i.elegivel?.status ?? 'nao_verificado') === 'nao_verificado')
       );
     } else if (f === 'nao_verificado') {
       // Permanece se: aprovação ainda não decidida, OU apto mas elegibilidade ainda não verificada
