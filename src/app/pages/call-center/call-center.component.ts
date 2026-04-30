@@ -324,7 +324,8 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
     const todos = Array.from(acc.values()).filter((item: any) =>
       (item.origem ?? '').trim().toLowerCase() === 'site / portal' &&
-      item?.aprovacao?.status === 'apto'
+      item?.aprovacao?.status === 'apto' &&
+      item?.elegivel?.status === 'sim'
     );
     this.preCadastros.set(todos);
   }
