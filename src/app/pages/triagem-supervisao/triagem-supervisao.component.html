@@ -48,7 +48,11 @@
         placeholder="Buscar por nome, CPF, telefone, cidade, grupo…"
         [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" />
     </div>
-    <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end">
+    <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end gap-2">
+      <button type="button" class="btn btn-sm btn-outline-success"
+        (click)="abrirModalRelatorio()" [disabled]="!assessores.length">
+        <i class="bi bi-file-earmark-pdf me-1"></i>Relatório PDF
+      </button>
       <button type="button" class="btn btn-sm btn-outline-secondary"
         (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); limparCriador(); filtroUf = ''; filtroCidade = ''; filtroBairro = ''; filtroAprovadorUid = ''; aplicarFiltrosPessoas()">
         <i class="bi bi-x-circle me-1"></i>Limpar filtros
@@ -543,6 +547,71 @@
       <button type="button" class="btn btn-success" [disabled]="!selectedAssessorUidGrupo"
         (click)="confirmarEncaminharGrupo()">
         Encaminhar grupo
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — RELATÓRIO PDF                                      -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="showRelatorioModal">
+  <div class="overlay__backdrop" (click)="fecharModalRelatorio()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-3">
+      <h5 class="mb-0"><i class="bi bi-file-earmark-pdf me-2 text-success"></i>Gerar Relatório PDF</h5>
+      <button type="button" class="btn-close" (click)="fecharModalRelatorio()"></button>
+    </div>
+
+    <!-- Busca e seleção de assessor -->
+    <div class="mb-3">
+      <label class="form-label fw-semibold mb-1">Assessor <span class="text-danger">*</span></label>
+      <input type="text" class="form-control mb-2"
+        placeholder="Buscar por nome, e-mail ou rota..."
+        [(ngModel)]="buscaAssessorRelatorio"
+        (ngModelChange)="filtrarAssessoresRelatorio()" />
+
+      <div class="list-group" style="max-height: 200px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+          *ngFor="let a of assessoresFiltradosRelatorio"
+          (click)="relatorioAssessorUid = a.uid"
+          [class.active]="relatorioAssessorUid === a.uid">
+          <div>
+            <div class="fw-semibold">{{ a.nome }}</div>
+            <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+          </div>
+          <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">{{ a.rota }}</span>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltradosRelatorio.length">
+          Nenhum assessor encontrado.
+        </div>
+      </div>
+    </div>
+
+    <!-- Período -->
+    <div class="row g-2 mb-3">
+      <div class="col-6">
+        <label class="form-label fw-semibold mb-1">Data início <span class="text-danger">*</span></label>
+        <input type="date" class="form-control" [(ngModel)]="relatorioDataInicio" />
+      </div>
+      <div class="col-6">
+        <label class="form-label fw-semibold mb-1">Data fim <span class="text-muted small">(vazio = hoje)</span></label>
+        <input type="date" class="form-control" [(ngModel)]="relatorioDataFim"
+          [min]="relatorioDataInicio" />
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" (click)="fecharModalRelatorio()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-success"
+        [disabled]="!relatorioFormValido || relatorioLoading"
+        (click)="gerarRelatorio()">
+        <span *ngIf="relatorioLoading" class="spinner-border spinner-border-sm me-1" role="status"></span>
+        <i *ngIf="!relatorioLoading" class="bi bi-download me-1"></i>
+        {{ relatorioLoading ? 'Gerando...' : 'Gerar PDF' }}
       </button>
     </div>
   </div>

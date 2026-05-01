@@ -1,6 +1,8 @@
 import { Component, OnInit, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { HeaderComponent } from '../shared/header/header.component';
 
@@ -134,6 +136,15 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== modal DETALHE GRUPO ======
   showGrupoDetalhe = false;
   grupoDetalhe: GrupoSolidario | null = null;
+
+  // ====== modal RELATÓRIO PDF ======
+  showRelatorioModal = false;
+  relatorioAssessorUid = '';
+  relatorioDataInicio = '';
+  relatorioDataFim = '';
+  relatorioLoading = false;
+  buscaAssessorRelatorio = '';
+  assessoresFiltradosRelatorio: Assessor[] = [];
 
   // ====================================================
   // CICLO DE VIDA
@@ -1441,6 +1452,156 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     );
 
     return membrosUnicos.length + 1; // soma apenas se for realmente diferente
+  }
+
+  // ====================================================
+  // MODAL — RELATÓRIO PDF
+  // ====================================================
+  abrirModalRelatorio() {
+    this.relatorioAssessorUid = '';
+    this.relatorioDataInicio = '';
+    this.relatorioDataFim = '';
+    this.buscaAssessorRelatorio = '';
+    this.assessoresFiltradosRelatorio = [...this.assessores];
+    this.showRelatorioModal = true;
+  }
+
+  fecharModalRelatorio() {
+    this.showRelatorioModal = false;
+  }
+
+  filtrarAssessoresRelatorio() {
+    const term = this.normalize(this.buscaAssessorRelatorio);
+    if (!term) {
+      this.assessoresFiltradosRelatorio = [...this.assessores];
+      return;
+    }
+    this.assessoresFiltradosRelatorio = this.assessores.filter((a) =>
+      this.normalize(`${a.nome || ''} ${a.email || ''} ${a.rota || ''}`).includes(term)
+    );
+  }
+
+  get relatorioFormValido(): boolean {
+    return !!this.relatorioAssessorUid && !!this.relatorioDataInicio;
+  }
+
+  async gerarRelatorio() {
+    if (!this.relatorioFormValido) return;
+
+    this.relatorioLoading = true;
+    try {
+      const ref = collection(this.afs, 'pre_cadastros');
+      const q = fsQuery(ref, where('encaminhadoParaUid', '==', this.relatorioAssessorUid));
+      const snap = await getDocs(q);
+
+      const dataInicio = new Date(this.relatorioDataInicio + 'T00:00:00');
+      const dataFim = this.relatorioDataFim
+        ? new Date(this.relatorioDataFim + 'T23:59:59')
+        : new Date(); // sem data fim → até agora
+
+      const registros = snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as any) }))
+        .filter((r) => {
+          const rawEm = r['encaminhadoEm'] ?? r['designadoEm'] ?? null;
+          const d = this.toJSDate(rawEm);
+          if (!d) return false;
+          return d >= dataInicio && d <= dataFim;
+        })
+        .sort((a, b) => {
+          const rawA = a['encaminhadoEm'] ?? a['designadoEm'] ?? null;
+          const rawB = b['encaminhadoEm'] ?? b['designadoEm'] ?? null;
+          const da = this.toJSDate(rawA)?.getTime() ?? 0;
+          const db = this.toJSDate(rawB)?.getTime() ?? 0;
+          return da - db;
+        });
+
+      const assessor = this.assessores.find((a) => a.uid === this.relatorioAssessorUid);
+      this.exportarPdf(registros, assessor, dataInicio, dataFim);
+      this.fecharModalRelatorio();
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao gerar relatório:', e);
+      alert('Erro ao gerar relatório. Tente novamente.');
+    } finally {
+      this.relatorioLoading = false;
+    }
+  }
+
+  private exportarPdf(
+    registros: any[],
+    assessor: Assessor | undefined,
+    dataInicio: Date,
+    dataFim: Date
+  ) {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+
+    const formatDate = (d: Date) =>
+      `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+
+    const mesmodia =
+      dataInicio.toDateString() === dataFim.toDateString();
+    const periodo = mesmodia
+      ? formatDate(dataInicio)
+      : `${formatDate(dataInicio)} a ${formatDate(dataFim)}`;
+
+    // cabeçalho
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Relatório de Encaminhamentos', 14, 16);
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Assessor: ${assessor?.nome ?? '—'}`, 14, 23);
+    doc.text(`Período: ${periodo}`, 14, 29);
+    doc.text(`Total de clientes: ${registros.length}`, 14, 35);
+
+    const hoje = new Date();
+    doc.text(
+      `Gerado em: ${formatDate(hoje)} ${String(hoje.getHours()).padStart(2, '0')}:${String(hoje.getMinutes()).padStart(2, '0')}`,
+      doc.internal.pageSize.getWidth() - 14,
+      16,
+      { align: 'right' }
+    );
+
+    const rows = registros.map((r, i) => {
+      const encEm = this.toJSDate(r['encaminhadoEm']);
+      const dataEnc = encEm
+        ? `${String(encEm.getDate()).padStart(2, '0')}/${String(encEm.getMonth() + 1).padStart(2, '0')} ${String(encEm.getHours()).padStart(2, '0')}:${String(encEm.getMinutes()).padStart(2, '0')}`
+        : '—';
+
+      return [
+        i + 1,
+        r['nomeCompleto'] || r['nome'] || '—',
+        this.cpfMask(r['cpf']),
+        r['telefone'] || '—',
+        [r['cidade'], r['uf']].filter(Boolean).join('/') || '—',
+        r['bairro'] || '—',
+        dataEnc,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 41,
+      head: [['#', 'Nome', 'CPF', 'Telefone', 'Cidade/UF', 'Bairro', 'Enc. em']],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [25, 135, 84], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [245, 250, 247] },
+      columnStyles: {
+        0: { cellWidth: 8, halign: 'center' },
+        1: { cellWidth: 55 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 30 },
+        5: { cellWidth: 50 },
+        6: { cellWidth: 22, halign: 'center' },
+      },
+    });
+
+    const safeName = (assessor?.nome ?? 'relatorio')
+      .replace(/[^a-zA-Z0-9À-ÿ ]/g, '')
+      .replace(/\s+/g, '_')
+      .toLowerCase();
+    doc.save(`encaminhamentos_${safeName}_${periodo.replace(/\//g, '-').replace(/ /g, '_')}.pdf`);
   }
 
 }
