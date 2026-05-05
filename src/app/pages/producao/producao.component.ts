@@ -60,12 +60,18 @@ export class ProducaoComponent {
   erro               = signal<string | null>(null);
 
   // ── Relatório de cadastros adicionados (modo geral) ───────────────────────
-  abaAtiva                  = signal<'analisados' | 'adicionados'>('analisados');
+  abaAtiva                  = signal<'analisados' | 'adicionados' | 'encaminhados'>('analisados');
   registrosAdicionados      = signal<PreCadastro[]>([]);
   filtroOrigemAdicionados   = signal<string>('');
   carregandoAdicionados     = signal(false);
   jaCarregouAdicionados     = signal(false);
   erroAdicionados           = signal<string | null>(null);
+
+  // ── Relatório de encaminhamentos (modo geral) ─────────────────────────────
+  registrosEncaminhados     = signal<PreCadastro[]>([]);
+  carregandoEncaminhados    = signal(false);
+  jaCarregouEncaminhados    = signal(false);
+  erroEncaminhados          = signal<string | null>(null);
 
   /** Registros filtrados por origem/analista/município/bairro (sem busca CPF) — alimenta os cards de resumo */
   registrosPorOrigem = computed(() => {
@@ -192,6 +198,30 @@ export class ProducaoComponent {
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   });
 
+  encaminhadosPorRemetente = computed(() => {
+    const map = new Map<string, { uid: string; nome: string; count: number }>();
+    this.registrosEncaminhados().forEach(r => {
+      const uid  = r.encaminhadoPorUid  || '';
+      const nome = (r.encaminhadoPorNome || '').trim() || 'Desconhecido';
+      const key  = uid || nome;
+      const cur  = map.get(key) ?? { uid, nome, count: 0 };
+      map.set(key, { uid, nome, count: cur.count + 1 });
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  });
+
+  encaminhadosPorAssessor = computed(() => {
+    const map = new Map<string, { uid: string; nome: string; count: number }>();
+    this.registrosEncaminhados().forEach(r => {
+      const uid  = r.encaminhadoParaUid  || '';
+      const nome = (r.encaminhadoParaNome || '').trim() || 'Desconhecido';
+      const key  = uid || nome;
+      const cur  = map.get(key) ?? { uid, nome, count: 0 };
+      map.set(key, { uid, nome, count: cur.count + 1 });
+    });
+    return Array.from(map.values()).sort((a, b) => b.count - a.count);
+  });
+
   // ── Handlers de filtro ────────────────────────────────────────────────────
 
   onCargo(cargo: CargoFiltro) {
@@ -209,11 +239,14 @@ export class ProducaoComponent {
     this.abaAtiva.set('analisados');
     this.jaCarregou.set(false);
     this.jaCarregouAdicionados.set(false);
+    this.jaCarregouEncaminhados.set(false);
     this.erro.set(null);
     this.erroAdicionados.set(null);
+    this.erroEncaminhados.set(null);
     if (cargo === 'geral' && this.dataInicio()) {
       this.buscar();
       this.buscarAdicionados();
+      this.buscarEncaminhados();
     }
   }
 
@@ -226,7 +259,10 @@ export class ProducaoComponent {
     this.dataInicio.set(periodo.inicio);
     this.dataFim.set(periodo.fim);
     if (this.colaborador() || this.cargo() === 'geral') this.buscar();
-    if (this.cargo() === 'geral') this.buscarAdicionados();
+    if (this.cargo() === 'geral') {
+      this.buscarAdicionados();
+      this.buscarEncaminhados();
+    }
   }
 
   onTermoBusca(termo: string) {
@@ -301,6 +337,29 @@ export class ProducaoComponent {
       }),
     ).subscribe(registros => {
       this.registrosAdicionados.set(registros);
+    });
+  }
+
+  private buscarEncaminhados() {
+    const dataInicio = this.dataInicio();
+    const dataFim    = this.dataFim();
+    if (!dataInicio) return;
+
+    this.carregandoEncaminhados.set(true);
+    this.erroEncaminhados.set(null);
+    this.registrosEncaminhados.set([]);
+
+    this.svc.buscarEncaminhados(dataInicio, dataFim).pipe(
+      catchError(e => {
+        this.erroEncaminhados.set('Erro ao buscar encaminhamentos: ' + (e?.message || 'Tente novamente.'));
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.carregandoEncaminhados.set(false);
+        this.jaCarregouEncaminhados.set(true);
+      }),
+    ).subscribe(registros => {
+      this.registrosEncaminhados.set(registros);
     });
   }
 

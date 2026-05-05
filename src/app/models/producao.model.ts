@@ -35,6 +35,10 @@ export interface PreCadastro {
   encaminhadoEm?: any;
   analisadoEm?: any;
   elegivel?: { status: 'nao_verificado' | 'sim' | 'nao' };
+  encaminhadoPorUid?: string;
+  encaminhadoPorNome?: string;
+  encaminhadoParaUid?: string;
+  encaminhadoParaNome?: string;
 }
 
 export interface Cliente {
