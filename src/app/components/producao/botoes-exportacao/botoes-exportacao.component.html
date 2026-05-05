@@ -1,4 +1,15 @@
-<div *ngIf="registros.length > 0" class="d-flex gap-2 flex-wrap">
+<div *ngIf="modoEncaminhados && totalEncaminhados > 0" class="d-flex gap-2 flex-wrap">
+  <button
+    type="button"
+    class="btn btn-outline-danger btn-sm"
+    (click)="exportarPDFEncaminhados()"
+    title="Exportar PDF dos encaminhamentos"
+  >
+    <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+  </button>
+</div>
+
+<div *ngIf="!modoEncaminhados && registros.length > 0" class="d-flex gap-2 flex-wrap">
   <button
     type="button"
     class="btn btn-outline-danger btn-sm"

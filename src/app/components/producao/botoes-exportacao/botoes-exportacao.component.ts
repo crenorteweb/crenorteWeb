@@ -20,6 +20,11 @@ export class BotoesExportacao {
   @Input() dataFim = '';
   /** Quando true, usa colunas e nome de arquivo específicos para o relatório de adicionados */
   @Input() modoAdicionados = false;
+  /** Quando true, gera PDF de resumo de encaminhamentos (usa os dados abaixo) */
+  @Input() modoEncaminhados = false;
+  @Input() encaminhadosPorRemetente: { nome: string; count: number }[] = [];
+  @Input() encaminhadosPorAssessor:  { nome: string; count: number }[] = [];
+  @Input() totalEncaminhados = 0;
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -155,4 +160,68 @@ export class BotoesExportacao {
   exportarExcel()     { this.gerarExcel(this.registros); }
   exportarPDFAptos()  { this.gerarPDF(this.registrosAptos, 'Aptos'); }
   exportarExcelAptos(){ this.gerarExcel(this.registrosAptos, '_aptos'); }
+
+  exportarPDFEncaminhados() {
+    const doc = new jsPDF();
+    const agora = new Date().toLocaleString('pt-BR');
+    const periodo = this.dataInicio === this.dataFim
+      ? this.formatarData(this.dataInicio)
+      : `${this.formatarData(this.dataInicio)} a ${this.formatarData(this.dataFim)}`;
+
+    doc.setFontSize(18);
+    doc.setTextColor(0, 141, 69);
+    doc.text('CRENORTE', 14, 18);
+
+    doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Relatório de Encaminhamentos', 14, 27);
+
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Período: ${periodo}`, 14, 35);
+    doc.text(`Total encaminhados: ${this.totalEncaminhados}`, 14, 41);
+
+    // Tabela: por quem encaminhou
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Por quem encaminhou', 14, 51);
+
+    autoTable(doc, {
+      head: [['Colaborador', 'Qtd.']],
+      body: this.encaminhadosPorRemetente.map(i => [i.nome, i.count]),
+      startY: 55,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 240] },
+      columnStyles: { 1: { halign: 'center', cellWidth: 30 } },
+      margin: { left: 14, right: 14 },
+    });
+
+    const y1 = (doc as any).lastAutoTable?.finalY ?? 80;
+
+    // Tabela: para qual assessor
+    doc.setFontSize(11);
+    doc.setTextColor(40, 40, 40);
+    doc.text('Para qual assessor', 14, y1 + 12);
+
+    autoTable(doc, {
+      head: [['Assessor', 'Qtd.']],
+      body: this.encaminhadosPorAssessor.map(i => [i.nome, i.count]),
+      startY: y1 + 16,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 240] },
+      columnStyles: { 1: { halign: 'center', cellWidth: 30 } },
+      margin: { left: 14, right: 14 },
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY ?? 120;
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text(`Gerado em: ${agora}`, 14, finalY + 9);
+
+    const nome = (this.nomeColaborador || 'geral')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+    doc.save(`encaminhamentos_${nome}_${this.periodoLabel}.pdf`);
+  }
 }
