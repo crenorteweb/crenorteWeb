@@ -146,6 +146,13 @@ export class ProducaoComponent {
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   });
 
+  /** Nome do analista selecionado no filtro (modo geral) — vazio quando "Todos" */
+  filtroAnalistaNome = computed(() => {
+    const uid = this.filtroAnalista().trim();
+    if (!uid) return '';
+    return this.analistasDisponiveis().find(a => a.id === uid)?.nome || '';
+  });
+
   registrosFiltrados = computed(() => {
     let lista = this.registrosPorOrigem();
 
