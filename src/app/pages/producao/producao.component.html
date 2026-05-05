@@ -130,8 +130,10 @@
               ></app-busca-cpf>
               <app-botoes-exportacao
                 [registros]="registrosFiltrados()"
+                [registrosGeral]="cargo() === 'geral' ? registrosOriginais() : []"
                 [cargo]="cargo()"
                 [nomeColaborador]="nomeColaborador"
+                [filtroAnalistaNome]="filtroAnalistaNome()"
                 [dataInicio]="dataInicio()"
                 [dataFim]="dataFim()"
               ></app-botoes-exportacao>
