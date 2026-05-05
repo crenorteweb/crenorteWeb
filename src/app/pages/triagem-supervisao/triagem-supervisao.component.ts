@@ -530,9 +530,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       });
 
       this.pessoas = filtrarUfsNorte(norm).filter(
-        r =>
-          ((r as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
-          (r as any).elegivel?.status === 'nao'
+        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
       ) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -664,9 +662,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
       const aptos = norm.filter(
-        r =>
-          ((r as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
-          (r as any).elegivel?.status === 'nao'
+        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
       );
       this.pessoas = aptos;
       this.pessoasView = [...aptos];
@@ -819,9 +815,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       }
 
       this.pessoas = Array.from(atuais.values()).filter(
-        p =>
-          ((p as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
-          (p as any).elegivel?.status === 'nao'
+        p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
       );
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -953,11 +947,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // Exibe somente aptos e não elegíveis nesta visão de triagem/encaminhamento
+    // Exibe somente aptos nesta visão de triagem/encaminhamento
     list = list.filter(
-      p =>
-        ((p as any).aprovacao?.status || 'nao_verificado') === 'apto' &&
-        (p as any).elegivel?.status === 'nao'
+      p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
     );
 
     // filtro encaminhamento / elegibilidade
