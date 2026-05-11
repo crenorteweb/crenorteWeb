@@ -16,11 +16,26 @@
       <ng-container *ngIf="aba === 'grupos'">
         {{ gruposView.length }} grupo(s) na sua triagem
       </ng-container>
+      <ng-container *ngIf="aba === 'minha-caixa'">
+        {{ minhaCaixaPessoasView.length }} pessoa(s) · {{ minhaCaixaGruposView.length }} grupo(s) na sua caixa
+      </ng-container>
     </div>
   </div>
 
   <!-- Abas estilizadas -->
   <ul class="nav crenorte-tabs mt-3">
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="aba === 'minha-caixa'" (click)="setAba('minha-caixa')"
+        [attr.aria-selected]="aba === 'minha-caixa'">
+        <i class="bi bi-inbox me-1"></i>Minha caixa
+        <span class="badge rounded-pill ms-1"
+          [class.bg-success]="aba === 'minha-caixa'"
+          [class.bg-secondary]="aba !== 'minha-caixa'"
+          *ngIf="minhaCaixaPessoasView.length + minhaCaixaGruposView.length > 0">
+          {{ minhaCaixaPessoasView.length + minhaCaixaGruposView.length }}
+        </span>
+      </button>
+    </li>
     <li class="nav-item">
       <button class="nav-link" [class.active]="aba === 'pessoas'" (click)="setAba('pessoas')"
         [attr.aria-selected]="aba === 'pessoas'">
@@ -191,6 +206,168 @@
 <!-- CONTEÚDO PRINCIPAL                                        -->
 <!-- ========================================================= -->
 <div *ngIf="!loading; else loadingTpl">
+  <!-- ========================= -->
+  <!-- ABA MINHA CAIXA           -->
+  <!-- ========================= -->
+  <div class="container-fluid" *ngIf="aba === 'minha-caixa'">
+
+    <!-- Busca rápida dentro da caixa -->
+    <div class="my-3">
+      <input type="text" class="form-control"
+        placeholder="Buscar por nome, CPF, cidade, encaminhado por…"
+        [(ngModel)]="searchTermMinhaCaixa"
+        (ngModelChange)="aplicarFiltrosMinhaCaixa()" />
+    </div>
+
+    <!-- Vazio total -->
+    <div class="alert alert-secondary" *ngIf="!minhaCaixaPessoasView.length && !minhaCaixaGruposView.length">
+      <i class="bi bi-inbox me-2"></i>Nenhum pré-cadastro ou grupo foi encaminhado para você ainda.
+    </div>
+
+    <!-- ===== PESSOAS ===== -->
+    <ng-container *ngIf="minhaCaixaPessoasView.length">
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+        <h6 class="mb-0 text-success fw-semibold">
+          <i class="bi bi-people me-1"></i>Pessoas ({{ minhaCaixaPessoasView.length }})
+        </h6>
+        <div class="d-flex align-items-center gap-2">
+          <label class="small text-muted mb-0">Por página:</label>
+          <select class="form-select form-select-sm w-auto"
+            [(ngModel)]="tamanhoPaginaMinhaCaixa"
+            (ngModelChange)="paginaMinhaCaixa = 1">
+            <option [value]="10">10</option>
+            <option [value]="25">25</option>
+            <option [value]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-6 col-xl-4" *ngFor="let p of minhaCaixaPessoasPaginadas">
+          <div class="card h-100 shadow-sm border-0 border-start border-3 border-primary">
+
+            <div class="card-header bg-white border-bottom d-flex flex-wrap align-items-start justify-content-between gap-2 py-2">
+              <div>
+                <div class="fw-semibold">{{ p.nomeCompleto || 'Sem nome' }}</div>
+                <div class="d-flex flex-wrap gap-1 mt-1">
+                  <span class="badge" [ngClass]="getStatusClass(p.aprovacao?.status)">
+                    {{ getAprovacaoLabel(p.aprovacao?.status) }}
+                  </span>
+                  <span class="badge bg-primary">
+                    <i class="bi bi-arrow-left-circle me-1"></i>Recebido
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-body py-2 small">
+              <div class="row g-1">
+                <div class="col-12" *ngIf="p.cpf">
+                  <span class="text-muted">CPF:</span> {{ cpfMask(p.cpf) }}
+                  <span class="ms-2 text-muted">Sexo:</span> {{ p.sexo || '—' }}
+                </div>
+                <div class="col-12">
+                  <span class="text-muted">Tel:</span>
+                  <a *ngIf="whatsHref(p.telefone) as wa" [href]="wa" target="_blank" class="ms-1 text-success">
+                    <i class="bi bi-whatsapp me-1"></i>{{ p.telefone }}
+                  </a>
+                  <span *ngIf="!whatsHref(p.telefone)" class="ms-1">{{ p.telefone || '—' }}</span>
+                </div>
+                <div class="col-12">
+                  <span class="text-muted">Local:</span>
+                  {{ p.cidade || '—' }}<ng-container *ngIf="p.uf">/{{ p.uf }}</ng-container>
+                  <ng-container *ngIf="p.bairro"> &nbsp;·&nbsp; {{ p.bairro }}</ng-container>
+                </div>
+                <div class="col-12" *ngIf="p.modalidade">
+                  <span class="text-muted">Modalidade:</span> {{ p.modalidade }}
+                </div>
+                <div class="col-12" *ngIf="p.grupoNome">
+                  <span class="text-muted">Grupo:</span> {{ p.grupoNome }}
+                  <span class="text-muted">({{ p.papelNoGrupo || 'membro' }})</span>
+                </div>
+                <div class="col-12 text-muted" style="font-size:.75rem">
+                  Criado por: {{ p.createdByNome || '—' }}
+                </div>
+              </div>
+            </div>
+
+            <div class="card-footer bg-white border-top py-2">
+              <!-- Quem encaminhou e quando -->
+              <div class="small mb-2" *ngIf="$any(p).encaminhadoPorNome">
+                <i class="bi bi-arrow-return-right me-1 text-primary"></i>
+                Encaminhado por <span class="fw-medium">{{ $any(p).encaminhadoPorNome }}</span>
+                <span *ngIf="encaminhadoData(p) as dt" class="text-muted ms-1">({{ dt }})</span>
+              </div>
+              <!-- Encaminhar para assessor a partir daqui -->
+              <button type="button" class="btn btn-sm btn-outline-success w-100"
+                (click)="abrirModalAssessorPessoa(p)">
+                <i class="bi bi-send me-1"></i>
+                {{ encaminhadoLabel(p) ? 'Redirecionar assessor' : 'Encaminhar para assessor' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Paginação Minha Caixa -->
+      <nav *ngIf="totalPaginasMinhaCaixa > 1" class="d-flex justify-content-center mb-4">
+        <ul class="pagination pagination-sm mb-0">
+          <li class="page-item" [class.disabled]="paginaMinhaCaixa === 1">
+            <button class="page-link" (click)="paginaMinhaCaixa = paginaMinhaCaixa - 1"
+              [disabled]="paginaMinhaCaixa === 1">‹</button>
+          </li>
+          <li class="page-item" *ngFor="let p of paginasVisiveis(paginaMinhaCaixa, totalPaginasMinhaCaixa)"
+            [class.active]="p === paginaMinhaCaixa" [class.disabled]="p === '...'">
+            <button class="page-link" (click)="paginaMinhaCaixa = +p">{{ p }}</button>
+          </li>
+          <li class="page-item" [class.disabled]="paginaMinhaCaixa === totalPaginasMinhaCaixa">
+            <button class="page-link" (click)="paginaMinhaCaixa = paginaMinhaCaixa + 1"
+              [disabled]="paginaMinhaCaixa === totalPaginasMinhaCaixa">›</button>
+          </li>
+        </ul>
+      </nav>
+    </ng-container>
+
+    <!-- ===== GRUPOS ===== -->
+    <ng-container *ngIf="minhaCaixaGruposView.length">
+      <h6 class="mb-2 text-success fw-semibold">
+        <i class="bi bi-people-fill me-1"></i>Grupos ({{ minhaCaixaGruposView.length }})
+      </h6>
+      <div class="card mb-4">
+        <div class="triagem-card px-4 py-3 border-bottom" *ngFor="let g of minhaCaixaGruposView">
+          <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+            <div>
+              <div class="fw-semibold">GRUPO › {{ g.nome || 'Grupo sem nome' }}</div>
+              <div class="text-muted small" *ngIf="g.cidade || g.uf">
+                {{ g.cidade || '—' }}<span *ngIf="g.uf">/{{ g.uf }}</span>
+              </div>
+              <div class="text-muted small" *ngIf="g.coordenadorView?.nome">
+                Coordenador: {{ g.coordenadorView?.nome }}
+              </div>
+              <div class="text-muted small">Integrantes: {{ qtdMembrosGrupo(g) }}</div>
+              <div class="text-muted small" *ngIf="$any(g).encaminhadoPorNome">
+                <i class="bi bi-arrow-return-right me-1 text-primary"></i>
+                Encaminhado por <span class="fw-medium text-body">{{ $any(g).encaminhadoPorNome }}</span>
+              </div>
+            </div>
+            <div class="d-flex flex-column align-items-end gap-2">
+              <span class="badge bg-primary">Recebido</span>
+              <div class="d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="abrirDetalheGrupo(g)">
+                  Detalhes
+                </button>
+                <button type="button" class="btn btn-sm btn-success" (click)="abrirModalAssessorGrupo(g)">
+                  Encaminhar grupo
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </ng-container>
+
+  </div>
+
   <!-- ========================= -->
   <!-- ABA PESSOAS (estilo lista) -->
   <!-- ========================= -->
@@ -435,51 +612,77 @@
   <div class="overlay__backdrop" (click)="fecharModalAssessorPessoa()"></div>
   <div class="overlay__panel">
     <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
-      <h5 class="mb-0">Encaminhar pré-cadastro para assessor</h5>
+      <h5 class="mb-0">Encaminhar pré-cadastro</h5>
       <button type="button" class="btn-close" (click)="fecharModalAssessorPessoa()"></button>
     </div>
 
     <div class="mb-3">
-      <div class="fw-semibold">
-        {{
-        pessoaSelecionada?.nomeCompleto ||
-        'Pré-cadastro'
-        }}
+      <div class="fw-semibold">{{ pessoaSelecionada?.nomeCompleto || 'Pré-cadastro' }}</div>
+      <small class="text-muted">CPF: {{ cpfMask(pessoaSelecionada?.cpf || '') }}</small>
+    </div>
+
+    <!-- Seletor de tipo de destino (visível apenas para analistas com permissão) -->
+    <div class="mb-3" *ngIf="currentUserPodeEncaminharParaAnalista">
+      <label class="form-label mb-1 fw-semibold">Encaminhar para</label>
+      <div class="btn-group w-100" role="group">
+        <button type="button" class="btn btn-sm"
+          [class.btn-success]="tipoDestinoModal === 'assessor'"
+          [class.btn-outline-success]="tipoDestinoModal !== 'assessor'"
+          (click)="setTipoDestinoModal('assessor')">
+          <i class="bi bi-person-badge me-1"></i>Assessor
+        </button>
+        <button type="button" class="btn btn-sm"
+          [class.btn-success]="tipoDestinoModal === 'analista'"
+          [class.btn-outline-success]="tipoDestinoModal !== 'analista'"
+          (click)="setTipoDestinoModal('analista')">
+          <i class="bi bi-person-check me-1"></i>Analista
+        </button>
       </div>
-      <small class="text-muted">
-        CPF:
-        {{
-        cpfMask(
-        pessoaSelecionada?.cpf || ''
-        )
-        }}
-      </small>
     </div>
 
-    <div class="mb-2">
-      <label class="form-label mb-1">Buscar assessor</label>
-      <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..." [(ngModel)]="buscaAssessorPessoa"
-        (ngModelChange)="filtrarAssessoresPessoa()" />
-    </div>
-
-    <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
-      <button type="button"
-        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-        *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidPessoa = a.uid"
-        [class.active]="selectedAssessorUidPessoa === a.uid">
-        <div>
-          <div class="fw-semibold">{{ a.nome }}</div>
-          <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+    <!-- Lista de ASSESSORES -->
+    <ng-container *ngIf="tipoDestinoModal === 'assessor'">
+      <div class="mb-2">
+        <label class="form-label mb-1">Buscar assessor</label>
+        <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..."
+          [(ngModel)]="buscaAssessorPessoa" (ngModelChange)="filtrarAssessoresPessoa()" />
+      </div>
+      <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+          *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidPessoa = a.uid"
+          [class.active]="selectedAssessorUidPessoa === a.uid">
+          <div>
+            <div class="fw-semibold">{{ a.nome }}</div>
+            <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+          </div>
+          <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">{{ a.rota }}</span>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
+          Nenhum assessor encontrado.
         </div>
-        <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">
-          {{ a.rota }}
-        </span>
-      </button>
-
-      <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
-        Nenhum assessor encontrado.
       </div>
-    </div>
+    </ng-container>
+
+    <!-- Lista de ANALISTAS -->
+    <ng-container *ngIf="tipoDestinoModal === 'analista'">
+      <div class="mb-2">
+        <label class="form-label mb-1">Buscar analista</label>
+        <input type="text" class="form-control" placeholder="Nome do analista..."
+          [(ngModel)]="buscaAnalistaModal" (ngModelChange)="filtrarAnalistasModal()" />
+      </div>
+      <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action"
+          *ngFor="let a of analistasFiltradosModal" (click)="selectedAssessorUidPessoa = a.uid"
+          [class.active]="selectedAssessorUidPessoa === a.uid">
+          <div class="fw-semibold">{{ a.nome }}</div>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!analistasFiltradosModal.length">
+          Nenhum analista encontrado.
+        </div>
+      </div>
+    </ng-container>
 
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="fecharModalAssessorPessoa()">
@@ -500,14 +703,12 @@
   <div class="overlay__backdrop" (click)="fecharModalAssessorGrupo()"></div>
   <div class="overlay__panel">
     <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
-      <h5 class="mb-0">Encaminhar grupo para assessor</h5>
+      <h5 class="mb-0">Encaminhar grupo</h5>
       <button type="button" class="btn-close" (click)="fecharModalAssessorGrupo()"></button>
     </div>
 
     <div class="mb-3">
-      <div class="fw-semibold">
-        {{ grupoSelecionado?.nome || 'Grupo' }}
-      </div>
+      <div class="fw-semibold">{{ grupoSelecionado?.nome || 'Grupo' }}</div>
       <small class="text-muted">
         {{ grupoSelecionado?.cidade || '' }}
         <span *ngIf="grupoSelecionado?.cidade && grupoSelecionado?.uf">-&nbsp;</span>
@@ -515,30 +716,68 @@
       </small>
     </div>
 
-    <div class="mb-2">
-      <label class="form-label mb-1">Buscar assessor</label>
-      <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..." [(ngModel)]="buscaAssessorGrupo"
-        (ngModelChange)="filtrarAssessoresGrupo()" />
-    </div>
-
-    <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
-      <button type="button"
-        class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-        *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidGrupo = a.uid"
-        [class.active]="selectedAssessorUidGrupo === a.uid">
-        <div>
-          <div class="fw-semibold">{{ a.nome }}</div>
-          <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
-        </div>
-        <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">
-          {{ a.rota }}
-        </span>
-      </button>
-
-      <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
-        Nenhum assessor encontrado.
+    <!-- Seletor de tipo de destino (visível apenas para analistas com permissão) -->
+    <div class="mb-3" *ngIf="currentUserPodeEncaminharParaAnalista">
+      <label class="form-label mb-1 fw-semibold">Encaminhar para</label>
+      <div class="btn-group w-100" role="group">
+        <button type="button" class="btn btn-sm"
+          [class.btn-success]="tipoDestinoModal === 'assessor'"
+          [class.btn-outline-success]="tipoDestinoModal !== 'assessor'"
+          (click)="setTipoDestinoModal('assessor')">
+          <i class="bi bi-person-badge me-1"></i>Assessor
+        </button>
+        <button type="button" class="btn btn-sm"
+          [class.btn-success]="tipoDestinoModal === 'analista'"
+          [class.btn-outline-success]="tipoDestinoModal !== 'analista'"
+          (click)="setTipoDestinoModal('analista')">
+          <i class="bi bi-person-check me-1"></i>Analista
+        </button>
       </div>
     </div>
+
+    <!-- Lista de ASSESSORES -->
+    <ng-container *ngIf="tipoDestinoModal === 'assessor'">
+      <div class="mb-2">
+        <label class="form-label mb-1">Buscar assessor</label>
+        <input type="text" class="form-control" placeholder="Nome, e-mail ou rota..."
+          [(ngModel)]="buscaAssessorGrupo" (ngModelChange)="filtrarAssessoresGrupo()" />
+      </div>
+      <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+          *ngFor="let a of assessoresFiltrados" (click)="selectedAssessorUidGrupo = a.uid"
+          [class.active]="selectedAssessorUidGrupo === a.uid">
+          <div>
+            <div class="fw-semibold">{{ a.nome }}</div>
+            <small class="text-muted" *ngIf="a.email">{{ a.email }}</small>
+          </div>
+          <span class="badge rounded-pill text-bg-light" *ngIf="a.rota">{{ a.rota }}</span>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!assessoresFiltrados.length">
+          Nenhum assessor encontrado.
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Lista de ANALISTAS -->
+    <ng-container *ngIf="tipoDestinoModal === 'analista'">
+      <div class="mb-2">
+        <label class="form-label mb-1">Buscar analista</label>
+        <input type="text" class="form-control" placeholder="Nome do analista..."
+          [(ngModel)]="buscaAnalistaModal" (ngModelChange)="filtrarAnalistasModal()" />
+      </div>
+      <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action"
+          *ngFor="let a of analistasFiltradosModal" (click)="selectedAssessorUidGrupo = a.uid"
+          [class.active]="selectedAssessorUidGrupo === a.uid">
+          <div class="fw-semibold">{{ a.nome }}</div>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!analistasFiltradosModal.length">
+          Nenhum analista encontrado.
+        </div>
+      </div>
+    </ng-container>
 
     <div class="d-flex justify-content-end gap-2">
       <button type="button" class="btn btn-outline-secondary" (click)="fecharModalAssessorGrupo()">

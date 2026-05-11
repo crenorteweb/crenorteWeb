@@ -9,6 +9,17 @@
   </button>
 </div>
 
+<div *ngIf="!modoEncaminhados && registrosGeral.length > 0" class="d-flex gap-2 flex-wrap mb-1">
+  <button
+    type="button"
+    class="btn btn-outline-danger btn-sm"
+    (click)="exportarPDFProducaoGeralPorDia()"
+    title="Relatório de produção de todos os analistas por dia"
+  >
+    <i class="bi bi-file-earmark-bar-graph me-1"></i>PDF Produção Analistas
+  </button>
+</div>
+
 <div *ngIf="!modoEncaminhados && registros.length > 0" class="d-flex gap-2 flex-wrap">
   <button
     type="button"

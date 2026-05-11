@@ -128,6 +128,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
     rota: [''],
     supervisorId: [null as string | null],
     analistaId: [null as string | null],
+    podeEncaminharParaAnalista: [false],
   });
 
   // ---------- Lifecycle ----------
@@ -339,6 +340,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
       rota: c.rota ?? '',
       supervisorId: c.supervisorId ?? null,
       analistaId: c.analistaId ?? null,
+      podeEncaminharParaAnalista: (c as any).podeEncaminharParaAnalista ?? false,
     });
     this.savingEdit.set(false);
     this.erro.set(null);
@@ -377,6 +379,11 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
 
     const analistaId = this.editForm.get('analistaId')?.value as string | null | undefined;
     if (analistaId !== undefined) updates.analistaId = analistaId;
+
+    const podeEncaminhar = this.editForm.get('podeEncaminharParaAnalista')?.value;
+    if (papel === 'analista') {
+      updates.podeEncaminharParaAnalista = podeEncaminhar === true;
+    }
 
     // CPF (só valida se veio algo)
     const cpfRaw = this.editForm.get('cpf')?.value ?? '';
