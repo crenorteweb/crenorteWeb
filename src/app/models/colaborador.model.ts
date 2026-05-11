@@ -25,4 +25,7 @@ export interface Colaborador {
 
   criadoEm: number;
   id?: string; // conveniência
+
+  // Permissão especial: permite que este analista encaminhe pré-cadastros para outro analista
+  podeEncaminharParaAnalista?: boolean;
 }

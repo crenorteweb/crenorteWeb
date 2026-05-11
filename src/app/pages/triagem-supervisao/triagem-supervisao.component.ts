@@ -29,7 +29,7 @@ import {
 } from '@angular/fire/firestore';
 import { Subscription } from 'rxjs';
 
-type Aba = 'pessoas' | 'grupos';
+type Aba = 'pessoas' | 'grupos' | 'minha-caixa';
 
 type FiltroEnvio = 'todos' | 'encaminhado' | 'nao_encaminhado' | 'apto' | 'inapto';
 
@@ -62,6 +62,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== estado usuário atual ======
   currentUserUid: string | null = null;
   currentUserNome: string | null = null;
+  currentUserPodeEncaminharParaAnalista = false;
   private subUser?: Subscription;
 
   // cache de nomes para não ficar lendo o mesmo colaborador sempre
@@ -96,6 +97,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   tamanhoPaginaPessoas = 25;
   paginaGrupos = 1;
   tamanhoPaginaGrupos = 10;
+  paginaMinhaCaixa = 1;
+  tamanhoPaginaMinhaCaixa = 25;
 
   // ====== filtro por analista do time ======
   analistas: Analista[] = [];
@@ -109,6 +112,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== grupos ======
   grupos: GrupoSolidario[] = [];       // grupos da lista
   gruposView: GrupoSolidario[] = [];   // filtrados pela busca
+
+  // ====== minha caixa (registros com caixaUid === currentUserUid) ======
+  minhaCaixaPessoasView: PreCadastro[] = [];
+  minhaCaixaGruposView: GrupoSolidario[] = [];
+  searchTermMinhaCaixa = '';
 
   // ====== assessores (time do analista) ======
   assessores: Assessor[] = [];
@@ -132,6 +140,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   grupoSelecionado: GrupoSolidario | null = null;
   selectedAssessorUidGrupo: string | null = null;
   buscaAssessorGrupo = '';
+
+  // ====== seletor de tipo de destino (compartilhado entre modais) ======
+  tipoDestinoModal: 'assessor' | 'analista' = 'assessor';
+  analistasFiltradosModal: Analista[] = [];
+  buscaAnalistaModal = '';
 
   // ====== modal DETALHE GRUPO ======
   showGrupoDetalhe = false;
@@ -163,6 +176,15 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         this.currentUserUid = u.uid;
         this.currentUserNome = await this.resolveUserName(u.uid);
 
+        // Verifica se o usuário logado tem permissão de encaminhar para analista
+        try {
+          const meSnap = await getDoc(doc(this.afs, 'colaboradores', u.uid));
+          this.currentUserPodeEncaminharParaAnalista =
+            (meSnap.data() as any)?.podeEncaminharParaAnalista === true;
+        } catch {
+          this.currentUserPodeEncaminharParaAnalista = false;
+        }
+
         // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
         const equipeUids = await this.obterIdsDoMeuTime();
         await Promise.all([
@@ -187,6 +209,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
         this.aplicarFiltrosPessoas();
         this.aplicarFiltrosGrupos();
+        this.aplicarFiltrosMinhaCaixa();
       } catch (e) {
         console.error('[TriagemSupervisao] erro ao iniciar:', e);
         this.resetarListas();
@@ -205,6 +228,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.pessoasView = [];
     this.grupos = [];
     this.gruposView = [];
+    this.minhaCaixaPessoasView = [];
+    this.minhaCaixaGruposView = [];
     this.assessores = [];
     this.assessoresFiltrados = [];
     this.analistas = [];
@@ -291,6 +316,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.grupos  = [...this.gruposTodos];
     this.aplicarFiltrosPessoas();
     this.aplicarFiltrosGrupos();
+    this.aplicarFiltrosMinhaCaixa();
   }
 
   onCriadorBlur(): void {
@@ -922,11 +948,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.aba = aba;
     this.aplicarFiltrosPessoas();
     this.aplicarFiltrosGrupos();
+    this.aplicarFiltrosMinhaCaixa();
   }
 
   onSearchChange() {
     if (this.aba === 'pessoas') this.aplicarFiltrosPessoas();
-    else this.aplicarFiltrosGrupos();
+    else if (this.aba === 'grupos') this.aplicarFiltrosGrupos();
+    else this.aplicarFiltrosMinhaCaixa();
   }
 
   setEnvioFilter(f: FiltroEnvio) {
@@ -1065,6 +1093,66 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====================================================
+  // MINHA CAIXA
+  // ====================================================
+  aplicarFiltrosMinhaCaixa() {
+    if (!this.currentUserUid) {
+      this.minhaCaixaPessoasView = [];
+      this.minhaCaixaGruposView = [];
+      return;
+    }
+
+    const term = this.normalize(this.searchTermMinhaCaixa);
+
+    let pessoas = this.pessoasTodos.filter(
+      p => (p as any).caixaUid === this.currentUserUid
+    );
+    if (term) {
+      pessoas = pessoas.filter(p => {
+        const blob = this.normalize(
+          `${(p as any).nomeCompleto || ''} ${(p as any).cpf || ''} ${(p as any).telefone || ''
+          } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).encaminhadoPorNome || ''}`
+        );
+        return blob.includes(term);
+      });
+    }
+    pessoas.sort((a, b) => {
+      const da = this.toJSDate((a as any).encaminhadoEm)?.getTime() ||
+                 this.toJSDate((a as any).createdAt)?.getTime() || 0;
+      const db = this.toJSDate((b as any).encaminhadoEm)?.getTime() ||
+                 this.toJSDate((b as any).createdAt)?.getTime() || 0;
+      return db - da;
+    });
+    this.minhaCaixaPessoasView = pessoas;
+
+    let grupos = this.gruposTodos.filter(
+      g => (g as any).caixaUid === this.currentUserUid
+    );
+    if (term) {
+      grupos = grupos.filter(g => {
+        const coord: any = (g as any).coordenadorView || {};
+        const blob = this.normalize(
+          `${(g as any).nome || ''} ${coord?.nome || ''} ${(g as any).cidade || ''
+          } ${(g as any).encaminhadoPorNome || ''}`
+        );
+        return blob.includes(term);
+      });
+    }
+    this.minhaCaixaGruposView = grupos;
+
+    this.paginaMinhaCaixa = 1;
+  }
+
+  get minhaCaixaPessoasPaginadas(): PreCadastro[] {
+    const start = (this.paginaMinhaCaixa - 1) * this.tamanhoPaginaMinhaCaixa;
+    return this.minhaCaixaPessoasView.slice(start, start + this.tamanhoPaginaMinhaCaixa);
+  }
+
+  get totalPaginasMinhaCaixa(): number {
+    return Math.max(1, Math.ceil(this.minhaCaixaPessoasView.length / this.tamanhoPaginaMinhaCaixa));
+  }
+
+  // ====================================================
   // PAGINAÇÃO
   // ====================================================
 
@@ -1172,7 +1260,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       ((p as any).designadoParaUid as string) ||
       null;
     this.buscaAssessorPessoa = '';
+    this.buscaAnalistaModal = '';
+    this.tipoDestinoModal = 'assessor';
     this.assessoresFiltrados = [...this.assessores];
+    this.analistasFiltradosModal = [...this.analistas];
     this.showAssessorPessoaModal = true;
   }
 
@@ -1181,6 +1272,29 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.pessoaSelecionada = null;
     this.selectedAssessorUidPessoa = null;
     this.buscaAssessorPessoa = '';
+    this.buscaAnalistaModal = '';
+  }
+
+  setTipoDestinoModal(tipo: 'assessor' | 'analista') {
+    this.tipoDestinoModal = tipo;
+    this.selectedAssessorUidPessoa = null;
+    this.selectedAssessorUidGrupo = null;
+    this.buscaAssessorPessoa = '';
+    this.buscaAssessorGrupo = '';
+    this.buscaAnalistaModal = '';
+    this.assessoresFiltrados = [...this.assessores];
+    this.analistasFiltradosModal = [...this.analistas];
+  }
+
+  filtrarAnalistasModal() {
+    const term = this.normalize(this.buscaAnalistaModal);
+    if (!term) {
+      this.analistasFiltradosModal = [...this.analistas];
+      return;
+    }
+    this.analistasFiltradosModal = this.analistas.filter((a) =>
+      this.normalize(a.nome || '').includes(term)
+    );
   }
 
   filtrarAssessoresPessoa() {
@@ -1200,14 +1314,16 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!this.pessoaSelecionada || !this.selectedAssessorUidPessoa) return;
     await this.encaminharPreCadastro(
       this.pessoaSelecionada,
-      this.selectedAssessorUidPessoa
+      this.selectedAssessorUidPessoa,
+      this.tipoDestinoModal
     );
     this.fecharModalAssessorPessoa();
   }
 
   private async encaminharPreCadastro(
     pre: PreCadastro,
-    assessorUid: string
+    assessorUid: string,
+    tipoDestino: 'assessor' | 'analista' = 'assessor'
   ): Promise<void> {
     if (!pre?.id) return;
 
@@ -1236,7 +1352,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           encaminhadoPorUid: meUid,
           encaminhadoPorNome: meNome ?? null,
 
-          caixaAtual: 'assessor',
+          caixaAtual: tipoDestino,
           caixaUid: assessorUid,
         },
         { merge: true }
@@ -1249,14 +1365,18 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         encaminhadoParaNome: assessorNome,
         encaminhadoPorUid: meUid,
         encaminhadoPorNome: meNome ?? null,
-        caixaAtual: 'assessor',
+        caixaAtual: tipoDestino,
         caixaUid: assessorUid,
       };
 
       this.pessoas = this.pessoas.map((p) =>
         p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
       );
+      this.pessoasTodos = this.pessoasTodos.map((p) =>
+        p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      );
       this.aplicarFiltrosPessoas();
+      this.aplicarFiltrosMinhaCaixa();
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao encaminhar pessoa:', e);
       alert('Não foi possível encaminhar o pré-cadastro. Tente novamente.');
@@ -1277,7 +1397,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       ((g as any).designadoParaUid as string) ||
       null;
     this.buscaAssessorGrupo = '';
+    this.buscaAnalistaModal = '';
+    this.tipoDestinoModal = 'assessor';
     this.assessoresFiltrados = [...this.assessores];
+    this.analistasFiltradosModal = [...this.analistas];
     this.showAssessorGrupoModal = true;
   }
 
@@ -1286,6 +1409,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.grupoSelecionado = null;
     this.selectedAssessorUidGrupo = null;
     this.buscaAssessorGrupo = '';
+    this.buscaAnalistaModal = '';
   }
 
   filtrarAssessoresGrupo() {
@@ -1305,14 +1429,16 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!this.grupoSelecionado || !this.selectedAssessorUidGrupo) return;
     await this.encaminharGrupo(
       this.grupoSelecionado,
-      this.selectedAssessorUidGrupo
+      this.selectedAssessorUidGrupo,
+      this.tipoDestinoModal
     );
     this.fecharModalAssessorGrupo();
   }
 
   private async encaminharGrupo(
     g: GrupoSolidario,
-    assessorUid: string
+    assessorUid: string,
+    tipoDestino: 'assessor' | 'analista' = 'assessor'
   ): Promise<void> {
     const gid = (g as any).id;
     if (!gid) return;
@@ -1344,7 +1470,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           encaminhadoPorUid: meUid,
           encaminhadoPorNome: meNome ?? null,
 
-          caixaAtual: 'assessor',
+          caixaAtual: tipoDestino,
           caixaUid: assessorUid,
         },
         { merge: true }
@@ -1376,7 +1502,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
             encaminhadoPorUid: meUid,
             encaminhadoPorNome: meNome ?? null,
 
-            caixaAtual: 'assessor',
+            caixaAtual: tipoDestino,
             caixaUid: assessorUid,
           },
           { merge: true }
@@ -1393,11 +1519,16 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         encaminhadoParaNome: assessorNome,
         encaminhadoPorUid: meUid,
         encaminhadoPorNome: meNome ?? null,
-        caixaAtual: 'assessor',
+        caixaAtual: tipoDestino,
         caixaUid: assessorUid,
       };
 
       this.grupos = this.grupos.map((gg) =>
+        (gg as any).id === gid
+          ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
+          : gg
+      );
+      this.gruposTodos = this.gruposTodos.map((gg) =>
         (gg as any).id === gid
           ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
           : gg
@@ -1412,7 +1543,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
           : p
       );
+      this.pessoasTodos = this.pessoasTodos.map((p) =>
+        p.id && idsArr.includes(p.id)
+          ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
+          : p
+      );
       this.aplicarFiltrosPessoas();
+      this.aplicarFiltrosMinhaCaixa();
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao encaminhar grupo:', e);
       alert('Não foi possível encaminhar o grupo. Tente novamente.');

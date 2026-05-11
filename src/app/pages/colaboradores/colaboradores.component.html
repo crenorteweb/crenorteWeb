@@ -328,6 +328,18 @@
                   </div>
                 </div>
               </div>
+
+              <!-- Permissão especial (apenas para analista) -->
+              <div class="col-12" *ngIf="editForm.get('papel')?.value === 'analista'">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="chkPodeEncaminhar"
+                    formControlName="podeEncaminharParaAnalista">
+                  <label class="form-check-label" for="chkPodeEncaminhar">
+                    Permitir encaminhar pré-cadastros para outro analista
+                  </label>
+                </div>
+                <small class="text-muted">Quando ativado, este analista poderá direcionar CPFs para outros analistas além de assessores.</small>
+              </div>
             </div>
           </div>
           <div class="modal-footer d-flex justify-content-between">
