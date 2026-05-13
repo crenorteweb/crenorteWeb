@@ -56,4 +56,14 @@
       <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel (Aptos)
     </button>
   </ng-container>
+
+  <button
+    *ngIf="mostrarBotaoElegiveis"
+    type="button"
+    class="btn btn-outline-success btn-sm"
+    (click)="exportarExcelElegiveis()"
+    title="Exportar Excel somente dos CPFs elegíveis"
+  >
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel (Elegíveis)
+  </button>
 </div>

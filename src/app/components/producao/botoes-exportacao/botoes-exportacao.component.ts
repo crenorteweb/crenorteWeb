@@ -67,6 +67,14 @@ export class BotoesExportacao {
     return !this.modoAdicionados && (this.cargo === 'analista' || this.cargo === 'geral') && this.registrosAptos.length > 0;
   }
 
+  get registrosElegiveis(): PreCadastro[] {
+    return this.registros.filter(r => r.resultado === 'apto' && r.elegivel?.status === 'sim');
+  }
+
+  get mostrarBotaoElegiveis(): boolean {
+    return !this.modoAdicionados && !this.modoEncaminhados && this.cargo === 'geral' && this.registrosElegiveis.length > 0;
+  }
+
   private getCabecalhos(): string[] {
     const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro'];
     if (this.modoAdicionados) return base;
@@ -278,6 +286,35 @@ export class BotoesExportacao {
   exportarExcel()     { this.gerarExcel(this.registros); }
   exportarPDFAptos()  { this.gerarPDF(this.registrosAptos, 'Aptos'); }
   exportarExcelAptos(){ this.gerarExcel(this.registrosAptos, '_aptos'); }
+
+  exportarExcelElegiveis() {
+    const lista = this.registrosElegiveis;
+    if (!lista.length) return;
+
+    const cabecalhos = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro', 'Assessor', 'Analista'];
+    const linhas = lista.map(r => [
+      r.clienteNome  || '—',
+      r.cpf          || '—',
+      r.telefone     || '—',
+      r.municipio    || '—',
+      r.uf           || '—',
+      r.bairro       || '—',
+      r.assessorNome || '—',
+      r.analistaNome || '—',
+    ]);
+
+    const wsData = [cabecalhos, ...linhas];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    ws['!cols'] = [
+      { wch: 32 }, { wch: 16 }, { wch: 16 },
+      { wch: 20 }, { wch: 6  }, { wch: 22 },
+      { wch: 24 }, { wch: 24 },
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Elegíveis');
+    const nome = this.nomeArquivo('xlsx').replace('.xlsx', '_elegiveis.xlsx');
+    XLSX.writeFile(wb, nome);
+  }
 
   exportarPDFProducaoGeralPorDia() {
     const lista = this.registrosGeral;
