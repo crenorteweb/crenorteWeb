@@ -473,10 +473,14 @@
 
           <!-- Rodapé: encaminhamento -->
           <div class="card-footer bg-white border-top py-2">
-            <div *ngIf="encaminhadoNome(p) as encNome" class="small text-muted mb-2">
+            <div *ngIf="encaminhadoNome(p) as encNome" class="small text-muted mb-1">
               <i class="bi bi-arrow-right-circle me-1 text-success"></i>
-              <span class="fw-medium text-body">{{ encNome }}</span>
+              Para: <span class="fw-medium text-body">{{ encNome }}</span>
               <span *ngIf="encaminhadoData(p) as encData" class="ms-1" style="opacity:.65">({{ encData }})</span>
+            </div>
+            <div *ngIf="$any(p).encaminhadoPorNome" class="small text-muted mb-2">
+              <i class="bi bi-arrow-return-right me-1 text-primary"></i>
+              Por: <span class="fw-medium text-body">{{ $any(p).encaminhadoPorNome }}</span>
             </div>
             <button type="button" class="btn btn-sm btn-outline-success w-100"
               (click)="abrirModalAssessorPessoa(p)">
@@ -560,7 +564,12 @@
               </div>
 
               <div class="text-muted small" *ngIf="g.encaminhadoParaNome">
-                Encaminhado para: {{ g.encaminhadoParaNome }}
+                <i class="bi bi-arrow-right-circle me-1 text-success"></i>
+                Enc. para: {{ g.encaminhadoParaNome }}
+              </div>
+              <div class="text-muted small" *ngIf="$any(g).encaminhadoPorNome">
+                <i class="bi bi-arrow-return-right me-1 text-primary"></i>
+                Enc. por: <span class="fw-medium text-body">{{ $any(g).encaminhadoPorNome }}</span>
               </div>
             </div>
 
