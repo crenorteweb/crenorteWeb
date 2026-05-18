@@ -14,42 +14,32 @@
   <!-- Filtros -->
   <div class="card shadow-sm mb-4">
     <div class="card-body">
-
-      <!-- Seleção de cargo -->
-      <div class="mb-3">
-        <label class="form-label fw-semibold">
-          <i class="bi bi-briefcase me-1 text-success"></i>Cargo
-        </label>
-        <app-filtro-cargo (cargoSelecionado)="onCargo($event)"></app-filtro-cargo>
-      </div>
-
-      <div class="row g-3 align-items-end">
-
-        <!-- Colaborador (oculto no modo Geral) -->
-        <div class="col-12 col-md-6" *ngIf="cargo() !== 'geral'">
-          <label class="form-label fw-semibold">
-            <i class="bi bi-person me-1 text-success"></i>Colaborador
-          </label>
-          <app-filtro-colaborador
-            [cargo]="cargo()"
-            (colaboradorSelecionado)="onColaborador($event)"
-          ></app-filtro-colaborador>
-        </div>
-
-        <!-- Período -->
-        <div class="col-12 col-md-6">
-          <label class="form-label fw-semibold">
-            <i class="bi bi-calendar3 me-1 text-success"></i>Período
-          </label>
-          <app-filtro-data (dataSelecionada)="onData($event)"></app-filtro-data>
-        </div>
-
+      <label class="form-label fw-semibold">
+        <i class="bi bi-calendar3 me-1 text-success"></i>Período
+      </label>
+      <app-filtro-data (dataSelecionada)="onData($event)"></app-filtro-data>
+      <div class="d-flex gap-2 mt-3">
+        <button
+          type="button"
+          class="btn btn-outline-success"
+          (click)="irParaHoje()"
+        >
+          <i class="bi bi-calendar-check me-1"></i>Ir para hoje
+        </button>
+        <button
+          type="button"
+          class="btn btn-success"
+          [disabled]="!dataInicio()"
+          (click)="buscarTudo()"
+        >
+          <i class="bi bi-search me-1"></i>Buscar
+        </button>
       </div>
     </div>
   </div>
 
-  <!-- ── Abas (somente modo geral) ── -->
-  <ul *ngIf="cargo() === 'geral'" class="nav nav-tabs mb-4">
+  <!-- ── Abas ── -->
+  <ul class="nav nav-tabs mb-4">
     <li class="nav-item">
       <button
         class="nav-link"
@@ -93,9 +83,9 @@
   </ul>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <!-- ABA: ANALISADOS  (sempre visível em modos não-geral)                  -->
+  <!-- ABA: ANALISADOS                                                        -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="cargo() !== 'geral' || abaAtiva() === 'analisados'">
+  <ng-container *ngIf="abaAtiva() === 'analisados'">
 
     <!-- Alerta de erro -->
     <div *ngIf="erro()" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -141,7 +131,7 @@
               ></app-busca-cpf>
               <app-botoes-exportacao
                 [registros]="registrosFiltrados()"
-                [registrosGeral]="cargo() === 'geral' ? registrosOriginais() : []"
+                [registrosGeral]="registrosOriginais()"
                 [cargo]="cargo()"
                 [nomeColaborador]="nomeColaborador"
                 [filtroAnalistaNome]="filtroAnalistaNome()"
@@ -196,7 +186,7 @@
             </div>
 
             <!-- Filtro de analista (somente no modo geral) -->
-            <div *ngIf="cargo() === 'geral' && analistasDisponiveis().length > 0" class="d-flex align-items-center gap-2">
+            <div *ngIf="analistasDisponiveis().length > 0" class="d-flex align-items-center gap-2">
               <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
                 <i class="bi bi-person-check me-1"></i>Analista
               </label>
@@ -290,7 +280,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- ABA: ADICIONADOS  (somente modo geral)                                -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="cargo() === 'geral' && abaAtiva() === 'adicionados'">
+  <ng-container *ngIf="abaAtiva() === 'adicionados'">
 
     <!-- Alerta de erro -->
     <div *ngIf="erroAdicionados()" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -423,7 +413,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- ABA: ENCAMINHADOS  (somente modo geral)                               -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="cargo() === 'geral' && abaAtiva() === 'encaminhados'">
+  <ng-container *ngIf="abaAtiva() === 'encaminhados'">
 
     <!-- Alerta de erro -->
     <div *ngIf="erroEncaminhados()" class="alert alert-danger alert-dismissible fade show" role="alert">
@@ -537,7 +527,7 @@
   <!-- ══════════════════════════════════════════════════════════════════════ -->
   <!-- ABA: CAIXA DOS ASSESSORES  (somente modo geral)                       -->
   <!-- ══════════════════════════════════════════════════════════════════════ -->
-  <ng-container *ngIf="cargo() === 'geral' && abaAtiva() === 'caixa_assessores'">
+  <ng-container *ngIf="abaAtiva() === 'caixa_assessores'">
 
     <!-- Alerta de erro -->
     <div *ngIf="erroCaixaAssessores()" class="alert alert-danger alert-dismissible fade show" role="alert">

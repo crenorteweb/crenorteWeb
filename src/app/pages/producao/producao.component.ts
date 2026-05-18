@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal, ViewChild } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { catchError, finalize } from 'rxjs/operators';
@@ -9,7 +9,6 @@ import { ProducaoService } from '../../services/producao.service';
 import { normalizarTexto, isCidadePrioritaria, isBairroPrioritario, ordenarComPrioridade } from '../../core/constants/regioes-prioritarias.constant';
 import { CargoFiltro, Colaborador, PeriodoFiltro, PreCadastro, ResultadoFiltro } from '../../models/producao.model';
 
-import { FiltroCargo } from '../../components/producao/filtro-cargo/filtro-cargo.component';
 import { FiltroColaborador } from '../../components/producao/filtro-colaborador/filtro-colaborador.component';
 import { FiltroData } from '../../components/producao/filtro-data/filtro-data.component';
 import { BuscaCpf } from '../../components/producao/busca-cpf/busca-cpf.component';
@@ -25,7 +24,6 @@ import { ModalDetalheCliente } from '../../components/producao/modal-detalhe-cli
     CommonModule,
     FormsModule,
     HeaderComponent,
-    FiltroCargo,
     FiltroColaborador,
     FiltroData,
     BuscaCpf,
@@ -40,8 +38,10 @@ import { ModalDetalheCliente } from '../../components/producao/modal-detalhe-cli
 export class ProducaoComponent {
   private svc = inject(ProducaoService);
 
+  @ViewChild(FiltroData) private filtroData!: FiltroData;
+
   // ── Filtros ───────────────────────────────────────────────────────────────
-  cargo       = signal<CargoFiltro | null>(null);
+  cargo       = signal<CargoFiltro | null>('geral');
   colaborador = signal<Colaborador | null>(null);
   dataInicio  = signal('');
   dataFim     = signal('');
@@ -317,12 +317,18 @@ export class ProducaoComponent {
   onData(periodo: PeriodoFiltro) {
     this.dataInicio.set(periodo.inicio);
     this.dataFim.set(periodo.fim);
-    if (this.colaborador() || this.cargo() === 'geral') this.buscar();
-    if (this.cargo() === 'geral') {
-      this.buscarAdicionados();
-      this.buscarEncaminhados();
-      if (!this.jaCarregouCaixaAssessores()) this.carregarCaixaAssessores();
-    }
+  }
+
+  irParaHoje() {
+    this.filtroData.resetar();
+  }
+
+  buscarTudo() {
+    if (!this.dataInicio()) return;
+    this.buscar();
+    this.buscarAdicionados();
+    this.buscarEncaminhados();
+    if (!this.jaCarregouCaixaAssessores()) this.carregarCaixaAssessores();
   }
 
   onTermoBusca(termo: string) {
