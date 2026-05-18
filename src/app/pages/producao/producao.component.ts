@@ -60,7 +60,7 @@ export class ProducaoComponent {
   erro               = signal<string | null>(null);
 
   // ── Relatório de cadastros adicionados (modo geral) ───────────────────────
-  abaAtiva                  = signal<'analisados' | 'adicionados' | 'encaminhados'>('analisados');
+  abaAtiva                  = signal<'analisados' | 'adicionados' | 'encaminhados' | 'caixa_assessores'>('analisados');
   registrosAdicionados      = signal<PreCadastro[]>([]);
   filtroOrigemAdicionados   = signal<string>('');
   carregandoAdicionados     = signal(false);
@@ -72,6 +72,12 @@ export class ProducaoComponent {
   carregandoEncaminhados    = signal(false);
   jaCarregouEncaminhados    = signal(false);
   erroEncaminhados          = signal<string | null>(null);
+
+  // ── Caixa dos assessores (snapshot atual, sem filtro de data) ─────────────
+  registrosCaixaAssessores  = signal<PreCadastro[]>([]);
+  carregandoCaixaAssessores = signal(false);
+  jaCarregouCaixaAssessores = signal(false);
+  erroCaixaAssessores       = signal<string | null>(null);
 
   /** Registros filtrados por origem/analista/município/bairro (sem busca CPF) — alimenta os cards de resumo */
   registrosPorOrigem = computed(() => {
@@ -229,6 +235,53 @@ export class ProducaoComponent {
     return Array.from(map.values()).sort((a, b) => b.count - a.count);
   });
 
+  assessorSelecionadoCaixa = signal<string>('');
+
+  caixaAssessoresPorAssessor = computed(() => {
+    const map = new Map<string, {
+      key: string; nome: string; total: number; aptos: number; elegiveis: number; inaptos: number; semResultado: number;
+    }>();
+    this.registrosCaixaAssessores().forEach(r => {
+      const uid  = r.encaminhadoParaUid || r.assessorId || '';
+      const nome = (r.encaminhadoParaNome || r.assessorNome || 'Desconhecido').trim();
+      const key  = uid || nome;
+      const cur  = map.get(key) ?? { key, nome, total: 0, aptos: 0, elegiveis: 0, inaptos: 0, semResultado: 0 };
+      cur.total++;
+      if (r.resultado === 'apto')       cur.aptos++;
+      if (r.resultado === 'inapto')     cur.inaptos++;
+      if (r.elegivel?.status === 'sim') cur.elegiveis++;
+      if (!r.resultado)                 cur.semResultado++;
+      map.set(key, cur);
+    });
+    return Array.from(map.values()).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  });
+
+  caixaTotais = computed(() =>
+    this.caixaAssessoresPorAssessor().reduce(
+      (acc, item) => ({
+        aptos:        acc.aptos        + item.aptos,
+        elegiveis:    acc.elegiveis    + item.elegiveis,
+        inaptos:      acc.inaptos      + item.inaptos,
+        semResultado: acc.semResultado + item.semResultado,
+      }),
+      { aptos: 0, elegiveis: 0, inaptos: 0, semResultado: 0 }
+    )
+  );
+
+  clientesCaixaAssessorSelecionado = computed(() => {
+    const key = this.assessorSelecionadoCaixa();
+    if (!key) return [];
+    return this.registrosCaixaAssessores().filter(r => {
+      const uid  = r.encaminhadoParaUid || r.assessorId || '';
+      const nome = (r.encaminhadoParaNome || r.assessorNome || 'Desconhecido').trim();
+      return (uid || nome) === key;
+    });
+  });
+
+  nomeAssessorSelecionadoCaixa = computed(() =>
+    this.caixaAssessoresPorAssessor().find(a => a.key === this.assessorSelecionadoCaixa())?.nome || ''
+  );
+
   // ── Handlers de filtro ────────────────────────────────────────────────────
 
   onCargo(cargo: CargoFiltro) {
@@ -247,14 +300,13 @@ export class ProducaoComponent {
     this.jaCarregou.set(false);
     this.jaCarregouAdicionados.set(false);
     this.jaCarregouEncaminhados.set(false);
+    this.jaCarregouCaixaAssessores.set(false);
+    this.registrosCaixaAssessores.set([]);
+    this.assessorSelecionadoCaixa.set('');
     this.erro.set(null);
     this.erroAdicionados.set(null);
     this.erroEncaminhados.set(null);
-    if (cargo === 'geral' && this.dataInicio()) {
-      this.buscar();
-      this.buscarAdicionados();
-      this.buscarEncaminhados();
-    }
+    this.erroCaixaAssessores.set(null);
   }
 
   onColaborador(colab: Colaborador) {
@@ -269,6 +321,7 @@ export class ProducaoComponent {
     if (this.cargo() === 'geral') {
       this.buscarAdicionados();
       this.buscarEncaminhados();
+      if (!this.jaCarregouCaixaAssessores()) this.carregarCaixaAssessores();
     }
   }
 
@@ -367,6 +420,25 @@ export class ProducaoComponent {
       }),
     ).subscribe(registros => {
       this.registrosEncaminhados.set(registros);
+    });
+  }
+
+  private carregarCaixaAssessores() {
+    this.carregandoCaixaAssessores.set(true);
+    this.erroCaixaAssessores.set(null);
+    this.registrosCaixaAssessores.set([]);
+
+    this.svc.buscarCaixaAssessores().pipe(
+      catchError(e => {
+        this.erroCaixaAssessores.set('Erro ao buscar caixa dos assessores: ' + (e?.message || 'Tente novamente.'));
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.carregandoCaixaAssessores.set(false);
+        this.jaCarregouCaixaAssessores.set(true);
+      }),
+    ).subscribe(registros => {
+      this.registrosCaixaAssessores.set(registros);
     });
   }
 

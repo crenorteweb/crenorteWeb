@@ -29,6 +29,10 @@ export class BotoesExportacao {
   @Input() encaminhadosPorRemetente: { nome: string; count: number }[] = [];
   @Input() encaminhadosPorAssessor:  { nome: string; count: number }[] = [];
   @Input() totalEncaminhados = 0;
+  /** Quando true, exporta a lista de clientes na caixa de um assessor */
+  @Input() modoCaixaAssessor = false;
+  @Input() clientesCaixa: PreCadastro[] = [];
+  @Input() nomeAssessorCaixa = '';
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -37,6 +41,19 @@ export class BotoesExportacao {
     try {
       const d: Date = ts?.toDate ? ts.toDate() : new Date(ts);
       return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    } catch { return '—'; }
+  }
+
+  private formatarTimestamp(ts: any): string {
+    if (!ts) return '—';
+    try {
+      const d: Date = ts?.toDate ? ts.toDate() : new Date(ts);
+      if (isNaN(d.getTime())) return '—';
+      const dd  = String(d.getDate()).padStart(2, '0');
+      const mm  = String(d.getMonth() + 1).padStart(2, '0');
+      const hh  = String(d.getHours()).padStart(2, '0');
+      const min = String(d.getMinutes()).padStart(2, '0');
+      return `${dd}/${mm}/${d.getFullYear()} ${hh}:${min}`;
     } catch { return '—'; }
   }
 
@@ -287,20 +304,45 @@ export class BotoesExportacao {
   exportarPDFAptos()  { this.gerarPDF(this.registrosAptos, 'Aptos'); }
   exportarExcelAptos(){ this.gerarExcel(this.registrosAptos, '_aptos'); }
 
+  exportarExcelCaixaAssessor() {
+    if (!this.clientesCaixa.length) return;
+    const cabecalhos = ['CPF', 'Nome Completo', 'Telefone', 'Bairro', 'Cidade', 'UF'];
+    const linhas = this.clientesCaixa.map(r => [
+      r.cpf          || '—',
+      r.clienteNome  || '—',
+      r.telefone     || '—',
+      r.bairro       || '—',
+      r.municipio    || '—',
+      r.uf           || '—',
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([cabecalhos, ...linhas]);
+    ws['!cols'] = [{ wch: 16 }, { wch: 34 }, { wch: 16 }, { wch: 22 }, { wch: 22 }, { wch: 6 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Caixa');
+    const nomeArq = `caixa_assessor_${(this.nomeAssessorCaixa || 'assessor')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_')}.xlsx`;
+    XLSX.writeFile(wb, nomeArq);
+  }
+
   exportarExcelElegiveis() {
     const lista = this.registrosElegiveis;
     if (!lista.length) return;
 
-    const cabecalhos = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro', 'Assessor', 'Analista'];
+    const cabecalhos = [
+      'Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro',
+      'Assessor', 'Analista', 'Data do Encaminhamento', 'Encaminhado Para',
+    ];
     const linhas = lista.map(r => [
-      r.clienteNome  || '—',
-      r.cpf          || '—',
-      r.telefone     || '—',
-      r.municipio    || '—',
-      r.uf           || '—',
-      r.bairro       || '—',
-      r.assessorNome || '—',
-      r.analistaNome || '—',
+      r.clienteNome          || '—',
+      r.cpf                  || '—',
+      r.telefone             || '—',
+      r.municipio            || '—',
+      r.uf                   || '—',
+      r.bairro               || '—',
+      r.assessorNome         || '—',
+      r.analistaNome         || '—',
+      this.formatarTimestamp(r.encaminhadoEm),
+      r.encaminhadoParaNome  || '—',
     ]);
 
     const wsData = [cabecalhos, ...linhas];
@@ -308,7 +350,7 @@ export class BotoesExportacao {
     ws['!cols'] = [
       { wch: 32 }, { wch: 16 }, { wch: 16 },
       { wch: 20 }, { wch: 6  }, { wch: 22 },
-      { wch: 24 }, { wch: 24 },
+      { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 24 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Elegíveis');
