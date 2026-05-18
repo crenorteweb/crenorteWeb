@@ -280,18 +280,19 @@ export class ProducaoService {
     const filtered = snap.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r => {
-        const temRemetente = r.encaminhadoPorUid || r.encaminhamento?.assessorUid;
+        const foiEncaminhado = r.encaminhadoParaUid || r.encaminhadoPorUid || r.encaminhamento?.assessorUid;
         const dataRef = r.encaminhadoEm ?? r.encaminhamento?.em ?? null;
-        return temRemetente && this.isInRange(dataRef, dataInicio, dataFim);
+        return foiEncaminhado && this.isInRange(dataRef, dataInicio, dataFim);
       });
 
-    // Nomes de quem encaminhou (pode ser analista/admin — busca por docId e por authUid)
+    // Nomes de quem encaminhou e para quem foi — busca por docId e por authUid (analistas têm docId ≠ authUid)
     const porUids  = [...new Set(filtered.map(r => r.encaminhadoPorUid).filter(Boolean)  as string[])];
     const paraUids = [...new Set(filtered.map(r => r.encaminhadoParaUid).filter(Boolean) as string[])];
+    const todosUids = [...new Set([...porUids, ...paraUids])];
 
     const [nomesPorDoc, nomesPorAuth] = await Promise.all([
-      this.fetchNomesByUids([...porUids, ...paraUids]),
-      this.fetchNomesByAuthUid(porUids),
+      this.fetchNomesByUids(todosUids),
+      this.fetchNomesByAuthUid(todosUids),
     ]);
 
     const nomes = new Map([...nomesPorDoc, ...nomesPorAuth]);
