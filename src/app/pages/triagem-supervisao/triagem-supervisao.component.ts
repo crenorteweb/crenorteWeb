@@ -1232,6 +1232,25 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     return `${dd}/${mm} às ${hh}:${min}`;
   }
 
+  encaminhadoTempoDesde(item: any): string | null {
+    const rawEm = item?.encaminhadoEm ?? item?.designadoEm ?? null;
+    return this.tempoDecorrido(rawEm);
+  }
+
+  private tempoDecorrido(rawDate: any): string | null {
+    const d = this.toJSDate(rawDate);
+    if (!d) return null;
+    const diffMs = Date.now() - d.getTime();
+    if (diffMs < 0) return null;
+    const dias    = Math.floor(diffMs / 86400000);
+    const horas   = Math.floor(diffMs / 3600000);
+    const minutos = Math.floor(diffMs / 60000);
+    if (dias    >= 1) return `há ${dias} dia${dias    !== 1 ? 's' : ''}`;
+    if (horas   >= 1) return `há ${horas} hora${horas !== 1 ? 's' : ''}`;
+    if (minutos >= 1) return `há ${minutos} min`;
+    return 'agora mesmo';
+  }
+
   // Mantido para o *ngIf do badge "Encaminhado / Não encaminhado"
   encaminhadoLabel(p: PreCadastro): string | null {
     return this.encaminhadoNome(p);

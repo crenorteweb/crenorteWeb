@@ -1,3 +1,14 @@
+<div *ngIf="modoCaixaAssessor && clientesCaixa.length > 0">
+  <button
+    type="button"
+    class="btn btn-success btn-sm"
+    (click)="exportarExcelCaixaAssessor()"
+    title="Exportar lista de clientes do assessor em Excel"
+  >
+    <i class="bi bi-file-earmark-spreadsheet me-1"></i>Exportar Excel
+  </button>
+</div>
+
 <div *ngIf="modoEncaminhados && totalEncaminhados > 0" class="d-flex gap-2 flex-wrap">
   <button
     type="button"

@@ -79,6 +79,17 @@
           class="badge bg-success ms-1">{{ registrosEncaminhados().length }}</span>
       </button>
     </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
+        [class.active]="abaAtiva() === 'caixa_assessores'"
+        (click)="abaAtiva.set('caixa_assessores')"
+      >
+        <i class="bi bi-inbox me-1"></i>Caixa dos Assessores
+        <span *ngIf="jaCarregouCaixaAssessores() && registrosCaixaAssessores().length > 0"
+          class="badge bg-warning text-dark ms-1">{{ registrosCaixaAssessores().length }}</span>
+      </button>
+    </li>
   </ul>
 
   <!-- ══════════════════════════════════════════════════════════════════════ -->
@@ -515,6 +526,164 @@
             </div>
 
           </div>
+        </ng-container>
+
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: CAIXA DOS ASSESSORES  (somente modo geral)                       -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="cargo() === 'geral' && abaAtiva() === 'caixa_assessores'">
+
+    <!-- Alerta de erro -->
+    <div *ngIf="erroCaixaAssessores()" class="alert alert-danger alert-dismissible fade show" role="alert">
+      <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ erroCaixaAssessores() }}
+      <button type="button" class="btn-close" (click)="erroCaixaAssessores.set(null)" aria-label="Fechar"></button>
+    </div>
+
+    <!-- Spinner -->
+    <div *ngIf="carregandoCaixaAssessores()" class="text-center py-5">
+      <div class="spinner-border text-warning" style="width:3rem;height:3rem;" role="status"></div>
+      <p class="mt-3 text-muted">Carregando caixa dos assessores...</p>
+    </div>
+
+    <div *ngIf="!carregandoCaixaAssessores() && jaCarregouCaixaAssessores()" class="card shadow-sm mb-4">
+
+      <div class="card-header bg-white py-3">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+          <span class="fw-semibold" style="color: #856404">
+            <i class="bi bi-inbox me-2"></i>Clientes na Caixa dos Assessores (situação atual)
+          </span>
+          <span class="badge fs-6 py-2 px-3 bg-warning text-dark">
+            Total: {{ registrosCaixaAssessores().length }}
+          </span>
+        </div>
+      </div>
+
+      <div class="card-body">
+
+        <!-- Vazio -->
+        <div *ngIf="registrosCaixaAssessores().length === 0" class="text-center text-muted py-5">
+          <i class="bi bi-inbox fs-1"></i>
+          <p class="mt-3 mb-0 fs-5">Nenhum cliente na caixa dos assessores no momento.</p>
+        </div>
+
+        <ng-container *ngIf="registrosCaixaAssessores().length > 0">
+
+          <!-- Seletor de assessor para ver lista de clientes -->
+          <div class="d-flex align-items-center gap-2 mb-4">
+            <label class="form-label mb-0 fw-semibold text-nowrap">
+              <i class="bi bi-person-lines-fill me-1 text-warning"></i>Ver clientes do assessor:
+            </label>
+            <select
+              class="form-select form-select-sm"
+              style="max-width: 280px"
+              [ngModel]="assessorSelecionadoCaixa()"
+              (ngModelChange)="assessorSelecionadoCaixa.set($event)"
+            >
+              <option value="">— Selecione —</option>
+              <option *ngFor="let item of caixaAssessoresPorAssessor()" [value]="item.key">
+                {{ item.nome }} ({{ item.total }})
+              </option>
+            </select>
+          </div>
+
+          <!-- Lista de clientes do assessor selecionado -->
+          <div *ngIf="assessorSelecionadoCaixa() && clientesCaixaAssessorSelecionado().length > 0" class="card border-warning mb-4">
+            <div class="card-header bg-warning bg-opacity-10 py-2 d-flex justify-content-between align-items-center flex-wrap gap-2">
+              <span class="fw-semibold" style="color:#856404">
+                <i class="bi bi-person-fill me-1"></i>{{ nomeAssessorSelecionadoCaixa() }}
+                <span class="badge bg-warning text-dark ms-1">{{ clientesCaixaAssessorSelecionado().length }}</span>
+              </span>
+              <app-botoes-exportacao
+                [modoCaixaAssessor]="true"
+                [clientesCaixa]="clientesCaixaAssessorSelecionado()"
+                [nomeAssessorCaixa]="nomeAssessorSelecionadoCaixa()"
+              ></app-botoes-exportacao>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                  <thead class="table-light">
+                    <tr>
+                      <th>CPF</th>
+                      <th>Nome Completo</th>
+                      <th>Telefone</th>
+                      <th>Bairro</th>
+                      <th>Cidade</th>
+                      <th>UF</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr *ngFor="let r of clientesCaixaAssessorSelecionado()">
+                      <td class="text-nowrap">{{ r.cpf || '—' }}</td>
+                      <td>{{ r.clienteNome || '—' }}</td>
+                      <td class="text-nowrap">{{ r.telefone || '—' }}</td>
+                      <td>{{ r.bairro || '—' }}</td>
+                      <td>{{ r.municipio || '—' }}</td>
+                      <td>{{ r.uf || '—' }}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tabela resumo por assessor -->
+          <div class="table-responsive mb-4">
+            <table class="table table-sm table-bordered table-hover align-middle mb-0">
+              <thead class="table-warning">
+                <tr>
+                  <th>Assessor</th>
+                  <th class="text-center" style="width:90px">Total</th>
+                  <th class="text-center" style="width:90px">Aptos</th>
+                  <th class="text-center" style="width:90px">Elegíveis</th>
+                  <th class="text-center" style="width:90px">Inaptos</th>
+                  <th class="text-center" style="width:120px">Sem resultado</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let item of caixaAssessoresPorAssessor()">
+                  <td class="fw-semibold">{{ item.nome }}</td>
+                  <td class="text-center">
+                    <span class="badge bg-warning text-dark">{{ item.total }}</span>
+                  </td>
+                  <td class="text-center">
+                    <span *ngIf="item.aptos > 0" class="badge bg-success">{{ item.aptos }}</span>
+                    <span *ngIf="item.aptos === 0" class="text-muted">—</span>
+                  </td>
+                  <td class="text-center">
+                    <span *ngIf="item.elegiveis > 0" class="badge" style="background-color:#0d6efd">{{ item.elegiveis }}</span>
+                    <span *ngIf="item.elegiveis === 0" class="text-muted">—</span>
+                  </td>
+                  <td class="text-center">
+                    <span *ngIf="item.inaptos > 0" class="badge bg-danger">{{ item.inaptos }}</span>
+                    <span *ngIf="item.inaptos === 0" class="text-muted">—</span>
+                  </td>
+                  <td class="text-center">
+                    <span *ngIf="item.semResultado > 0" class="badge bg-secondary">{{ item.semResultado }}</span>
+                    <span *ngIf="item.semResultado === 0" class="text-muted">—</span>
+                  </td>
+                </tr>
+              </tbody>
+              <tfoot class="table-light fw-semibold">
+                <tr>
+                  <td>Total geral</td>
+                  <td class="text-center">{{ registrosCaixaAssessores().length }}</td>
+                  <td class="text-center">{{ caixaTotais().aptos }}</td>
+                  <td class="text-center">{{ caixaTotais().elegiveis }}</td>
+                  <td class="text-center">{{ caixaTotais().inaptos }}</td>
+                  <td class="text-center">{{ caixaTotais().semResultado }}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+
+
         </ng-container>
 
       </div>

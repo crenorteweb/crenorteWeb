@@ -131,9 +131,10 @@ export class ProducaoService {
       analisadoEm: raw.aprovacao?.em,
       elegivel: raw.elegivel ? { status: raw.elegivel.status } : undefined,
       encaminhadoPorUid: raw.encaminhadoPorUid || '',
-      encaminhadoPorNome: raw.encaminhadoPorNome || '',
-      encaminhadoParaUid: raw.encaminhadoParaUid || raw.designadoParaUid || '',
-      encaminhadoParaNome: raw.encaminhadoParaNome || raw.designadoParaNome || '',
+      encaminhadoPorNome: raw.encaminhadoPorNome
+        || (!raw.encaminhadoPorUid && raw.encaminhamento?.assessorUid ? 'Call Center' : ''),
+      encaminhadoParaUid: raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || '',
+      encaminhadoParaNome: raw.encaminhadoParaNome || raw.designadoParaNome || raw.encaminhamento?.assessorNome || '',
     };
   }
 
@@ -161,6 +162,10 @@ export class ProducaoService {
 
   buscarEncaminhados(dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
     return from(this._encaminhados(dataInicio, dataFim));
+  }
+
+  buscarCaixaAssessores(): Observable<PreCadastro[]> {
+    return from(this._caixaAssessores());
   }
 
   // ── Implementações privadas ───────────────────────────────────────────────
@@ -274,7 +279,11 @@ export class ProducaoService {
     const snap = await getDocs(this.preCadRef);
     const filtered = snap.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => r.encaminhadoPorUid && this.isInRange(r.encaminhadoEm, dataInicio, dataFim));
+      .filter(r => {
+        const temRemetente = r.encaminhadoPorUid || r.encaminhamento?.assessorUid;
+        const dataRef = r.encaminhadoEm ?? r.encaminhamento?.em ?? null;
+        return temRemetente && this.isInRange(dataRef, dataInicio, dataFim);
+      });
 
     // Nomes de quem encaminhou (pode ser analista/admin — busca por docId e por authUid)
     const porUids  = [...new Set(filtered.map(r => r.encaminhadoPorUid).filter(Boolean)  as string[])];
@@ -288,6 +297,24 @@ export class ProducaoService {
     const nomes = new Map([...nomesPorDoc, ...nomesPorAuth]);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
+    result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    return result;
+  }
+
+  private async _caixaAssessores(): Promise<PreCadastro[]> {
+    const snap = await getDocs(
+      query(this.preCadRef, where('caixaAtual', '==', 'assessor'))
+    );
+    const all = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    if (!all.length) return [];
+
+    const uids = [...new Set([
+      ...all.map(r => r.createdByUid).filter(Boolean),
+      ...all.map(r => r.encaminhadoParaUid).filter(Boolean),
+    ] as string[])];
+    const nomes = await this.fetchNomesByUids(uids);
+
+    const result = all.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
     return result;
   }
