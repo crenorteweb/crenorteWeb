@@ -287,6 +287,29 @@
                   </span>
                 </div>
 
+                <!-- Elegibilidade -->
+                <div class="crn-field">
+                  <span class="crn-label">Elegível</span>
+                  <span class="crn-value">
+                    <span class="badge" [ngClass]="{
+                            'text-bg-secondary': ($any(i).elegivel?.status || 'nao_verificado')==='nao_verificado',
+                            'text-bg-danger':    ($any(i).elegivel?.status || 'nao_verificado')==='nao',
+                            'text-bg-success':   ($any(i).elegivel?.status || 'nao_verificado')==='sim'
+                          }">
+                      {{
+                      ($any(i).elegivel?.status || 'nao_verificado')==='nao_verificado' ? 'Não verificado' :
+                      ($any(i).elegivel?.status==='sim' ? 'Elegível' : 'Não elegível')
+                      }}
+                    </span>
+                    <small class="text-muted ms-2" *ngIf="$any(i)?.elegivel?.porNome">
+                      por {{ $any(i).elegivel.porNome }}
+                      <ng-container *ngIf="$any(i)?.elegivel?.em as emEl">
+                        — {{ (emEl?.toDate ? emEl.toDate() : emEl) | date:'dd/MM/yyyy HH:mm' }}
+                      </ng-container>
+                    </small>
+                  </span>
+                </div>
+
                 <!-- Distribuído por -->
                 <div class="crn-field" *ngIf="encaminhadoParaMim(i)">
                   <span class="crn-label">Distribuído</span>
