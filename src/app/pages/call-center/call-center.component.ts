@@ -299,7 +299,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
           if (!this.primed1) { this.primed1 = true; if (this.primed2) this.loading.set(false); }
         });
       },
-      err => console.error('[CallCenter] listener pre_cadastros:', err)
+      err => { console.error('[CallCenter] listener pre_cadastros:', err); setTimeout(() => this.carregarTudo(), 5000); }
     );
 
     this.unsub2 = onSnapshot(
@@ -309,7 +309,7 @@ export class CallCenterComponent implements OnInit, OnDestroy {
           if (!this.primed2) { this.primed2 = true; if (this.primed1) this.loading.set(false); }
         });
       },
-      err => console.error('[CallCenter] listener pre-cadastros:', err)
+      err => { console.error('[CallCenter] listener pre-cadastros:', err); setTimeout(() => this.carregarTudo(), 5000); }
     );
   }
 
@@ -647,8 +647,8 @@ export class CallCenterComponent implements OnInit, OnDestroy {
     };
 
     await Promise.all([
-      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
       setDoc(doc(this.fs, 'pre_cadastros', item.id), payload, { merge: true }),
+      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
     ]);
 
     await setDoc(
