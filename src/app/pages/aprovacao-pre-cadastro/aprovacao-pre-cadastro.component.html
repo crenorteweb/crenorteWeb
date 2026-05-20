@@ -215,10 +215,27 @@
                 — {{ (eem?.toDate ? eem.toDate() : eem) | date:'dd/MM HH:mm' }}
               </ng-container>
             </li>
-            <li *ngIf="item.encaminhamento?.assessorNome" class="text-primary">
-              <i class="bi bi-send me-1"></i><span class="fw-semibold">Assessor:</span>
-              {{ item.encaminhamento?.assessorNome }}
-            </li>
+            <ng-container *ngIf="$any(item).encaminhadoParaNome || item.encaminhamento?.assessorNome">
+              <li class="text-primary">
+                <i class="bi bi-send-fill me-1"></i>
+                <span class="badge text-bg-primary me-1">Encaminhado</span>
+                <span class="fw-semibold">Para:</span>
+                {{ $any(item).encaminhadoParaNome || item.encaminhamento?.assessorNome }}
+              </li>
+              <li *ngIf="$any(item).encaminhadoPorNome || $any(item).analistaId" class="text-muted">
+                <i class="bi bi-person-arrow-up me-1"></i><span class="fw-semibold">Por:</span>
+                {{ $any(item).encaminhadoPorNome || nomeDoAutor($any(item).analistaId) }}
+              </li>
+              <li *ngIf="$any(item).encaminhadoEm || item.encaminhamento?.em" class="text-muted">
+                <i class="bi bi-clock me-1"></i><span class="fw-semibold">Em:</span>
+                <ng-container *ngIf="$any(item).encaminhadoEm as eem">
+                  {{ (eem?.toDate ? eem.toDate() : eem) | date:'dd/MM/yyyy HH:mm' }}
+                </ng-container>
+                <ng-container *ngIf="!$any(item).encaminhadoEm && item.encaminhamento?.em as em2">
+                  {{ (em2?.toDate ? em2.toDate() : em2) | date:'dd/MM/yyyy HH:mm' }}
+                </ng-container>
+              </li>
+            </ng-container>
           </ul>
         </div>
 

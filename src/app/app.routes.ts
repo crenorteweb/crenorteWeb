@@ -123,7 +123,7 @@ export const routes: Routes = [
   {
     path: 'call-center',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['operacional', 'admin', 'supervisor', 'analista'] as Papel[] },
+    data: { roles: ['operacional', 'admin'] as Papel[] },
     loadComponent: () =>
       import('./pages/call-center/call-center.component')
         .then(m => m.CallCenterComponent),
