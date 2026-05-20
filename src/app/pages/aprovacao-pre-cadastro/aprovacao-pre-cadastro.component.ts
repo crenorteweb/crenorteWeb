@@ -475,8 +475,12 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
 
           const created = item?.createdByUid as string | undefined;
           const encUid = item?.encaminhamento?.assessorUid as string | undefined;
+          const analistaId = item?.analistaId as string | undefined;
+          const encaminhadoPorUid = item?.encaminhadoPorUid as string | undefined;
           if (created) needNames.add(created);
           if (encUid) needNames.add(encUid);
+          if (analistaId) needNames.add(analistaId);
+          if (encaminhadoPorUid) needNames.add(encaminhadoPorUid);
           if (encUid) this.setSelected(item.id, encUid);
         });
       };

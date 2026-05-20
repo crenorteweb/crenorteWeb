@@ -555,9 +555,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
 
-      this.pessoas = filtrarUfsNorte(norm).filter(
-        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
-      ) as typeof norm;
+      this.pessoas = filtrarUfsNorte(norm).filter(r => {
+        if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
+        const origem = ((r as any).origem ?? '').trim().toLowerCase();
+        const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
+        return !ehCallCenter;
+      }) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar pessoas:', e);
@@ -687,9 +690,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           desistencia:  { status: desistencia.status  || 'nao_desistiu',    ...desistencia  },
         } as PreCadastro;
       });
-      const aptos = norm.filter(
-        r => ((r as any).aprovacao?.status || 'nao_verificado') === 'apto'
-      );
+      const aptos = norm.filter(r => {
+        if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
+        const origem = ((r as any).origem ?? '').trim().toLowerCase();
+        const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
+        return !ehCallCenter;
+      });
       this.pessoas = aptos;
       this.pessoasView = [...aptos];
     } catch (e) {
@@ -840,9 +846,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         }
       }
 
-      this.pessoas = Array.from(atuais.values()).filter(
-        p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
-      );
+      this.pessoas = Array.from(atuais.values()).filter(p => {
+        if (((p as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
+        const origem = ((p as any).origem ?? '').trim().toLowerCase();
+        const ehCallCenter = origem === 'site / portal' && (p as any)?.elegivel?.status === 'sim';
+        return !ehCallCenter;
+      });
       this.pessoasView = [...this.pessoas];
     } catch (e) {
       console.error(
