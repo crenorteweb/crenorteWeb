@@ -124,6 +124,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   minhaCaixaFiltroCidade = '';
   minhaCaixaFiltroBairro = '';
   minhaCaixaFiltroOrigem = '';
+  minhaCaixaFiltroAprovacao = '';   // '' | 'apto' | 'inapto'
+  minhaCaixaFiltroElegivel = '';    // '' | 'sim' | 'nao'
+  minhaCaixaFiltroEncaminhamento = ''; // '' | 'encaminhado' | 'nao_encaminhado'
 
   // ====== assessores (time do analista) ======
   assessores: Assessor[] = [];
@@ -184,9 +187,22 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         this.currentUserNome = await this.resolveUserName(u.uid);
 
         // Carrega papel e permissões do usuário logado
+        // Nota: document ID pode ≠ Auth UID para alguns colaboradores,
+        // por isso tentamos primeiro por doc direto e depois por query uid
         try {
+          let meData: any = null;
           const meSnap = await getDoc(doc(this.afs, 'colaboradores', u.uid));
-          const meData = meSnap.data() as any;
+          if (meSnap.exists()) {
+            meData = meSnap.data();
+          } else {
+            const q = fsQuery(
+              collection(this.afs, 'colaboradores'),
+              where('uid', '==', u.uid),
+              limit(1)
+            );
+            const qs = await getDocs(q);
+            if (!qs.empty) meData = qs.docs[0].data();
+          }
           this.currentUserPapel = meData?.papel ?? '';
           this.currentUserPodeEncaminharParaAnalista =
             meData?.podeEncaminharParaAnalista === true;
@@ -198,23 +214,31 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         // Analista só acessa minha caixa
         if (this.isAnalista) { this.aba = 'minha-caixa'; }
 
-        // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
-        const equipeUids = await this.obterIdsDoMeuTime();
-        await Promise.all([
-          this.carregarAssessoresDoMeuTime(equipeUids),
-          this.carregarColaboradores(),
-        ]);
+        if (this.isAnalista) {
+          // Analista: carrega apenas registros onde encaminhadoParaUid === seu uid
+          await Promise.all([
+            this.carregarAssessoresDoMeuTime([]),
+            this.carregarCaixaAnalista(u.uid),
+          ]);
+        } else {
+          // Supervisor/Admin: carrega o time completo
+          const equipeUids = await this.obterIdsDoMeuTime();
+          await Promise.all([
+            this.carregarAssessoresDoMeuTime(equipeUids),
+            this.carregarColaboradores(),
+          ]);
 
-        // Inclui UIDs de todos os assessores para que pré-cadastros criados/na caixa
-        // deles também apareçam e possam ser encaminhados pelo supervisor
-        const assessorUids = this.assessores.map(a => a.uid);
-        const todosUids = [...new Set([...equipeUids, ...assessorUids])];
+          // Inclui UIDs de todos os assessores para que pré-cadastros criados/na caixa
+          // deles também apareçam e possam ser encaminhados pelo supervisor
+          const assessorUids = this.assessores.map(a => a.uid);
+          const todosUids = [...new Set([...equipeUids, ...assessorUids])];
 
-        await Promise.all([
-          this.carregarPessoasDoAnalista(todosUids),
-          this.carregarGruposDoAnalista(todosUids),
-        ]);
-        await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
+          await Promise.all([
+            this.carregarPessoasDoAnalista(todosUids),
+            this.carregarGruposDoAnalista(todosUids),
+          ]);
+          await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
+        }
 
         // Salva snapshot do estado "todos" para restaurar sem nova query
         this.pessoasTodos = [...this.pessoas];
@@ -261,6 +285,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.minhaCaixaFiltroCidade = '';
     this.minhaCaixaFiltroBairro = '';
     this.minhaCaixaFiltroOrigem = '';
+    this.minhaCaixaFiltroAprovacao = '';
+    this.minhaCaixaFiltroElegivel = '';
+    this.minhaCaixaFiltroEncaminhamento = '';
     this.paginaPessoas = 1;
     this.paginaGrupos = 1;
   }
@@ -725,6 +752,74 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
   }
 
+  // ====================================================
+  // CAIXA DO ANALISTA — apenas registros com encaminhadoParaUid === uid
+  // ====================================================
+  private async carregarCaixaAnalista(uid: string): Promise<void> {
+    try {
+      const preCadRef = collection(this.afs, 'pre_cadastros');
+      const gruposRef = collection(this.afs, 'grupos_solidarios');
+
+      // Cobre todos os campos usados pelos diferentes módulos ao encaminhar para analista:
+      // - triagem       → analistaUid + caixaUid/caixaAtual='analista'
+      // - supervisao    → encaminhadoParaUid + designadoParaUid
+      const [
+        snapAnalistaPessoas,
+        snapCaixaPessoas,
+        snapEncPessoas,
+        snapDesPessoas,
+        snapCaixaGrupos,
+        snapEncGrupos,
+        snapDesGrupos,
+      ] = await Promise.all([
+        getDocs(fsQuery(preCadRef, where('analistaUid',         '==', uid))),
+        getDocs(fsQuery(preCadRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
+        getDocs(fsQuery(preCadRef, where('encaminhadoParaUid',  '==', uid))),
+        getDocs(fsQuery(preCadRef, where('designadoParaUid',    '==', uid))),
+        getDocs(fsQuery(gruposRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
+        getDocs(fsQuery(gruposRef, where('encaminhadoParaUid',  '==', uid))),
+        getDocs(fsQuery(gruposRef, where('designadoParaUid',    '==', uid))),
+      ]);
+
+      const mapPessoas = new Map<string, PreCadastro>();
+      const allPessoasDocs = [
+        ...snapAnalistaPessoas.docs,
+        ...snapCaixaPessoas.docs,
+        ...snapEncPessoas.docs,
+        ...snapDesPessoas.docs,
+      ];
+      allPessoasDocs.forEach(d => {
+        if (mapPessoas.has(d.id)) return;
+        const r = { id: d.id, ...d.data() } as any;
+        mapPessoas.set(d.id, {
+          ...r,
+          agendamentoStatus: r.agendamentoStatus || 'nao_agendado',
+          formalizacao: { status: r.formalizacao?.status || 'nao_formalizado', ...(r.formalizacao || {}) },
+          desistencia:  { status: r.desistencia?.status  || 'nao_desistiu',    ...(r.desistencia  || {}) },
+        } as PreCadastro);
+      });
+
+      this.pessoas = Array.from(mapPessoas.values());
+      this.pessoasView = [...this.pessoas];
+
+      const mapGrupos = new Map<string, GrupoSolidario>();
+      [...snapCaixaGrupos.docs, ...snapEncGrupos.docs, ...snapDesGrupos.docs].forEach(d => {
+        if (!mapGrupos.has(d.id))
+          mapGrupos.set(d.id, { id: d.id, ...d.data() } as GrupoSolidario);
+      });
+
+      const gruposJoin = await this.gruposSvc.joinGruposView(Array.from(mapGrupos.values()));
+      this.grupos = gruposJoin || [];
+      this.gruposView = [...this.grupos];
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao carregar caixa do analista:', e);
+      this.pessoas = [];
+      this.pessoasView = [];
+      this.grupos = [];
+      this.gruposView = [];
+    }
+  }
+
   private async carregarGruposPorCriador(uid: string): Promise<void> {
     try {
       const colRef = collection(this.afs, 'grupos_solidarios');
@@ -943,7 +1038,21 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
   // ====== getters de filtros Minha Caixa ======
   private get minhaCaixaBase(): PreCadastro[] {
-    return this.pessoasTodos.filter(p => (p as any).caixaUid === this.currentUserUid);
+    if (this.isAnalista) {
+      return this.pessoasTodos.filter(p => this.eNaCaixaDoAnalista(p));
+    }
+    return this.pessoasTodos.filter(p =>
+      (p as any).caixaUid === this.currentUserUid
+    );
+  }
+
+  private eNaCaixaDoAnalista(p: any): boolean {
+    return (
+      p.analistaUid         === this.currentUserUid ||
+      p.encaminhadoParaUid  === this.currentUserUid ||
+      p.designadoParaUid    === this.currentUserUid ||
+      (p.caixaUid === this.currentUserUid && p.caixaAtual === 'analista')
+    );
   }
 
   get minhaCaixaUfsDisponiveis(): string[] {
@@ -1030,6 +1139,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // FILTROS / BUSCA
   // ====================================================
   setAba(aba: Aba) {
+    if (this.isAnalista && aba !== 'minha-caixa') return;
     this.aba = aba;
     this.aplicarFiltrosPessoas();
     this.aplicarFiltrosGrupos();
@@ -1191,9 +1301,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
     const term = this.normalize(this.searchTermMinhaCaixa);
 
-    let pessoas = this.pessoasTodos.filter(
-      p => (p as any).caixaUid === this.currentUserUid
-    );
+    let pessoas = this.isAnalista
+      ? this.pessoasTodos.filter(p => this.eNaCaixaDoAnalista(p))
+      : this.pessoasTodos.filter(p => (p as any).caixaUid === this.currentUserUid);
 
     if (this.minhaCaixaFiltroUf) {
       pessoas = pessoas.filter(p => ((p as any).uf || '') === this.minhaCaixaFiltroUf);
@@ -1206,6 +1316,28 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
     if (this.minhaCaixaFiltroOrigem) {
       pessoas = pessoas.filter(p => ((p as any).origem || '').trim() === this.minhaCaixaFiltroOrigem);
+    }
+
+    if (this.minhaCaixaFiltroAprovacao) {
+      pessoas = pessoas.filter(p =>
+        ((p as any).aprovacao?.status || 'nao_verificado') === this.minhaCaixaFiltroAprovacao
+      );
+    }
+
+    if (this.minhaCaixaFiltroElegivel) {
+      pessoas = pessoas.filter(p =>
+        ((p as any).elegivel?.status || '') === this.minhaCaixaFiltroElegivel
+      );
+    }
+
+    if (this.minhaCaixaFiltroEncaminhamento) {
+      // "encaminhado" = analista já enviou para assessor (caixaAtual mudou para 'assessor')
+      const encaminhado = (p: any) => (p as any).caixaAtual === 'assessor';
+      if (this.minhaCaixaFiltroEncaminhamento === 'encaminhado') {
+        pessoas = pessoas.filter(p => encaminhado(p));
+      } else {
+        pessoas = pessoas.filter(p => !encaminhado(p));
+      }
     }
 
     if (term) {
@@ -1227,9 +1359,14 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     });
     this.minhaCaixaPessoasView = pessoas;
 
-    let grupos = this.gruposTodos.filter(
-      g => (g as any).caixaUid === this.currentUserUid
-    );
+    let grupos = this.isAnalista
+      ? this.gruposTodos.filter(g =>
+          (g as any).analistaUid        === this.currentUserUid ||
+          (g as any).encaminhadoParaUid === this.currentUserUid ||
+          (g as any).designadoParaUid   === this.currentUserUid ||
+          ((g as any).caixaUid === this.currentUserUid && (g as any).caixaAtual === 'analista')
+        )
+      : this.gruposTodos.filter(g => (g as any).caixaUid === this.currentUserUid);
     if (term) {
       grupos = grupos.filter(g => {
         const coord: any = (g as any).coordenadorView || {};

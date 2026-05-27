@@ -222,11 +222,66 @@
         </div>
         <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end">
           <button type="button" class="btn btn-sm btn-outline-secondary"
-            (click)="searchTermMinhaCaixa=''; minhaCaixaFiltroUf=''; minhaCaixaFiltroCidade=''; minhaCaixaFiltroBairro=''; minhaCaixaFiltroOrigem=''; aplicarFiltrosMinhaCaixa()">
+            (click)="searchTermMinhaCaixa=''; minhaCaixaFiltroUf=''; minhaCaixaFiltroCidade=''; minhaCaixaFiltroBairro=''; minhaCaixaFiltroOrigem=''; minhaCaixaFiltroAprovacao=''; minhaCaixaFiltroElegivel=''; minhaCaixaFiltroEncaminhamento=''; aplicarFiltrosMinhaCaixa()">
             <i class="bi bi-x-circle me-1"></i>Limpar filtros
           </button>
         </div>
       </div>
+
+      <!-- Filtros de status: aprovação, elegibilidade, encaminhamento -->
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col-12 col-lg-auto">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Aprovação">
+            <button type="button" class="btn btn-outline-secondary"
+              [class.active]="minhaCaixaFiltroAprovacao === ''"
+              (click)="minhaCaixaFiltroAprovacao = ''; aplicarFiltrosMinhaCaixa()">
+              Todos
+            </button>
+            <button type="button" class="btn btn-outline-success"
+              [class.active]="minhaCaixaFiltroAprovacao === 'apto'"
+              (click)="minhaCaixaFiltroAprovacao = minhaCaixaFiltroAprovacao === 'apto' ? '' : 'apto'; aplicarFiltrosMinhaCaixa()">
+              <i class="bi bi-check-circle me-1"></i>Apto
+            </button>
+            <button type="button" class="btn btn-outline-danger"
+              [class.active]="minhaCaixaFiltroAprovacao === 'inapto'"
+              (click)="minhaCaixaFiltroAprovacao = minhaCaixaFiltroAprovacao === 'inapto' ? '' : 'inapto'; aplicarFiltrosMinhaCaixa()">
+              <i class="bi bi-x-circle me-1"></i>Inapto
+            </button>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-auto">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Elegibilidade">
+            <button type="button" class="btn btn-outline-success"
+              [class.active]="minhaCaixaFiltroElegivel === 'sim'"
+              (click)="minhaCaixaFiltroElegivel = minhaCaixaFiltroElegivel === 'sim' ? '' : 'sim'; aplicarFiltrosMinhaCaixa()">
+              <i class="bi bi-geo-alt me-1"></i>Elegível
+            </button>
+            <button type="button" class="btn btn-outline-warning text-dark"
+              [class.active]="minhaCaixaFiltroElegivel === 'nao'"
+              (click)="minhaCaixaFiltroElegivel = minhaCaixaFiltroElegivel === 'nao' ? '' : 'nao'; aplicarFiltrosMinhaCaixa()">
+              Não elegível
+            </button>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-auto">
+          <div class="btn-group btn-group-sm" role="group" aria-label="Encaminhamento">
+            <button type="button" class="btn btn-outline-success"
+              [class.active]="minhaCaixaFiltroEncaminhamento === 'encaminhado'"
+              (click)="minhaCaixaFiltroEncaminhamento = minhaCaixaFiltroEncaminhamento === 'encaminhado' ? '' : 'encaminhado'; aplicarFiltrosMinhaCaixa()">
+              Encaminhados
+            </button>
+            <button type="button" class="btn btn-outline-warning text-dark"
+              [class.active]="minhaCaixaFiltroEncaminhamento === 'nao_encaminhado'"
+              (click)="minhaCaixaFiltroEncaminhamento = minhaCaixaFiltroEncaminhamento === 'nao_encaminhado' ? '' : 'nao_encaminhado'; aplicarFiltrosMinhaCaixa()">
+              Não encaminhados
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filtros de localidade e origem -->
       <div class="row g-2">
         <div class="col-6 col-sm-3 col-md-2">
           <select class="form-select form-select-sm"
@@ -288,7 +343,9 @@
 
       <div class="row g-3 mb-4">
         <div class="col-12 col-md-6 col-xl-4" *ngFor="let p of minhaCaixaPessoasPaginadas">
-          <div class="card h-100 shadow-sm border-0 border-start border-3 border-primary">
+          <div class="card h-100 shadow-sm border-0 border-start border-3"
+               [class.border-success]="$any(p).caixaAtual === 'assessor'"
+               [class.border-primary]="$any(p).caixaAtual !== 'assessor'">
 
             <div class="card-header bg-white border-bottom d-flex flex-wrap align-items-start justify-content-between gap-2 py-2">
               <div>
@@ -297,7 +354,10 @@
                   <span class="badge" [ngClass]="getStatusClass(p.aprovacao?.status)">
                     {{ getAprovacaoLabel(p.aprovacao?.status) }}
                   </span>
-                  <span class="badge bg-primary">
+                  <span class="badge bg-success" *ngIf="$any(p).caixaAtual === 'assessor'">
+                    <i class="bi bi-send me-1"></i>Enc. para assessor
+                  </span>
+                  <span class="badge bg-primary" *ngIf="$any(p).caixaAtual !== 'assessor'">
                     <i class="bi bi-arrow-left-circle me-1"></i>Recebido
                   </span>
                 </div>
@@ -341,12 +401,12 @@
             </div>
 
             <div class="card-footer bg-white border-top py-2">
-              <!-- Quem encaminhou e quando -->
               <div class="small mb-2">
+                <!-- Quem encaminhou para o analista -->
                 <div>
                   <i class="bi bi-person-fill-up me-1 text-primary"></i>
-                  <span class="text-muted">Encaminhado por:</span>
-                  <span class="fw-medium ms-1">{{ $any(p).encaminhadoPorNome || '—' }}</span>
+                  <span class="text-muted">Recebido de:</span>
+                  <span class="fw-medium ms-1">{{ $any(p).encaminhadoPorNome || $any(p).analistaNome || '—' }}</span>
                 </div>
                 <div>
                   <i class="bi bi-calendar-event me-1 text-primary"></i>
@@ -354,12 +414,21 @@
                   <span class="ms-1">{{ encaminhadoData(p) || '—' }}</span>
                   <span *ngIf="encaminhadoTempoDesde(p) as tempo" class="ms-1 badge bg-light text-secondary border">{{ tempo }}</span>
                 </div>
+                <!-- Para qual assessor foi encaminhado -->
+                <div *ngIf="$any(p).caixaAtual === 'assessor'" class="mt-1 pt-1 border-top">
+                  <i class="bi bi-send me-1 text-success"></i>
+                  <span class="text-muted">Enc. para assessor:</span>
+                  <span class="fw-medium ms-1 text-success">
+                    {{ $any(p).encaminhadoParaNome || $any(p).designadoParaNome || '—' }}
+                  </span>
+                </div>
               </div>
-              <!-- Encaminhar para assessor a partir daqui -->
-              <button type="button" class="btn btn-sm btn-outline-success w-100"
+              <button type="button" class="btn btn-sm w-100"
+                [class.btn-outline-secondary]="$any(p).caixaAtual === 'assessor'"
+                [class.btn-outline-success]="$any(p).caixaAtual !== 'assessor'"
                 (click)="abrirModalAssessorPessoa(p)">
                 <i class="bi bi-send me-1"></i>
-                {{ encaminhadoLabel(p) ? 'Redirecionar assessor' : 'Encaminhar para assessor' }}
+                {{ $any(p).caixaAtual === 'assessor' ? 'Redirecionar assessor' : 'Encaminhar para assessor' }}
               </button>
             </div>
           </div>
