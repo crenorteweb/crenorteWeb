@@ -618,92 +618,84 @@ export class CallCenterComponent implements OnInit, OnDestroy {
 
   async confirmarEncaminhar() {
     const item = this.encaminharItem();
-    const chosen = this.assessorSelecionado();
+    const uid = this.assessorSelecionado();
     const cu = this.currentUser();
-    if (!item || !chosen || !cu) return;
+    if (!item || !uid || !cu) return;
 
-    const ass = this.assessores().find(a => (a.uid || a.id) === chosen);
-    const realUid = ass?.uid || ass?.id || chosen;
-    const assessorNome = ass?.nome || this.nomeDoAutor(realUid) || null;
-    if (assessorNome) this.setNome(realUid, assessorNome);
+    try {
+      const colabRef = doc(this.fs, 'colaboradores', uid);
+      const colabSnap = await getDoc(colabRef);
+      if (!colabSnap.exists()) throw new Error('Colaborador não encontrado.');
 
-    const criadorUid = (item as any)?.createdByUid ?? null;
-    const visivelParaUids = Array.from(new Set([realUid, cu.uid, criadorUid].filter(Boolean))) as string[];
+      const colab = colabSnap.data() as any;
+      const assessorNome = colab?.nome ?? colab?.displayName ?? null;
 
-    const payload: any = {
-      encaminhamento: {
-        assessorUid: realUid,
-        assessorId: realUid,
-        assessorNome,
-        em: serverTimestamp(),
-      },
-      caixaAtual: 'assessor',
-      caixaUid: realUid,
-      destinatarioTipo: 'assessor',
-      destinatarioUid: realUid,
-      alocadoParaUid: realUid,
-      alocadoParaNome: assessorNome,
-      visivelParaUids,
-      analistaId: cu.uid,
-      atualizadoEm: serverTimestamp(),
-    };
+      const srcRef = doc(this.fs, 'pre_cadastros', item.id);
+      const patchRemote = {
+        designadoParaUid: uid,
+        designadoPara: uid,
+        designadoParaNome: assessorNome || null,
+        designadoEm: serverTimestamp(),
+        caixaAtual: 'assessor',
+        caixaUid: uid,
+      };
+      await setDoc(srcRef, patchRemote, { merge: true });
 
-    await Promise.all([
-      setDoc(doc(this.fs, 'pre_cadastros', item.id), payload, { merge: true }),
-      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
-    ]);
+      await setDoc(
+        doc(this.fs, `inboxes_assessores/${uid}/itens/${item.id}`),
+        {
+          preCadastroId: item.id,
+          path: `pre_cadastros/${item.id}`,
+          nomeCompleto: (item as any)?.nomeCompleto ?? null,
+          cpf: (item as any)?.cpf ?? null,
+          em: serverTimestamp(),
+        },
+        { merge: true }
+      );
 
-    await setDoc(
-      doc(this.fs, `inboxes_assessores/${realUid}/itens/${item.id}`),
-      {
-        preCadastroId: item.id,
-        path: `pre_cadastros/${item.id}`,
-        nomeCompleto: (item as any)?.nomeCompleto ?? null,
-        cpf: (item as any)?.cpf ?? null,
-        em: serverTimestamp(),
-      },
-      { merge: true }
-    );
+      const patchLocal = {
+        designadoParaUid: uid,
+        designadoParaNome: assessorNome || this.nomeDoAutor(uid),
+        caixaAtual: 'assessor',
+        caixaUid: uid,
+      };
+      this.preCadastros.update(list =>
+        list.map(it => it.id === item.id ? { ...it as any, ...patchLocal } : it)
+      );
 
-    this.preCadastros.update(list =>
-      list.map(it => it.id === item.id
-        ? { ...it as any, encaminhamento: { assessorUid: realUid, assessorNome, em: null }, caixaAtual: 'assessor' }
-        : it
-      )
-    );
-
-    this.fecharModalEncaminhar();
+      this.fecharModalEncaminhar();
+    } catch (e) {
+      console.error('[CallCenter] confirmarEncaminhar erro:', e);
+      alert('Não foi possível encaminhar. Tente novamente.');
+    }
   }
 
   async retirarAssessor() {
     const item = this.encaminharItem();
     if (!item) return;
 
-    const payload: any = {
-      encaminhamento: deleteField(),
+    const patchRemote: any = {
+      designadoParaUid: deleteField(),
+      designadoPara: deleteField(),
+      designadoParaNome: deleteField(),
+      designadoEm: deleteField(),
       caixaAtual: deleteField(),
       caixaUid: deleteField(),
-      destinatarioTipo: deleteField(),
-      destinatarioUid: deleteField(),
-      alocadoParaUid: deleteField(),
-      alocadoParaNome: deleteField(),
-      atualizadoEm: serverTimestamp(),
     };
 
-    await Promise.all([
-      updateDoc(doc(this.fs, 'pre_cadastros', item.id), payload).catch(() => { }),
-      updateDoc(doc(this.fs, 'pre-cadastros', item.id), payload).catch(() => { }),
-    ]);
+    const srcRef = doc(this.fs, 'pre_cadastros', item.id);
+    await setDoc(srcRef, patchRemote, { merge: true });
 
     this.preCadastros.update(list =>
       list.map(it => {
         if (it.id !== item.id) return it;
         const updated = { ...it as any };
-        delete updated.encaminhamento;
+        delete updated.designadoParaUid;
+        delete updated.designadoPara;
+        delete updated.designadoParaNome;
+        delete updated.designadoEm;
         delete updated.caixaAtual;
         delete updated.caixaUid;
-        delete updated.alocadoParaUid;
-        delete updated.alocadoParaNome;
         return updated;
       })
     );
