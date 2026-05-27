@@ -28,6 +28,24 @@
               (click)="aba.set('status')">
         <i class="bi bi-arrow-repeat me-1"></i> Resetar Status
       </button>
+      <button class="btn position-relative"
+              [ngClass]="aba()==='encaminhamento' ? 'btn-danger' : 'btn-outline-danger'"
+              (click)="aba.set('encaminhamento')">
+        <i class="bi bi-wrench-adjustable me-1"></i> Migrar Encaminhamentos
+        <span *ngIf="registrosSemDesignacao().length > 0"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+          {{ registrosSemDesignacao().length }}
+        </span>
+      </button>
+      <button class="btn position-relative"
+              [ngClass]="aba()==='analistas' ? 'btn-warning' : 'btn-outline-warning'"
+              (click)="aba.set('analistas'); carregarAnalistas()">
+        <i class="bi bi-person-badge me-1"></i> Migrar Analistas
+        <span *ngIf="registrosSemAnalista().length > 0"
+              class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark">
+          {{ registrosSemAnalista().length }}
+        </span>
+      </button>
     </div>
   </div>
 
@@ -480,6 +498,158 @@
           </tbody>
         </table>
       </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: MIGRAR ENCAMINHAMENTOS (call-center legado)
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'encaminhamento'">
+
+    <!-- Info -->
+    <div class="alert alert-danger py-2 d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-exclamation-triangle-fill"></i>
+      Registros encaminhados pelo <strong class="mx-1">Call-Center</strong> no formato antigo:
+      têm <code>encaminhamento.assessorUid</code> mas <strong>não</strong> têm <code>designadoParaUid</code>.
+      A migração copia os campos para o formato atual.
+    </div>
+
+    <!-- Painel de ação -->
+    <div class="card border-0 shadow-sm mb-3 border-start border-danger border-3">
+      <div class="card-body py-3">
+        <div class="row g-3 align-items-center">
+          <div class="col-12 col-md-8">
+            <p class="mb-1 fw-semibold">
+              <span class="badge bg-danger me-2">{{ registrosSemDesignacao().length }}</span>
+              registro(s) precisam de migração
+            </p>
+            <p class="text-muted small mb-0">
+              Serão preenchidos: <code>designadoParaUid</code>, <code>designadoPara</code>,
+              <code>designadoParaNome</code>, <code>designadoEm</code>, <code>caixaAtual</code>, <code>caixaUid</code>
+            </p>
+            <div *ngIf="migrandoEncaminhamento()" class="mt-2">
+              <div class="progress" style="height:6px">
+                <div class="progress-bar bg-danger"
+                     [style.width.%]="migracaoEncTotal() ? (migracaoEncProcessados() / migracaoEncTotal() * 100) : 0">
+                </div>
+              </div>
+              <small class="text-muted">{{ migracaoEncProcessados() }} / {{ migracaoEncTotal() }}</small>
+            </div>
+          </div>
+          <div class="col-12 col-md-4">
+            <button class="btn btn-danger w-100"
+                    (click)="migrarEncaminhamentosCallCenter()"
+                    [disabled]="migrandoEncaminhamento() || registrosSemDesignacao().length === 0">
+              <span *ngIf="migrandoEncaminhamento()" class="spinner-border spinner-border-sm me-1"></span>
+              <i *ngIf="!migrandoEncaminhamento()" class="bi bi-wrench-adjustable me-1"></i>
+              Executar Migração
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div *ngIf="!loading() && registrosSemDesignacao().length === 0" class="alert alert-success">
+      <i class="bi bi-check-circle me-1"></i> Nenhum registro precisa de migração.
+    </div>
+
+    <!-- Tabela de registros afetados -->
+    <div *ngIf="registrosSemDesignacao().length > 0" class="card border-0 shadow-sm">
+      <div class="table-responsive" style="max-height:520px;overflow-y:auto">
+        <table class="table table-sm table-hover mb-0 align-middle">
+          <thead class="table-light sticky-top">
+            <tr>
+              <th>Nome</th>
+              <th>CPF</th>
+              <th>Encaminhado para (assessor)</th>
+              <th>Data encaminhamento</th>
+              <th>Coleção</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let r of registrosSemDesignacao()">
+              <td>{{ r.nomeCompleto || '—' }}</td>
+              <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
+              <td>{{ r['encaminhamento']?.assessorNome || r['encaminhamento']?.assessorUid || '—' }}</td>
+              <td>{{ toDataStr(r['encaminhamento']?.em) }}</td>
+              <td><code class="small">{{ r['__col'] || 'pre_cadastros' }}</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </ng-container>
+
+
+  <!-- ══════════════════════════════════════════════════════════════
+       ABA: MIGRAR ANALISTAS
+  ══════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="aba() === 'analistas'">
+
+    <div class="alert alert-warning">
+      Registros que foram encaminhados para um <strong>analista</strong> via fluxo de assessor
+      (têm <code>designadoParaUid</code> de um analista) mas <strong>não têm</strong> <code>analistaUid</code>.
+      A migração copia <code>designadoParaUid</code> → <code>analistaUid</code> / <code>analistaNome</code> / <code>analistaEm</code>.
+    </div>
+
+    <div class="d-flex align-items-center gap-3 mb-3">
+      <button class="btn btn-warning" (click)="migrarAnalistasLegado()"
+              [disabled]="migrandoAnalistas() || !registrosSemAnalista().length">
+        <span *ngIf="migrandoAnalistas()" class="spinner-border spinner-border-sm me-1"></span>
+        Executar migração ({{ registrosSemAnalista().length }} registros)
+      </button>
+      <button class="btn btn-outline-secondary btn-sm" (click)="carregarAnalistas()">
+        Recarregar analistas
+      </button>
+    </div>
+
+    <!-- Progresso -->
+    <div class="mb-3" *ngIf="migrandoAnalistas()">
+      <div class="progress">
+        <div class="progress-bar bg-warning" role="progressbar"
+             [style.width.%]="migracaoAnalistaTotal() ? (migracaoAnalistaProcessados() / migracaoAnalistaTotal() * 100) : 0">
+        </div>
+      </div>
+      <small class="text-muted">{{ migracaoAnalistaProcessados() }} / {{ migracaoAnalistaTotal() }}</small>
+    </div>
+
+    <!-- Analistas carregados -->
+    <div class="alert alert-info py-2 small mb-3" *ngIf="analistasCache().length">
+      Analistas detectados: <strong>{{ analistasCache().length }}</strong> —
+      <span *ngFor="let a of analistasCache(); let last = last">{{ a.nome }}<span *ngIf="!last">, </span></span>
+    </div>
+    <div class="alert alert-secondary py-2 small mb-3" *ngIf="!analistasCache().length">
+      Nenhum analista carregado ainda. Clique em "Recarregar analistas".
+    </div>
+
+    <!-- Tabela de registros afetados -->
+    <div class="table-responsive" *ngIf="registrosSemAnalista().length">
+      <table class="table table-sm table-bordered">
+        <thead class="table-warning">
+          <tr>
+            <th>Nome</th>
+            <th>CPF</th>
+            <th>Analista (designadoParaUid)</th>
+            <th>Data encaminhamento</th>
+            <th>Coleção</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let r of registrosSemAnalista()">
+            <td>{{ r.nomeCompleto || '—' }}</td>
+            <td class="font-monospace">{{ cpfMask(r.cpf) }}</td>
+            <td>{{ r['designadoParaNome'] || r['designadoParaUid'] || '—' }}</td>
+            <td>{{ toDataStr(r['designadoEm']) }}</td>
+            <td><code class="small">{{ r['__col'] || 'pre_cadastros' }}</code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="text-muted" *ngIf="!registrosSemAnalista().length && analistasCache().length">
+      Nenhum registro pendente de migração.
     </div>
 
   </ng-container>

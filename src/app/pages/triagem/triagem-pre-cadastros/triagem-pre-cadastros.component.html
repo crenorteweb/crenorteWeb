@@ -32,7 +32,8 @@
 
 <!-- Barra de busca -->
 <div class="container-fluid py-3 bg-light border-bottom">
-  <div class="row g-2 align-items-center">
+  <!-- Linha 1: busca + filtros rápidos -->
+  <div class="row g-2 align-items-center mb-2">
     <div class="col-12 col-md-6">
       <input type="text" class="form-control" placeholder="Buscar por nome, CPF, endereço, rota, cidade/UF…"
         [ngModel]="busca" (ngModelChange)="onBusca($event)" />
@@ -53,6 +54,16 @@
             (click)="setStatus('inapto')">Inapto</button>
         </div>
 
+        <!-- Elegibilidade -->
+        <div class="btn-group btn-group-sm" role="group" aria-label="Elegibilidade">
+          <button class="btn btn-outline-info" [class.active]="isElegivelActive('todos')"
+            (click)="setElegivel('todos')">Todos</button>
+          <button class="btn btn-outline-info" [class.active]="isElegivelActive('sim')"
+            (click)="setElegivel('sim')">Elegível</button>
+          <button class="btn btn-outline-danger" [class.active]="isElegivelActive('nao')"
+            (click)="setElegivel('nao')">Inelegível</button>
+        </div>
+
         <!-- Envio -->
         <div class="btn-group btn-group-sm" role="group" aria-label="Envio">
           <button class="btn btn-outline-success" [class.active]="isEnvioActive('todos')"
@@ -65,6 +76,42 @@
 
         <button class="btn btn-sm btn-outline-dark" (click)="limparFiltros()">Limpar filtros</button>
       </div>
+    </div>
+  </div>
+
+  <!-- Linha 2: selects de localidade + origem (só aba Pessoas) -->
+  <div class="row g-2" *ngIf="activeTab==='pessoas'">
+    <div class="col-6 col-sm-3 col-md-2 col-lg-1">
+      <select class="form-select form-select-sm"
+        [(ngModel)]="filtroUf"
+        (ngModelChange)="onFiltroUfChange()">
+        <option value="">UF</option>
+        <option *ngFor="let uf of ufsDisponiveis" [value]="uf">{{ uf }}</option>
+      </select>
+    </div>
+    <div class="col-6 col-sm-4 col-md-3">
+      <select class="form-select form-select-sm"
+        [(ngModel)]="filtroCidade"
+        (ngModelChange)="onFiltroCidadeChange()">
+        <option value="">Cidade</option>
+        <option *ngFor="let c of cidadesDisponiveis" [value]="c">{{ c }}</option>
+      </select>
+    </div>
+    <div class="col-6 col-sm-4 col-md-3">
+      <select class="form-select form-select-sm"
+        [ngModel]="filtroBairro"
+        (ngModelChange)="setBairro($event)">
+        <option value="">Bairro</option>
+        <option *ngFor="let b of bairrosDisponiveis" [value]="b">{{ b }}</option>
+      </select>
+    </div>
+    <div class="col-6 col-sm-4 col-md-3">
+      <select class="form-select form-select-sm"
+        [ngModel]="filtroOrigemKey"
+        (ngModelChange)="setOrigem($event)">
+        <option value="">Origem</option>
+        <option *ngFor="let o of origensDisponiveis" [value]="o.key">{{ o.label }}</option>
+      </select>
     </div>
   </div>
 </div>
@@ -118,6 +165,11 @@
                 [title]="'Status: ' + statusLabel(r.statusAprovacao)">
                 {{ statusIcon(r.statusAprovacao) }} {{ statusLabel(r.statusAprovacao) }}
               </span>
+
+              <span class="badge" [ngClass]="elegivelClass(r.elegivelStatus)"
+                [title]="elegivelLabel(r.elegivelStatus)">
+                {{ elegivelLabel(r.elegivelStatus) }}
+              </span>
             </div>
 
             <div class="text-muted small">
@@ -142,13 +194,40 @@
               <span class="text-muted" *ngIf="r.designadoEm"
                 style="opacity: 0.65"> ({{ r.designadoEm | date:'dd/MM HH:mm' }})</span>
             </div>
+
+            <!-- Encaminhado por -->
+            <div class="small text-muted" *ngIf="r.encaminhadoPorNome || r.encaminhadoPorUid">
+              Encaminhado por: <span class="text-body">{{ r.encaminhadoPorNome || r.encaminhadoPorUid }}</span>
+            </div>
+
+            <!-- Analista -->
+            <div class="small" *ngIf="r.analistaUid">
+              <span class="text-muted">Analista: </span>
+              <span class="text-body fw-medium">{{ r.analistaNome || r.analistaUid }}</span>
+              <span class="text-muted" *ngIf="r.analistaEm" style="opacity:0.65"> ({{ r.analistaEm | date:'dd/MM HH:mm' }})</span>
+            </div>
           </div>
 
           <!-- Ações + status de envio -->
           <div class="d-flex flex-wrap align-items-center gap-2">
-            <span class="badge" [ngClass]="isEnviado(r) ? 'bg-success' : 'bg-warning text-dark'">
-              {{ isEnviado(r) ? 'Enviado' : 'Não enviado' }}
+            <span class="badge" [ngClass]="(isEnviado(r) || r.analistaUid) ? 'bg-success' : 'bg-warning text-dark'">
+              {{ isEnviado(r) ? 'Enviado' : r.analistaUid ? 'Enc. analista' : 'Não enviado' }}
             </span>
+
+            <span class="badge bg-info text-dark" *ngIf="r.analistaUid"
+              [title]="'Analista: ' + (r.analistaNome || r.analistaUid)">
+              <i class="bi bi-person-badge me-1"></i>
+              Enc. analista: {{ r.analistaNome || r.analistaUid }}
+            </span>
+
+            <button class="btn btn-sm btn-outline-primary" (click)="abrirModalAprovacao(r)">
+              Verificar/Aprovar
+            </button>
+
+            <button class="btn btn-sm btn-outline-warning" *ngIf="podeEncaminharParaAnalista"
+              (click)="abrirModalAnalista(r)" [disabled]="enviandoAnalista[r.id]">
+              {{ r.analistaUid ? 'Trocar analista' : 'Encaminhar p/ analista' }}
+            </button>
 
             <button class="btn btn-sm btn-outline-success" (click)="abrirModalAssessor(r)">
               {{ isEnviado(r) ? 'Trocar assessor' : 'Escolher assessor' }}
@@ -613,6 +692,132 @@
 
     <div class="d-flex justify-content-end border-top pt-3">
       <button class="btn btn-outline-secondary" (click)="fecharRelatorioDist()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================
+     MODAL: Encaminhar para Analista
+     ========================= -->
+<div class="overlay" *ngIf="showAnalistaModal">
+  <div class="overlay__backdrop" (click)="fecharModalAnalista()"></div>
+  <div class="overlay__panel" (keyup.escape)="fecharModalAnalista()" tabindex="0">
+    <div class="d-flex align-items-center justify-content-between border-bottom mb-2">
+      <div class="py-2">
+        <div class="fw-semibold">Encaminhar para analista</div>
+        <small class="text-muted d-block" *ngIf="rowAnalista">
+          {{ rowAnalista.nome || rowAnalista.cpf || rowAnalista.id }}
+          <span *ngIf="rowAnalista.cpf"> • CPF: {{ cpfMask(rowAnalista.cpf) }}</span>
+        </small>
+      </div>
+      <button class="btn-close" aria-label="Fechar" (click)="fecharModalAnalista()"></button>
+    </div>
+
+    <div class="py-2">
+      <input class="form-control mb-3" placeholder="Buscar analista por nome ou e-mail"
+        [(ngModel)]="analistaBusca" (ngModelChange)="filtrarAnalistas()" />
+
+      <div class="alert alert-info py-2 small" *ngIf="!analistas.length">
+        Nenhum colaborador com papel <strong>analista</strong> cadastrado.
+      </div>
+
+      <ul class="list-group" *ngIf="analistas.length">
+        <li class="list-group-item d-flex align-items-center justify-content-between gap-3"
+            *ngFor="let a of analistasFiltrados">
+          <div>
+            <div class="fw-semibold">{{ nomeAssessor(a) }}</div>
+            <div class="text-muted small" *ngIf="a.email">{{ a.email }}</div>
+          </div>
+          <button type="button" class="btn btn-success btn-sm px-3"
+            (click)="confirmarEncaminharAnalista(a)"
+            [disabled]="enviandoAnalista[rowAnalista?.id || '']">
+            Encaminhar
+          </button>
+        </li>
+        <li class="list-group-item text-muted py-3" *ngIf="!analistasFiltrados.length && analistaBusca">
+          Nenhum analista encontrado para "{{ analistaBusca }}".
+        </li>
+      </ul>
+    </div>
+
+    <div class="d-flex justify-content-end border-top pt-3">
+      <button class="btn btn-outline-secondary" (click)="fecharModalAnalista()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================
+     MODAL: Verificar/Aprovar Cliente
+     ========================= -->
+<div class="overlay" *ngIf="showAprovacaoModal">
+  <div class="overlay__backdrop" (click)="fecharModalAprovacao()"></div>
+  <div class="overlay__panel" (keyup.escape)="fecharModalAprovacao()" tabindex="0">
+    <div class="d-flex align-items-center justify-content-between border-bottom mb-3">
+      <div class="py-2">
+        <div class="fw-semibold">Verificar / Aprovar cliente</div>
+        <small class="text-muted d-block" *ngIf="rowAprovacao">
+          {{ rowAprovacao.nome || '(sem nome)' }}
+          <span *ngIf="rowAprovacao.cpf"> • CPF: {{ cpfMask(rowAprovacao.cpf) }}</span>
+        </small>
+      </div>
+      <button class="btn-close" aria-label="Fechar" (click)="fecharModalAprovacao()"></button>
+    </div>
+
+    <div class="py-2" *ngIf="rowAprovacao">
+      <!-- Elegibilidade -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Elegibilidade</label>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseElegivel === null ? 'btn-secondary' : 'btn-outline-secondary'"
+            (click)="analiseElegivel = null">
+            Não verificada
+          </button>
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseElegivel === 'sim' ? 'btn-info text-dark' : 'btn-outline-info'"
+            (click)="analiseElegivel = 'sim'">
+            Elegível
+          </button>
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseElegivel === 'nao' ? 'btn-danger' : 'btn-outline-danger'"
+            (click)="analiseElegivel = 'nao'">
+            Inelegível
+          </button>
+        </div>
+      </div>
+
+      <!-- Resultado da análise -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold">Resultado da análise</label>
+        <div class="d-flex flex-wrap gap-2">
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseAprovacao === 'nao' ? 'btn-secondary' : 'btn-outline-secondary'"
+            (click)="analiseAprovacao = 'nao'">
+            Não verificado
+          </button>
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseAprovacao === 'apto' ? 'btn-success' : 'btn-outline-success'"
+            (click)="analiseAprovacao = 'apto'">
+            Apto
+          </button>
+          <button type="button" class="btn btn-sm"
+            [ngClass]="analiseAprovacao === 'inapto' ? 'btn-danger' : 'btn-outline-danger'"
+            (click)="analiseAprovacao = 'inapto'">
+            Inapto
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 border-top pt-3">
+      <button class="btn btn-outline-secondary" (click)="fecharModalAprovacao()" [disabled]="salvandoAprovacao">
+        Cancelar
+      </button>
+      <button class="btn btn-primary" (click)="salvarAprovacao()" [disabled]="salvandoAprovacao">
+        {{ salvandoAprovacao ? 'Salvando…' : 'Salvar aprovação' }}
+      </button>
     </div>
   </div>
 </div>

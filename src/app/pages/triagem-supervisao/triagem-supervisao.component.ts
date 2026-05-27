@@ -62,7 +62,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====== estado usuário atual ======
   currentUserUid: string | null = null;
   currentUserNome: string | null = null;
+  currentUserPapel: string = '';
   currentUserPodeEncaminharParaAnalista = false;
+
+  get isAnalista(): boolean { return this.currentUserPapel === 'analista'; }
   private subUser?: Subscription;
 
   // cache de nomes para não ficar lendo o mesmo colaborador sempre
@@ -117,6 +120,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   minhaCaixaPessoasView: PreCadastro[] = [];
   minhaCaixaGruposView: GrupoSolidario[] = [];
   searchTermMinhaCaixa = '';
+  minhaCaixaFiltroUf = '';
+  minhaCaixaFiltroCidade = '';
+  minhaCaixaFiltroBairro = '';
+  minhaCaixaFiltroOrigem = '';
 
   // ====== assessores (time do analista) ======
   assessores: Assessor[] = [];
@@ -176,14 +183,20 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         this.currentUserUid = u.uid;
         this.currentUserNome = await this.resolveUserName(u.uid);
 
-        // Verifica se o usuário logado tem permissão de encaminhar para analista
+        // Carrega papel e permissões do usuário logado
         try {
           const meSnap = await getDoc(doc(this.afs, 'colaboradores', u.uid));
+          const meData = meSnap.data() as any;
+          this.currentUserPapel = meData?.papel ?? '';
           this.currentUserPodeEncaminharParaAnalista =
-            (meSnap.data() as any)?.podeEncaminharParaAnalista === true;
+            meData?.podeEncaminharParaAnalista === true;
         } catch {
+          this.currentUserPapel = '';
           this.currentUserPodeEncaminharParaAnalista = false;
         }
+
+        // Analista só acessa minha caixa
+        if (this.isAnalista) { this.aba = 'minha-caixa'; }
 
         // Descobre o time primeiro para passar os UIDs completos ao carregamento de assessores
         const equipeUids = await this.obterIdsDoMeuTime();
@@ -244,6 +257,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.filtroCidade = '';
     this.filtroBairro = '';
     this.filtroAprovadorUid = '';
+    this.minhaCaixaFiltroUf = '';
+    this.minhaCaixaFiltroCidade = '';
+    this.minhaCaixaFiltroBairro = '';
+    this.minhaCaixaFiltroOrigem = '';
     this.paginaPessoas = 1;
     this.paginaGrupos = 1;
   }
@@ -556,6 +573,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       });
 
       this.pessoas = filtrarUfsNorte(norm).filter(r => {
+        // Sempre exibe se encaminhado para analista (caixaAtual === 'analista' ou analistaUid definido)
+        if ((r as any).caixaAtual === 'analista' || !!(r as any).analistaUid) return true;
         if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
         const origem = ((r as any).origem ?? '').trim().toLowerCase();
         const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
@@ -691,6 +710,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         } as PreCadastro;
       });
       const aptos = norm.filter(r => {
+        if ((r as any).caixaAtual === 'analista' || !!(r as any).analistaUid) return true;
         if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
         const origem = ((r as any).origem ?? '').trim().toLowerCase();
         const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
@@ -847,6 +867,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       }
 
       this.pessoas = Array.from(atuais.values()).filter(p => {
+        if ((p as any).caixaAtual === 'analista' || !!(p as any).analistaUid) return true;
         if (((p as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
         const origem = ((p as any).origem ?? '').trim().toLowerCase();
         const ehCallCenter = origem === 'site / portal' && (p as any)?.elegivel?.status === 'sim';
@@ -920,6 +941,61 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.aplicarFiltrosPessoas();
   }
 
+  // ====== getters de filtros Minha Caixa ======
+  private get minhaCaixaBase(): PreCadastro[] {
+    return this.pessoasTodos.filter(p => (p as any).caixaUid === this.currentUserUid);
+  }
+
+  get minhaCaixaUfsDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.minhaCaixaBase) {
+      const u = ((p as any).uf || '').trim();
+      if (u) set.add(u);
+    }
+    return Array.from(set).sort();
+  }
+
+  get minhaCaixaCidadesDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.minhaCaixaBase) {
+      if (this.minhaCaixaFiltroUf && (p as any).uf !== this.minhaCaixaFiltroUf) continue;
+      const c = ((p as any).cidade || '').trim();
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort();
+  }
+
+  get minhaCaixaBairrosDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.minhaCaixaBase) {
+      if (this.minhaCaixaFiltroUf && (p as any).uf !== this.minhaCaixaFiltroUf) continue;
+      if (this.minhaCaixaFiltroCidade && (p as any).cidade !== this.minhaCaixaFiltroCidade) continue;
+      const b = ((p as any).bairro || '').trim();
+      if (b) set.add(b);
+    }
+    return Array.from(set).sort();
+  }
+
+  get minhaCaixaOrigensDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const p of this.minhaCaixaBase) {
+      const o = ((p as any).origem || '').trim();
+      if (o) set.add(o);
+    }
+    return Array.from(set).sort();
+  }
+
+  onMinhaCaixaUfChange() {
+    this.minhaCaixaFiltroCidade = '';
+    this.minhaCaixaFiltroBairro = '';
+    this.aplicarFiltrosMinhaCaixa();
+  }
+
+  onMinhaCaixaCidadeChange() {
+    this.minhaCaixaFiltroBairro = '';
+    this.aplicarFiltrosMinhaCaixa();
+  }
+
   getAprovacaoLabel(status?: string): string {
     switch (status) {
       case 'apto':          return 'Apto';
@@ -984,9 +1060,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aplicarFiltrosPessoas() {
     let list = [...this.pessoas];
 
-    // Exibe somente aptos nesta visão de triagem/encaminhamento
-    list = list.filter(
-      p => ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
+    // Exibe aptos + registros na caixa do analista (aguardando análise)
+    list = list.filter(p =>
+      (p as any).caixaAtual === 'analista' ||
+      !!(p as any).analistaUid ||
+      ((p as any).aprovacao?.status || 'nao_verificado') === 'apto'
     );
 
     // filtro encaminhamento / elegibilidade
@@ -1116,11 +1194,26 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     let pessoas = this.pessoasTodos.filter(
       p => (p as any).caixaUid === this.currentUserUid
     );
+
+    if (this.minhaCaixaFiltroUf) {
+      pessoas = pessoas.filter(p => ((p as any).uf || '') === this.minhaCaixaFiltroUf);
+    }
+    if (this.minhaCaixaFiltroCidade) {
+      pessoas = pessoas.filter(p => this.normalize((p as any).cidade || '') === this.normalize(this.minhaCaixaFiltroCidade));
+    }
+    if (this.minhaCaixaFiltroBairro) {
+      pessoas = pessoas.filter(p => this.normalize((p as any).bairro || '') === this.normalize(this.minhaCaixaFiltroBairro));
+    }
+    if (this.minhaCaixaFiltroOrigem) {
+      pessoas = pessoas.filter(p => ((p as any).origem || '').trim() === this.minhaCaixaFiltroOrigem);
+    }
+
     if (term) {
       pessoas = pessoas.filter(p => {
         const blob = this.normalize(
           `${(p as any).nomeCompleto || ''} ${(p as any).cpf || ''} ${(p as any).telefone || ''
-          } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).encaminhadoPorNome || ''}`
+          } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).encaminhadoPorNome || ''
+          } ${(p as any).origem || ''} ${(p as any).bairro || ''}`
         );
         return blob.includes(term);
       });
@@ -1231,7 +1324,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   encaminhadoData(p: PreCadastro): string | null {
-    const rawEm = (p as any).encaminhadoEm ?? (p as any).designadoEm ?? null;
+    const rawEm = (p as any).encaminhadoEm ?? (p as any).analistaEm ?? (p as any).designadoEm ?? null;
     const d = this.toJSDate(rawEm);
     if (!d) return null;
     const dd  = String(d.getDate()).padStart(2, '0');
@@ -1242,7 +1335,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   encaminhadoTempoDesde(item: any): string | null {
-    const rawEm = item?.encaminhadoEm ?? item?.designadoEm ?? null;
+    const rawEm = item?.encaminhadoEm ?? item?.analistaEm ?? item?.designadoEm ?? null;
     return this.tempoDecorrido(rawEm);
   }
 

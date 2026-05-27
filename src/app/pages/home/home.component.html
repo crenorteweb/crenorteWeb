@@ -42,14 +42,42 @@
 
       </ng-container>
 
-      <!-- ===================== VISÃO ANALISTA / SUPERVISOR ===================== -->
-      <ng-container *ngIf="hasAny(perfil.papel, ['analista', 'supervisor', 'coordenador'])">
+      <!-- ===================== VISÃO ANALISTA ===================== -->
+      <ng-container *ngIf="hasAny(perfil.papel, ['analista'])">
 
         <div class="col-10 col-sm-6 col-md-3">
           <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
             <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
-            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Minha Lista Pré-Cadastro
-            </div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Minha Lista Pré-Cadastro</div>
+            <small class="text-muted d-block">Seus pré-cadastros</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/triagem-supervisao" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-diagram-2-fill"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Encaminhamento</div>
+            <small class="text-muted d-block">Minha caixa de encaminhamentos</small>
+          </a>
+        </div>
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/organograma" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-bezier"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span> <br>Organograma</div>
+            <small class="text-muted d-block">Time de Assessores</small>
+          </a>
+        </div>
+
+      </ng-container>
+
+      <!-- ===================== VISÃO SUPERVISOR / COORDENADOR ===================== -->
+      <ng-container *ngIf="hasAny(perfil.papel, ['supervisor', 'coordenador'])">
+
+        <div class="col-10 col-sm-6 col-md-3">
+          <a routerLink="/pre-cadastro/minha-lista" class="card text-center shadow-sm p-3 text-decoration-none h-100">
+            <div class="fs-1 text-success"><i class="bi bi-clipboard2"></i></div>
+            <div class="mt-2 fw-bold text-dark"><span style="color:#008d45;">Módulo</span><br>Minha Lista Pré-Cadastro</div>
             <small class="text-muted d-block">Seus pré-cadastros</small>
           </a>
         </div>

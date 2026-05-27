@@ -2,14 +2,14 @@ import { Component, OnInit, inject, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import {
-  Firestore, collection, getDocs, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc,
+  Firestore, collection, getDocs, updateDoc, deleteDoc, doc, writeBatch, query, where, getDoc, serverTimestamp,
 } from '@angular/fire/firestore';
 import { HeaderComponent } from '../shared/header/header.component';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-type Aba = 'normalizacao' | 'cpfs' | 'exportar' | 'criador' | 'status';
+type Aba = 'normalizacao' | 'cpfs' | 'exportar' | 'criador' | 'status' | 'encaminhamento' | 'analistas';
 type Campo = 'cidade' | 'bairro' | 'uf' | 'origem';
 
 interface Registro {
@@ -130,6 +130,146 @@ export class AdminValidacoesComponent implements OnInit {
 
   // IDs já excluídos do Firestore mas ainda não removidos da lista
   deletadosCpf = signal<Set<string>>(new Set());
+
+  // ── Aba Migração Encaminhamento (call-center legado) ────────────────────
+  migrandoEncaminhamento = signal(false);
+  migracaoEncTotal = signal(0);
+  migracaoEncProcessados = signal(0);
+
+  registrosSemDesignacao = computed<Registro[]>(() =>
+    this.todosRegistros().filter(r =>
+      !!r['encaminhamento']?.assessorUid && !r['designadoParaUid']
+    )
+  );
+
+  async migrarEncaminhamentosCallCenter() {
+    const registros = this.registrosSemDesignacao();
+    if (!registros.length) { this.showToast('Nenhum registro para migrar.', 'danger'); return; }
+    if (!confirm(`Migrar ${registros.length} registro(s) do call-center para o formato novo?`)) return;
+
+    this.migrandoEncaminhamento.set(true);
+    this.migracaoEncTotal.set(registros.length);
+    this.migracaoEncProcessados.set(0);
+
+    try {
+      const chunks: Registro[][] = [];
+      for (let i = 0; i < registros.length; i += 490) chunks.push(registros.slice(i, i + 490));
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(this.fs);
+        for (const r of chunk) {
+          const uid = r['encaminhamento']?.assessorUid;
+          const assessorNome = r['encaminhamento']?.assessorNome ?? null;
+          const em = r['encaminhamento']?.em ?? null;
+
+          const patchRemote: Record<string, any> = {
+            designadoParaUid: uid,
+            designadoPara: uid,
+            designadoParaNome: assessorNome,
+            designadoEm: em ?? serverTimestamp(),
+            caixaAtual: 'assessor',
+            caixaUid: uid,
+          };
+
+          const col = r['__col'] ?? 'pre_cadastros';
+          batch.update(doc(this.fs, col, r.id), patchRemote);
+        }
+        await batch.commit();
+        this.migracaoEncProcessados.update(v => v + chunk.length);
+      }
+
+      this.todosRegistros.update(lista =>
+        lista.map(r => {
+          if (!r['encaminhamento']?.assessorUid || r['designadoParaUid']) return r;
+          const uid = r['encaminhamento'].assessorUid;
+          const assessorNome = r['encaminhamento'].assessorNome ?? null;
+          return { ...r, designadoParaUid: uid, designadoPara: uid, designadoParaNome: assessorNome, caixaAtual: 'assessor', caixaUid: uid };
+        })
+      );
+
+      this.showToast(`${registros.length} registro(s) migrado(s) com sucesso.`, 'success');
+    } catch {
+      this.showToast('Erro ao migrar registros.', 'danger');
+    } finally {
+      this.migrandoEncaminhamento.set(false);
+    }
+  }
+
+  // ── Aba Migração Analistas ──────────────────────────────────────────────
+  migrandoAnalistas = signal(false);
+  migracaoAnalistaTotal = signal(0);
+  migracaoAnalistaProcessados = signal(0);
+  analistasCache = signal<{ uid: string; nome: string }[]>([]);
+
+  registrosSemAnalista = computed<Registro[]>(() =>
+    this.todosRegistros().filter(r => {
+      if (r['analistaUid']) return false;
+      const uid = r['designadoParaUid'];
+      if (!uid) return false;
+      return this.analistasCache().some(a => a.uid === uid);
+    })
+  );
+
+  async carregarAnalistas() {
+    const snap = await getDocs(
+      query(collection(this.fs, 'colaboradores'), where('papel', '==', 'analista'))
+    );
+    this.analistasCache.set(
+      snap.docs.map(d => {
+        const x = d.data() as any;
+        return { uid: d.id, nome: x?.nome ?? x?.displayName ?? d.id };
+      })
+    );
+  }
+
+  async migrarAnalistasLegado() {
+    if (!this.analistasCache().length) await this.carregarAnalistas();
+    const registros = this.registrosSemAnalista();
+    if (!registros.length) { this.showToast('Nenhum registro para migrar.', 'danger'); return; }
+    if (!confirm(`Migrar ${registros.length} registro(s) para o campo de analista?`)) return;
+
+    this.migrandoAnalistas.set(true);
+    this.migracaoAnalistaTotal.set(registros.length);
+    this.migracaoAnalistaProcessados.set(0);
+
+    const analistaMap = new Map(this.analistasCache().map(a => [a.uid, a.nome]));
+
+    try {
+      const chunks: Registro[][] = [];
+      for (let i = 0; i < registros.length; i += 490) chunks.push(registros.slice(i, i + 490));
+
+      for (const chunk of chunks) {
+        const batch = writeBatch(this.fs);
+        for (const r of chunk) {
+          const uid = r['designadoParaUid'];
+          const nome = analistaMap.get(uid) ?? null;
+          const em = r['designadoEm'] ?? null;
+          const col = r['__col'] ?? 'pre_cadastros';
+          batch.update(doc(this.fs, col, r.id), {
+            analistaUid: uid,
+            analistaNome: nome,
+            analistaEm: em ?? serverTimestamp(),
+          });
+        }
+        await batch.commit();
+        this.migracaoAnalistaProcessados.update(v => v + chunk.length);
+      }
+
+      this.todosRegistros.update(lista =>
+        lista.map(r => {
+          const uid = r['designadoParaUid'];
+          if (!uid || r['analistaUid'] || !analistaMap.has(uid)) return r;
+          return { ...r, analistaUid: uid, analistaNome: analistaMap.get(uid), analistaEm: r['designadoEm'] ?? null };
+        })
+      );
+
+      this.showToast(`${registros.length} registro(s) migrado(s) com sucesso.`, 'success');
+    } catch {
+      this.showToast('Erro ao migrar registros de analistas.', 'danger');
+    } finally {
+      this.migrandoAnalistas.set(false);
+    }
+  }
 
   // ── Aba Status (pendente → nao_verificado) ──────────────────────────────
   buscaStatus = signal('');

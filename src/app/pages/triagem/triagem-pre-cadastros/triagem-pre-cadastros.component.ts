@@ -7,6 +7,9 @@ import { HeaderComponent } from '../../shared/header/header.component';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
+// Auth
+import { getAuth } from 'firebase/auth';
+
 // Firestore
 import { db } from '../../../firebase.config';
 import {
@@ -134,6 +137,14 @@ type PreCadastroRow = {
 
   createdByUid?: string | null;
   createdByNome?: string | null;
+
+  elegivelStatus?: 'sim' | 'nao' | null;
+  encaminhadoPorNome?: string | null;
+  encaminhadoPorUid?: string | null;
+
+  analistaUid?: string | null;
+  analistaNome?: string | null;
+  analistaEm?: Date | null;
 };
 
 type Assessor = {
@@ -222,6 +233,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   busca = '';
   filtroRota = '';
   somenteNaoDesignados = false;
+  filtroUf = '';
+  filtroCidade = '';
 
   // agregados (INDIVIDUAL)
   origens: Array<{ key: string; label: string; count: number }> = [];
@@ -235,6 +248,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   filtroBairro = '';
 
   statusFilter: 'todos' | 'nao' | 'apto' | 'inapto' = 'todos';
+  elegivelFilter: 'todos' | 'sim' | 'nao' = 'todos';
 
   // envio (INDIVIDUAL)
   envioFilter: 'todos' | 'enviado' | 'nao_enviado' = 'todos';
@@ -293,6 +307,31 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   migracaoTotal = 0;
   migracaoProcessados = 0;
 
+  // Papel do usuário logado
+  currentUserPapel = '';
+  get podeEncaminharParaAnalista(): boolean {
+    return this.currentUserPapel === 'admin' || this.currentUserPapel === 'operacional';
+  }
+
+  // Modal analista
+  showAnalistaModal = false;
+  rowAnalista: PreCadastroRow | null = null;
+  analistaBusca = '';
+  analistasFiltrados: Assessor[] = [];
+  selectedAnalistaUid: string | null = null;
+  enviandoAnalista: Record<string, boolean> = {};
+
+  get analistas(): Assessor[] {
+    return this.assessores.filter(a => a.papel === 'analista');
+  }
+
+  // Modal de aprovação
+  showAprovacaoModal = false;
+  rowAprovacao: PreCadastroRow | null = null;
+  analiseAprovacao: 'nao' | 'apto' | 'inapto' = 'nao';
+  analiseElegivel: 'sim' | 'nao' | null = null;
+  salvandoAprovacao = false;
+
   // ===== GRUPOS =====
   private unsubGrupos?: Unsubscribe;
   allGrupos: GrupoSolidario[] = [];
@@ -323,9 +362,20 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   membrosPC: PreCadastroRow[] = [];
 
   async ngOnInit(): Promise<void> {
-    await this.carregarAssessores();
+    await Promise.all([this.carregarAssessores(), this.carregarPapelUsuario()]);
     this.carregarTodos();
     this.carregarGrupos();
+  }
+
+  private async carregarPapelUsuario() {
+    try {
+      const cu = getAuth().currentUser;
+      if (!cu) return;
+      const snap = await getDoc(doc(db, 'colaboradores', cu.uid));
+      this.currentUserPapel = (snap.data() as any)?.papel ?? '';
+    } catch {
+      this.currentUserPapel = '';
+    }
   }
   ngOnDestroy(): void { this.unsub?.(); this.unsubGrupos?.(); }
 
@@ -416,6 +466,14 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
 
             createdByUid: data?.createdByUid ?? null,
             createdByNome: data?.createdByNome ?? null,
+
+            elegivelStatus: (data?.elegivel?.status ?? null) as 'sim' | 'nao' | null,
+            encaminhadoPorNome: data?.encaminhadoPorNome ?? null,
+            encaminhadoPorUid: data?.encaminhadoPorUid ?? null,
+
+            analistaUid: data?.analistaUid ?? null,
+            analistaNome: data?.analistaNome ?? null,
+            analistaEm: this.toDate(data?.analistaEm) ?? null,
           };
         });
 
@@ -506,7 +564,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
       || '';
   }
 
-  isEnviado(r: PreCadastroRow): boolean { return !!(r.designadoParaUid && r.designadoEm); }
+  isEnviado(r: PreCadastroRow): boolean { return !!(r.designadoParaUid && r.designadoEm) || !!r.analistaUid; }
   actionLabel(r: PreCadastroRow): string { return this.isEnviado(r) ? 'Atualizar' : 'Enviar'; }
   isEnviarDisabled(r: PreCadastroRow): boolean {
     const sel = this.selecaoAssessor[r.id];
@@ -569,6 +627,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     this.filtroRota = '';
     this.filtroOrigemKey = '';
     this.filtroBairro = '';
+    this.filtroUf = '';
+    this.filtroCidade = '';
     this.statusFilter = 'todos';
     this.periodoFilter = 'todos';
     this.envioFilter = 'todos';
@@ -577,6 +637,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     this.somenteNaoDesignados = false;
     this.filtroCriadorUid = '';
     this.filtroDistribuidoUid = '';
+    this.elegivelFilter = 'todos';
     this.aplicarFiltros();
   }
 
@@ -625,12 +686,68 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     this.statusFilter = (this.statusFilter === k ? 'todos' : k);
     this.aplicarFiltros();
   }
+  setElegivel(k: 'todos' | 'sim' | 'nao') {
+    this.elegivelFilter = (this.elegivelFilter === k ? 'todos' : k);
+    this.aplicarFiltros();
+  }
+  isElegivelActive(k: 'todos' | 'sim' | 'nao') { return this.elegivelFilter === k; }
 
   setOrigem(key: string) { this.filtroOrigemKey = (this.filtroOrigemKey === key ? '' : key); this.aplicarFiltros(); }
   isOrigemActive(key: string) { return this.filtroOrigemKey === key; }
 
   setBairro(label: string) { this.filtroBairro = (this.filtroBairro === label ? '' : label); this.aplicarFiltros(); }
   isBairroActive(label: string) { return this.filtroBairro === label; }
+
+  onFiltroUfChange() {
+    this.filtroCidade = '';
+    this.filtroBairro = '';
+    this.aplicarFiltros();
+  }
+
+  onFiltroCidadeChange() {
+    this.filtroBairro = '';
+    this.aplicarFiltros();
+  }
+
+  get ufsDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const r of this.all) {
+      const u = (r.uf || '').trim();
+      if (u) set.add(u.toUpperCase());
+    }
+    return Array.from(set).sort();
+  }
+
+  get cidadesDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const r of this.all) {
+      if (this.filtroUf && (r.uf || '').toUpperCase() !== this.filtroUf) continue;
+      const c = (r.cidade || '').trim();
+      if (c) set.add(c);
+    }
+    return Array.from(set).sort();
+  }
+
+  get bairrosDisponiveis(): string[] {
+    const set = new Set<string>();
+    for (const r of this.all) {
+      if (this.filtroUf && (r.uf || '').toUpperCase() !== this.filtroUf) continue;
+      if (this.filtroCidade && this.normalize(r.cidade || '') !== this.normalize(this.filtroCidade)) continue;
+      const b = (r.bairro || '').trim();
+      if (b) set.add(titleCase(b));
+    }
+    return Array.from(set).sort();
+  }
+
+  get origensDisponiveis(): Array<{ key: string; label: string }> {
+    const map = new Map<string, string>();
+    for (const r of this.all) {
+      if (r.origemKey && r.origemLabel) map.set(r.origemKey, r.origemLabel);
+    }
+    return Array.from(map.entries())
+      .map(([key, label]) => ({ key, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }
 
   private atualizarOrigens() {
     const map = new Map<string, { key: string; label: string; count: number }>();
@@ -669,6 +786,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     if (rota) list = list.filter(p => this.normalize(p.rota).includes(rota));
     if (origemKey) list = list.filter(p => p.origemKey === origemKey);
     if (bairroSel) list = list.filter(p => titleCase(p.bairro || '') === bairroSel);
+    if (this.filtroUf) list = list.filter(p => (p.uf || '').toUpperCase() === this.filtroUf);
+    if (this.filtroCidade) list = list.filter(p => this.normalize(p.cidade || '') === this.normalize(this.filtroCidade));
 
     if (this.filtroCriadorUid) list = list.filter(p => (p.createdByUid || '') === this.filtroCriadorUid);
 
@@ -682,6 +801,10 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
 
     if (this.statusFilter !== 'todos') {
       list = list.filter(p => (p.statusAprovacao || 'nao') === this.statusFilter);
+    }
+
+    if (this.elegivelFilter !== 'todos') {
+      list = list.filter(p => (p.elegivelStatus ?? null) === this.elegivelFilter);
     }
 
     list = list.filter(p => this.periodoCriacaoDentro(p.data || null));
@@ -1222,6 +1345,148 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   private refreshMembrosSeModalAberto() {
     if (this.showGrupoDetalhe && this.grupoSelecionado) {
       this.membrosPC = this.montarMembrosPorIds(this.grupoSelecionado);
+    }
+  }
+
+  /* ===== Modal Analista ===== */
+  abrirModalAnalista(r: PreCadastroRow) {
+    this.rowAnalista = r;
+    this.analistaBusca = '';
+    this.selectedAnalistaUid = r.analistaUid ?? null;
+    this.filtrarAnalistas();
+    this.showAnalistaModal = true;
+    try { document.body.classList.add('no-scroll'); } catch { }
+  }
+  fecharModalAnalista() {
+    this.showAnalistaModal = false;
+    this.rowAnalista = null;
+    this.selectedAnalistaUid = null;
+    try { document.body.classList.remove('no-scroll'); } catch { }
+  }
+  filtrarAnalistas() {
+    const t = this.normalize(this.analistaBusca);
+    let arr = [...this.analistas];
+    if (t) arr = arr.filter(a => this.normalize(`${a.nome ?? ''} ${a.email ?? ''}`).includes(t));
+    this.analistasFiltrados = arr;
+  }
+  async confirmarEncaminharAnalista(a: Assessor) {
+    const row = this.rowAnalista;
+    if (!row) return;
+    this.enviandoAnalista[row.id] = true;
+    try {
+      const analistaNome = a.nome || null;
+
+      const cu = getAuth().currentUser;
+      const porUid = cu?.uid ?? null;
+      const porNome = (porUid ? this.assessores.find(x => x.uid === porUid)?.nome : null)
+        ?? cu?.displayName
+        ?? cu?.email
+        ?? null;
+
+      const srcRef = doc(db, row._path);
+      await setDoc(srcRef, {
+        analistaUid: a.uid,
+        analistaNome,
+        analistaEm: serverTimestamp(),
+        caixaAtual: 'analista',
+        caixaUid: a.uid,
+        encaminhadoPorUid: porUid,
+        encaminhadoPorNome: porNome,
+        encaminhadoEm: serverTimestamp(),
+      }, { merge: true });
+
+      // Inbox: best-effort — não bloqueia se regras Firestore impedirem
+      setDoc(
+        doc(db, `inboxes_analistas/${a.uid}/itens/${row.id}`),
+        {
+          preCadastroId: row.id,
+          path: row._path,
+          nomeCompleto: row.nome ?? null,
+          cpf: row.cpf ?? null,
+          em: serverTimestamp(),
+        },
+        { merge: true }
+      ).catch(err => console.warn('[Triagem] inbox analista (non-blocking):', err));
+
+      const patchLocal: Partial<PreCadastroRow> = {
+        analistaUid: a.uid,
+        analistaNome: analistaNome || this.resolveAssessorNome(a.uid),
+        analistaEm: new Date(),
+        encaminhadoPorUid: porUid,
+        encaminhadoPorNome: porNome,
+      };
+      this.all = this.patchById(this.all, row.id, patchLocal);
+      this.view = this.patchById(this.view, row.id, patchLocal);
+      this.reapplyPeoplePreservingPage();
+      this.fecharModalAnalista();
+    } catch (e) {
+      console.error('[Triagem] confirmarEncaminharAnalista erro:', e);
+      alert('Não foi possível encaminhar para o analista. Tente novamente.');
+    } finally {
+      this.enviandoAnalista[row.id] = false;
+    }
+  }
+
+  /* ===== Elegibilidade ===== */
+  elegivelLabel(s?: string | null): string {
+    if (s === 'sim') return 'Elegível';
+    if (s === 'nao') return 'Inelegível';
+    return 'Elegib. não verificada';
+  }
+  elegivelClass(s?: string | null): string {
+    if (s === 'sim') return 'bg-info text-dark';
+    if (s === 'nao') return 'bg-danger';
+    return 'bg-secondary';
+  }
+
+  /* ===== Modal de Aprovação ===== */
+  abrirModalAprovacao(r: PreCadastroRow) {
+    this.rowAprovacao = r;
+    this.analiseAprovacao = r.statusAprovacao || 'nao';
+    this.analiseElegivel = r.elegivelStatus ?? null;
+    this.showAprovacaoModal = true;
+    try { document.body.classList.add('no-scroll'); } catch { }
+  }
+  fecharModalAprovacao() {
+    this.showAprovacaoModal = false;
+    this.rowAprovacao = null;
+    try { document.body.classList.remove('no-scroll'); } catch { }
+  }
+  async salvarAprovacao() {
+    const row = this.rowAprovacao;
+    if (!row) return;
+    this.salvandoAprovacao = true;
+    try {
+      const cu = getAuth().currentUser;
+      const porUid = cu?.uid ?? null;
+      const porNome = cu?.displayName ?? null;
+      const srcRef = doc(db, row._path);
+      const patch: any = {
+        aprovacao: {
+          status: this.analiseAprovacao,
+          porUid,
+          porNome,
+          em: serverTimestamp(),
+        },
+        statusAprovacao: this.analiseAprovacao,
+      };
+      if (this.analiseElegivel !== null) {
+        patch['elegivel'] = { status: this.analiseElegivel };
+      }
+      await setDoc(srcRef, patch, { merge: true });
+      const patchLocal: Partial<PreCadastroRow> = {
+        statusAprovacao: this.analiseAprovacao,
+        elegivelStatus: this.analiseElegivel,
+      };
+      this.all = this.patchById(this.all, row.id, patchLocal);
+      this.view = this.patchById(this.view, row.id, patchLocal);
+      this.reapplyPeoplePreservingPage();
+      this.fecharModalAprovacao();
+    } catch (e) {
+      console.error('[Triagem] salvarAprovacao erro:', e);
+      alert('Não foi possível salvar a aprovação. Tente novamente.');
+    } finally {
+      this.salvandoAprovacao = false;
     }
   }
 }

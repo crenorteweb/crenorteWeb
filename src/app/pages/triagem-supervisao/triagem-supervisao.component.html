@@ -36,13 +36,13 @@
         </span>
       </button>
     </li>
-    <li class="nav-item">
+    <li class="nav-item" *ngIf="!isAnalista">
       <button class="nav-link" [class.active]="aba === 'pessoas'" (click)="setAba('pessoas')"
         [attr.aria-selected]="aba === 'pessoas'">
         Pessoas
       </button>
     </li>
-    <li class="nav-item">
+    <li class="nav-item" *ngIf="!isAnalista">
       <button class="nav-link" [class.active]="aba === 'grupos'" (click)="setAba('grupos')"
         [attr.aria-selected]="aba === 'grupos'">
         Grupos
@@ -54,7 +54,7 @@
 <!-- ========================================================= -->
 <!-- BARRA DE BUSCA / FILTROS                                  -->
 <!-- ========================================================= -->
-<div class="container-fluid py-3 bg-light border-bottom">
+<div class="container-fluid py-3 bg-light border-bottom" *ngIf="aba !== 'minha-caixa'">
 
   <!-- Linha 1: busca geral + botão limpar -->
   <div class="row g-2 align-items-center mb-2">
@@ -211,12 +211,56 @@
   <!-- ========================= -->
   <div class="container-fluid" *ngIf="aba === 'minha-caixa'">
 
-    <!-- Busca rápida dentro da caixa -->
+    <!-- Busca rápida + filtros dentro da caixa -->
     <div class="my-3">
-      <input type="text" class="form-control"
-        placeholder="Buscar por nome, CPF, cidade, encaminhado por…"
-        [(ngModel)]="searchTermMinhaCaixa"
-        (ngModelChange)="aplicarFiltrosMinhaCaixa()" />
+      <div class="row g-2 align-items-center mb-2">
+        <div class="col-12 col-md-8 col-lg-6">
+          <input type="text" class="form-control"
+            placeholder="Buscar por nome, CPF, cidade, encaminhado por…"
+            [(ngModel)]="searchTermMinhaCaixa"
+            (ngModelChange)="aplicarFiltrosMinhaCaixa()" />
+        </div>
+        <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end">
+          <button type="button" class="btn btn-sm btn-outline-secondary"
+            (click)="searchTermMinhaCaixa=''; minhaCaixaFiltroUf=''; minhaCaixaFiltroCidade=''; minhaCaixaFiltroBairro=''; minhaCaixaFiltroOrigem=''; aplicarFiltrosMinhaCaixa()">
+            <i class="bi bi-x-circle me-1"></i>Limpar filtros
+          </button>
+        </div>
+      </div>
+      <div class="row g-2">
+        <div class="col-6 col-sm-3 col-md-2">
+          <select class="form-select form-select-sm"
+            [(ngModel)]="minhaCaixaFiltroUf"
+            (ngModelChange)="onMinhaCaixaUfChange()">
+            <option value="">UF</option>
+            <option *ngFor="let uf of minhaCaixaUfsDisponiveis" [value]="uf">{{ uf }}</option>
+          </select>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3">
+          <select class="form-select form-select-sm"
+            [(ngModel)]="minhaCaixaFiltroCidade"
+            (ngModelChange)="onMinhaCaixaCidadeChange()">
+            <option value="">Cidade</option>
+            <option *ngFor="let c of minhaCaixaCidadesDisponiveis" [value]="c">{{ c }}</option>
+          </select>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3">
+          <select class="form-select form-select-sm"
+            [(ngModel)]="minhaCaixaFiltroBairro"
+            (ngModelChange)="aplicarFiltrosMinhaCaixa()">
+            <option value="">Bairro</option>
+            <option *ngFor="let b of minhaCaixaBairrosDisponiveis" [value]="b">{{ b }}</option>
+          </select>
+        </div>
+        <div class="col-6 col-sm-4 col-md-3">
+          <select class="form-select form-select-sm"
+            [(ngModel)]="minhaCaixaFiltroOrigem"
+            (ngModelChange)="aplicarFiltrosMinhaCaixa()">
+            <option value="">Origem</option>
+            <option *ngFor="let o of minhaCaixaOrigensDisponiveis" [value]="o">{{ o }}</option>
+          </select>
+        </div>
+      </div>
     </div>
 
     <!-- Vazio total -->
@@ -288,16 +332,28 @@
                 <div class="col-12 text-muted" style="font-size:.75rem">
                   Criado por: {{ p.createdByNome || '—' }}
                 </div>
+                <div class="col-12 mt-1">
+                  <span class="badge" [ngClass]="elegivelClass($any(p).elegivel?.status)">
+                    {{ elegivelLabel($any(p).elegivel?.status) }}
+                  </span>
+                </div>
               </div>
             </div>
 
             <div class="card-footer bg-white border-top py-2">
               <!-- Quem encaminhou e quando -->
-              <div class="small mb-2" *ngIf="$any(p).encaminhadoPorNome">
-                <i class="bi bi-arrow-return-right me-1 text-primary"></i>
-                Encaminhado por <span class="fw-medium">{{ $any(p).encaminhadoPorNome }}</span>
-                <span *ngIf="encaminhadoData(p) as dt" class="text-muted ms-1">({{ dt }})</span>
-                <span *ngIf="encaminhadoTempoDesde(p) as tempo" class="ms-1 badge bg-light text-secondary border">{{ tempo }}</span>
+              <div class="small mb-2">
+                <div>
+                  <i class="bi bi-person-fill-up me-1 text-primary"></i>
+                  <span class="text-muted">Encaminhado por:</span>
+                  <span class="fw-medium ms-1">{{ $any(p).encaminhadoPorNome || '—' }}</span>
+                </div>
+                <div>
+                  <i class="bi bi-calendar-event me-1 text-primary"></i>
+                  <span class="text-muted">Data:</span>
+                  <span class="ms-1">{{ encaminhadoData(p) || '—' }}</span>
+                  <span *ngIf="encaminhadoTempoDesde(p) as tempo" class="ms-1 badge bg-light text-secondary border">{{ tempo }}</span>
+                </div>
               </div>
               <!-- Encaminhar para assessor a partir daqui -->
               <button type="button" class="btn btn-sm btn-outline-success w-100"
