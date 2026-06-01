@@ -391,7 +391,7 @@
 
                 <!-- Observações (resumo) -->
                 <div class="crn-field" *ngIf="i.observacoes">
-                  <span class="crn-label">Observações</span>
+                  <span class="crn-label">Comentários da Visita</span>
                   <span class="crn-value text-break">
                     {{ i.observacoes }}
                   </span>
@@ -440,11 +440,11 @@
                     </div>
 
                     <!-- Observações -->
-                    <div class="group-title">Observações</div>
+                    <div class="group-title">Comentários da Visita</div>
                     <div class="actions-grid">
                       <button type="button" class="btn btn-outline-primary"
                         (click)="acToggle.checked=false; abrirObservacoes(i)">
-                        <i class="bi bi-journal-text me-1"></i> Observações
+                        <i class="bi bi-journal-text me-1"></i> Comentários da Visita
                       </button>
                     </div>
 
@@ -1134,7 +1134,7 @@
         </div>
 
         <div class="col-12" *ngIf="v.observacoes">
-          <strong>Observações:</strong>
+          <strong>Comentários da Visita:</strong>
           <div class="text-break">{{ v.observacoes }}</div>
         </div>
 
@@ -1167,32 +1167,68 @@
   </div>
 </div>
 
-<!-- ===== MODAL: OBSERVAÇÕES (EDIÇÃO) ===== -->
+<!-- ===== MODAL: OBSERVAÇÕES (HISTÓRICO) ===== -->
 <div *ngIf="modalObsAberto()" class="crn-modal" role="dialog" aria-modal="true">
   <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
   <div class="crn-modal__dialog" role="document" aria-labelledby="modalObsTitulo">
     <div class="crn-modal__header">
-      <h5 id="modalObsTitulo" class="mb-0">Observações do pré-cadastro</h5>
+      <h5 id="modalObsTitulo" class="mb-0">Histórico de Comentários da Visita</h5>
       <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
     </div>
 
     <div class="crn-modal__body" *ngIf="viewItem() as v">
-      <p class="mb-2">
+      <p class="mb-3">
         <strong>Cliente:</strong> {{ v.nomeCompleto || '—' }}<br>
         <small class="text-muted">CPF {{ v.cpf || '—' }}</small>
       </p>
 
-      <div class="mb-3">
-        <label class="form-label">Observações</label>
-        <textarea class="form-control" rows="5" [ngModel]="obsModel()"
-          (ngModelChange)="obsModel.set($event)"></textarea>
+      <!-- Indicador de Carregamento -->
+      <div *ngIf="obsCarregando()" class="text-center py-3">
+        <span class="spinner-border spinner-border-sm text-success" role="status" aria-hidden="true"></span>
+        <span class="ms-2 text-muted small">Carregando histórico...</span>
+      </div>
+
+      <!-- Feed / Histórico de Observações -->
+      <div *ngIf="!obsCarregando()" class="observacoes-feed mb-3" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+        <div *ngIf="!obsLista().length" class="text-muted text-center py-3 small bg-light rounded">
+          Nenhum comentário registrado.
+        </div>
+
+        <div class="card bg-light border-0 mb-2 p-2 shadow-sm position-relative" *ngFor="let obs of obsLista()">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="badge text-bg-success text-truncate" style="max-width: 150px;">{{ obs.criadoPorNome }}</span>
+            <div class="d-flex align-items-center gap-2">
+              <small class="text-muted small" style="font-size: 0.75rem;">
+                {{ (obs.criadoEm?.toDate ? obs.criadoEm.toDate() : obs.criadoEm) | date:'dd/MM/yyyy HH:mm' }}
+              </small>
+              <!-- Botão Deletar se for do próprio assessor -->
+              <button *ngIf="obs.criadoPorUid === currentUserUid" 
+                class="btn btn-link text-danger p-0 border-0" 
+                style="font-size: 0.85rem; line-height: 1;"
+                title="Excluir comentário"
+                (click)="deletarObservacao(obs.id)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-dark small text-wrap text-break" style="white-space: pre-wrap;">{{ obs.texto }}</div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Escrever Nova Observação -->
+      <div class="mb-2">
+        <label class="form-label fw-semibold small">Novo Comentário da Visita</label>
+        <textarea class="form-control" rows="3" placeholder="Escreva um comentário sobre a visita..."
+          [ngModel]="novaObsTexto()" (ngModelChange)="novaObsTexto.set($event)"></textarea>
       </div>
     </div>
 
     <div class="crn-modal__footer">
-      <button class="btn btn-light" (click)="fecharModais()">Cancelar</button>
-      <button class="btn btn-success" (click)="salvarObservacoes()">
-        <i class="bi bi-check2 me-1"></i> Salvar observações
+      <button class="btn btn-light" (click)="fecharModais()">Fechar</button>
+      <button class="btn btn-success" (click)="salvarNovaObservacao()" [disabled]="!novaObsTexto().trim()">
+        <i class="bi bi-send me-1"></i> Adicionar
       </button>
     </div>
   </div>
@@ -1305,10 +1341,10 @@
       </div>
 
       <!-- Observações -->
-      <div class="group-title">Observações</div>
+      <div class="group-title">Comentários da Visita</div>
       <div class="actions-grid">
         <button type="button" class="btn btn-outline-primary" (click)="agendaAbrirObservacoes(i)">
-          <i class="bi bi-journal-text me-1"></i> Observações
+          <i class="bi bi-journal-text me-1"></i> Comentários da Visita
         </button>
       </div>
 

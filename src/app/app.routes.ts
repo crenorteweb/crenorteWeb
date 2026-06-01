@@ -139,6 +139,14 @@ export const routes: Routes = [
       import('./pages/novomodulo/novomodulo.component').then(m => m.NovomoduloComponent)
   },
 
+  {
+    path: 'visitas',
+    canActivate: [authGuard, roleGuard],
+    data: { roles: ['admin', 'supervisor', 'analista'] as Papel[] },
+    loadComponent: () =>
+      import('./pages/visitas/visitas.component').then(m => m.VisitasComponent),
+  },
+
   // === Cadastros ===
   {
     path: 'listagem',

@@ -5,7 +5,7 @@ import { FormsModule } from '@angular/forms';
 import { PreCadastroService } from '../../../services/pre-cadastro.service';
 import { Auth, user } from '@angular/fire/auth';
 import { Subscription } from 'rxjs';
-import { PreCadastro, FluxoCaixa, ArquivoPreCadastro } from '../../../models/pre-cadastro.model';
+import { PreCadastro, FluxoCaixa, ArquivoPreCadastro, ObservacaoPreCadastro } from '../../../models/pre-cadastro.model';
 import { HeaderComponent } from '../../shared/header/header.component';
 import { AgendamentoService } from '../../../services/agendamento.service';
 import {
@@ -194,6 +194,9 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 
   // Observações (PESSOAS)
   obsModel = signal<string>('');
+  obsLista = signal<ObservacaoPreCadastro[]>([]);
+  obsCarregando = signal(false);
+  novaObsTexto = signal<string>('');
 
   // Arquivos (PESSOAS)
   arqsCarregando = signal(false);
@@ -1010,11 +1013,41 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     this.modalVerAberto.set(true);
   }
 
-  abrirObservacoes(i: PreCadastro) {
-    const texto = (i.observacoes ?? '') as any;
+  async abrirObservacoes(i: PreCadastro) {
     this.viewItem.set(i);
-    this.obsModel.set(String(texto));
+    this.obsLista.set([]);
+    this.novaObsTexto.set('');
     this.modalObsAberto.set(true);
+    this.obsCarregando.set(true);
+
+    try {
+      let historico = await this.service.listarObservacoes(i.id);
+
+      // Abordagem 1: Migração automática sob demanda
+      if (historico.length === 0 && i.observacoes) {
+        const usuarioMigracao = {
+          uid: i.createdByUid || 'migracao_sistema',
+          nome: i.createdByNome || 'Assessor (Origem)'
+        };
+        const cadastrada = await this.service.adicionarObservacao(
+          i.id,
+          i.observacoes,
+          usuarioMigracao,
+          i.createdAt || null
+        );
+        historico = [cadastrada];
+
+        await this.service.limparObservacaoRaiz(i.id);
+        i.observacoes = undefined;
+        this.itens.update(list => list.map(x => x.id === i.id ? { ...x, observacoes: undefined } : x));
+      }
+
+      this.obsLista.set(historico || []);
+    } catch (e) {
+      console.error('[Observações] erro ao carregar/migrar histórico:', e);
+    } finally {
+      this.obsCarregando.set(false);
+    }
   }
 
   abrirArquivos(i: PreCadastro) {
@@ -1036,6 +1069,8 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     this.agData = '';
     this.agHora = '';
     this.obsModel.set('');
+    this.obsLista.set([]);
+    this.novaObsTexto.set('');
     this.arqsLista.set([]);
   }
 
@@ -1484,19 +1519,38 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
   }
 
   // ===== OBSERVAÇÕES (PESSOAS) =====
-  async salvarObservacoes() {
+  async salvarNovaObservacao() {
     const i = this.viewItem();
-    if (!i?.id) return;
+    const texto = this.novaObsTexto().trim();
+    if (!i?.id || !texto) return;
+
     try {
-      const texto = (this.obsModel() || '').trim() || null;
-      await this.service.atualizarObservacoes(i.id, texto);
-      this.itens.update(list => list.map(x => x.id === i.id ? { ...x, observacoes: texto } : x));
-      this.viewItem.set({ ...(i as any), observacoes: texto });
-      this.modalObsAberto.set(false);
-      alert('Observações salvas!');
+      const usuario = {
+        uid: this.currentUserUid || '',
+        nome: this.currentUserNome || 'Assessor'
+      };
+
+      const cadastrada = await this.service.adicionarObservacao(i.id, texto, usuario);
+      this.obsLista.update(lista => [cadastrada, ...lista]);
+      this.novaObsTexto.set('');
     } catch (e) {
       console.error('[Observações] erro ao salvar:', e);
-      alert('Não foi possível salvar as observações.');
+      alert('Não foi possível salvar o comentário.');
+    }
+  }
+
+  async deletarObservacao(obsId: string) {
+    const i = this.viewItem();
+    if (!i?.id || !obsId) return;
+
+    if (!confirm('Deseja realmente excluir este comentário?')) return;
+
+    try {
+      await this.service.removerObservacao(i.id, obsId);
+      this.obsLista.update(lista => lista.filter(x => x.id !== obsId));
+    } catch (e) {
+      console.error('[Observações] erro ao excluir:', e);
+      alert('Não foi possível excluir o comentário.');
     }
   }
 

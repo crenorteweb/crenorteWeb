@@ -18,7 +18,7 @@ import {
   documentId,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
-import { PreCadastro, ElegibilidadeStatus, AtendimentoStatus } from '../models/pre-cadastro.model';
+import { PreCadastro, ElegibilidadeStatus, AtendimentoStatus, ObservacaoPreCadastro } from '../models/pre-cadastro.model';
 
 // Storage (upload/download/remover)
 import {
@@ -389,6 +389,50 @@ export class PreCadastroService {
     if (!preId) throw new Error('ID do pré-cadastro é obrigatório');
     await updateDoc(doc(this.db, 'pre_cadastros', preId), {
       observacoes: observacoes ?? null,
+      atualizadoEm: serverTimestamp(),
+    });
+  }
+
+  private observacoesCol(preId: string) {
+    return collection(this.db, `pre_cadastros/${preId}/observacoes`);
+  }
+
+  async listarObservacoes(preId: string): Promise<ObservacaoPreCadastro[]> {
+    if (!preId) throw new Error('ID do pré-cadastro é obrigatório');
+    const qy = query(this.observacoesCol(preId), orderBy('criadoEm', 'desc'));
+    const snap = await getDocs(qy);
+    return snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as ObservacaoPreCadastro[];
+  }
+
+  async adicionarObservacao(
+    preId: string,
+    texto: string,
+    usuario: { uid: string; nome: string },
+    dataCriacao?: any
+  ): Promise<ObservacaoPreCadastro> {
+    if (!preId) throw new Error('ID do pré-cadastro é obrigatório');
+
+    const novaObs = {
+      texto: texto.trim(),
+      criadoEm: dataCriacao || serverTimestamp(),
+      criadoPorUid: usuario.uid,
+      criadoPorNome: usuario.nome,
+    };
+
+    const docRef = await addDoc(this.observacoesCol(preId), novaObs);
+    return { id: docRef.id, ...novaObs } as any;
+  }
+
+  async removerObservacao(preId: string, observacaoId: string): Promise<void> {
+    if (!preId || !observacaoId) throw new Error('IDs obrigatórios');
+    const docRef = doc(this.db, `pre_cadastros/${preId}/observacoes/${observacaoId}`);
+    await deleteDoc(docRef);
+  }
+
+  async limparObservacaoRaiz(preId: string): Promise<void> {
+    if (!preId) throw new Error('ID do pré-cadastro é obrigatório');
+    await updateDoc(doc(this.db, 'pre_cadastros', preId), {
+      observacoes: null,
       atualizadoEm: serverTimestamp(),
     });
   }

@@ -1,6 +1,14 @@
 // src/app/models/pre-cadastro.model.ts
 import { Timestamp } from '@angular/fire/firestore';
 // --- Tipos auxiliares novos ---
+export interface ObservacaoPreCadastro {
+  id: string;
+  texto: string;
+  criadoEm: any; // Timestamp | Date
+  criadoPorUid: string;
+  criadoPorNome: string;
+}
+
 export interface ArquivoPreCadastro {
   id: string;                // id único (gerado pelo storage/serviço)
   nome: string;              // nome do arquivo (ex.: boleto-01.pdf)

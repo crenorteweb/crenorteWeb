@@ -1,0 +1,349 @@
+<app-header></app-header>
+<div class="app-header-spacer"></div>
+
+<div class="container-fluid py-4 px-md-5">
+  <!-- Cabeçalho Principal -->
+  <div class="d-flex align-items-center gap-3 mb-4">
+    <div class="crn-kicker"></div>
+    <div>
+      <h3 class="mb-0 text-crn-dark fw-bold">Acompanhamento de Visitas</h3>
+      <p class="text-muted mb-0 small">Acompanhe a agenda, carteira e anotações dos assessores de campo</p>
+    </div>
+  </div>
+
+  <!-- Seleção do Assessor -->
+  <div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-4">
+      <div class="row align-items-end g-3">
+        <div class="col-lg-6">
+          <label class="form-label fw-semibold text-muted small mb-1">Selecione o Assessor de Campo</label>
+          <div class="input-group">
+            <span class="input-group-text bg-light border-end-0 text-muted">
+              <i class="bi bi-person-badge"></i>
+            </span>
+            <select class="form-select border-start-0 ps-0" [ngModel]="assessorSelecionadoUid()" (ngModelChange)="onAssessorSelected($event)">
+              <option value="">Selecione o assessor</option>
+              <option *ngFor="let ass of assessores()" [value]="ass.uid">
+                {{ ass.nome }}
+              </option>
+            </select>
+          </div>
+        </div>
+        <div class="col-lg-6" *ngIf="assessorSelecionadoUid() && !loading()">
+          <label class="form-label fw-semibold text-muted small mb-1">Período de Visitas</label>
+          <div class="d-flex flex-column flex-sm-row align-items-sm-center gap-2">
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted border-end-0" style="font-size: 0.85rem; padding: 0.375rem 0.5rem;">De</span>
+              <input type="date" class="form-control border-start-0 ps-0" [ngModel]="dataInicioTemp()" (ngModelChange)="dataInicioTemp.set($event)" />
+            </div>
+            <div class="input-group">
+              <span class="input-group-text bg-light text-muted border-end-0" style="font-size: 0.85rem; padding: 0.375rem 0.5rem;">Até</span>
+              <input type="date" class="form-control border-start-0 ps-0" [ngModel]="dataFimTemp()" (ngModelChange)="dataFimTemp.set($event)" />
+            </div>
+            <div class="d-flex gap-1 align-self-end align-self-sm-auto">
+              <button class="btn btn-success text-white d-inline-flex align-items-center gap-1" type="button" (click)="aplicarPeriodo()" title="Buscar visitas do período">
+                <i class="bi bi-search"></i> Buscar
+              </button>
+              <button class="btn btn-outline-secondary text-muted px-2" type="button" 
+                *ngIf="dataInicioTemp() || dataFimTemp() || filtroDataInicio() || filtroDataFim()" (click)="limparPeriodo()" title="Limpar período">
+                <i class="bi bi-x-lg"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mensagem Inicial -->
+  <div *ngIf="!assessorSelecionadoUid()" class="text-center py-5">
+    <div class="text-muted">
+      <i class="bi bi-arrow-up-circle fs-1 text-success d-block mb-3"></i>
+      <h5>Selecione um assessor acima para carregar a carteira de visitas</h5>
+      <p class="small">Os dados e relatórios serão exibidos automaticamente.</p>
+    </div>
+  </div>
+
+  <!-- Loading da carteira -->
+  <div *ngIf="assessorSelecionadoUid() && loading()" class="text-center py-5">
+    <div class="spinner-border text-success mb-3" role="status"></div>
+    <h5 class="text-muted">Carregando carteira do assessor...</h5>
+  </div>
+
+  <!-- Conteúdo Principal -->
+  <ng-container *ngIf="assessorSelecionadoUid() && !loading()">
+
+    <!-- Indicadores de Visitas -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number">{{ statsTotal() }}</div>
+          <div class="stats-label">Total Clientes</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-success">{{ statsAdicionados() }}</div>
+          <div class="stats-label">Adicionados pelo Assessor</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-primary">{{ statsEncaminhados() }}</div>
+          <div class="stats-label">Encaminhados</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-secondary">{{ statsNaoAgendados() }}</div>
+          <div class="stats-label">Não Agendadas</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-info">{{ statsAgendados() }}</div>
+          <div class="stats-label">Agendadas</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-success">{{ statsVisitados() }}</div>
+          <div class="stats-label">Visitadas</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-primary">{{ statsFormalizados() }}</div>
+          <div class="stats-label">Formalizadas</div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3 col-lg-3">
+        <div class="stats-card">
+          <div class="stats-number text-danger">{{ statsDesistentes() }}</div>
+          <div class="stats-label">Desistências</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Filtros e Busca -->
+    <div class="card border-0 shadow-sm mb-4">
+      <div class="card-body p-3">
+        <div class="d-flex flex-column flex-md-row gap-3 align-items-md-center justify-content-between">
+          <!-- Campo de Busca -->
+          <div class="input-group" style="max-width: 400px;">
+            <span class="input-group-text bg-white text-muted border-end-0">
+              <i class="bi bi-search"></i>
+            </span>
+            <input type="text" class="form-control border-start-0 ps-0" placeholder="Buscar por cliente ou CPF..."
+              [ngModel]="searchTerm()" (ngModelChange)="searchTerm.set($event)" />
+          </div>
+
+          <!-- Filtros de Status (Botões) -->
+          <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-sm btn-outline-secondary" [class.active]="filtroStatus() === 'todos'" (click)="filtroStatus.set('todos')">Todos</button>
+            <button class="btn btn-sm btn-outline-info" [class.active]="filtroStatus() === 'agendado'" (click)="filtroStatus.set('agendado')">Agendados</button>
+            <button class="btn btn-sm btn-outline-success" [class.active]="filtroStatus() === 'visitado'" (click)="filtroStatus.set('visitado')">Visitados</button>
+            <button class="btn btn-sm btn-outline-secondary" [class.active]="filtroStatus() === 'nao_agendado'" (click)="filtroStatus.set('nao_agendado')">Não Agendados</button>
+            <button class="btn btn-sm btn-outline-primary" [class.active]="filtroStatus() === 'formalizado'" (click)="filtroStatus.set('formalizado')">Formalizados</button>
+            <button class="btn btn-sm btn-outline-danger" [class.active]="filtroStatus() === 'desistiu'" (click)="filtroStatus.set('desistiu')">Desistentes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabela da Carteira -->
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Cliente</th>
+                <th>CPF</th>
+                <th>Cidade / Bairro</th>
+                <th class="text-center">Status Visita</th>
+                <th>Data / Hora Agendada</th>
+                <th class="text-center">Contratos/Desistências</th>
+                <th class="text-end px-4">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngIf="!clientesFiltrados().length">
+                <td colspan="7" class="text-center text-muted py-5">
+                  <i class="bi bi-clipboard-x fs-2 mb-2 d-block"></i>
+                  Nenhum cliente encontrado com os filtros selecionados.
+                </td>
+              </tr>
+              
+              <ng-container *ngFor="let gp of clientesAgrupados()">
+                <!-- Cabeçalho do Dia -->
+                <tr class="table-light">
+                  <td colspan="7" class="fw-semibold py-3 px-4 text-success" style="background-color: rgba(0, 141, 69, 0.04); font-size: 0.9rem;">
+                    <i class="bi bi-calendar-check me-2"></i> {{ gp.titulo }}
+                  </td>
+                </tr>
+
+                <tr *ngFor="let i of gp.itens">
+                  <!-- Nome -->
+                  <td>
+                    <div class="fw-semibold">{{ i.nomeCompleto }}</div>
+                    <small class="text-muted" *ngIf="i.modalidade">
+                      {{ i.modalidade === 'grupo_solidario' ? 'Grupo Solidário' : 'Individual' }}
+                    </small>
+                    <div class="text-muted small mt-1" *ngIf="obterEncaminhadoPorNome(i) as encNome" style="font-size: 0.75rem;">
+                      <i class="bi bi-person-arrow-right me-1"></i>Enc. por: {{ encNome }}
+                    </div>
+                  </td>
+
+                  <!-- CPF -->
+                  <td class="text-nowrap text-muted small">{{ i.cpf || '—' }}</td>
+
+                  <!-- Cidade / Bairro -->
+                  <td>
+                    <div class="text-dark small">{{ i.cidade || '—' }}</div>
+                    <div class="text-muted small" *ngIf="i.bairro">{{ i.bairro }}</div>
+                  </td>
+
+                  <!-- Status Agendamento -->
+                  <td class="text-center">
+                    <span class="badge"
+                      [class.text-bg-info]="(i.agendamentoStatus||'nao_agendado')==='agendado'"
+                      [class.text-bg-success]="(i.agendamentoStatus||'nao_agendado')==='visitado'"
+                      [class.text-bg-secondary]="(i.agendamentoStatus||'nao_agendado')==='nao_agendado'">
+                      {{ (i.agendamentoStatus||'nao_agendado')==='agendado' ? 'Agendado'
+                       : (i.agendamentoStatus||'nao_agendado')==='visitado' ? 'Visitado'
+                       : 'Não agendado' }}
+                    </span>
+                  </td>
+
+                  <!-- Data / Hora -->
+                  <td class="text-muted small">
+                    <!-- Se agendado/visitado -->
+                    <ng-container *ngIf="i.agendamentoStatus === 'agendado' || i.agendamentoStatus === 'visitado'">
+                      <div class="fw-semibold text-dark mb-1" *ngIf="obterDiaSemana(i) as dia">
+                        {{ dia }}
+                      </div>
+                      <span *ngIf="extrairDataDeAgendamento(i) as dt">
+                        <i class="bi bi-calendar-event me-1"></i>{{ dt | date:'dd/MM/yyyy' }}
+                        <span *ngIf="i.agendamentoHora" class="ms-1">às {{ i.agendamentoHora }}</span>
+                      </span>
+                    </ng-container>
+
+                    <!-- Se não agendado -->
+                    <ng-container *ngIf="i.agendamentoStatus !== 'agendado' && i.agendamentoStatus !== 'visitado'">
+                      <div class="text-muted small" *ngIf="obterInfoOrigemFicha(i) as info">
+                        {{ info }}
+                      </div>
+                    </ng-container>
+                  </td>
+
+                  <!-- Contrato / Desistência -->
+                  <td class="text-center">
+                    <span class="badge text-bg-success me-1" *ngIf="formalizacaoStatus(i) === 'formalizado'">
+                      Formalizado
+                    </span>
+                    <span class="badge text-bg-danger" *ngIf="desistenciaStatus(i) === 'desistiu'">
+                      Desistente
+                    </span>
+                    <span *ngIf="formalizacaoStatus(i) !== 'formalizado' && desistenciaStatus(i) !== 'desistiu'">
+                      —
+                    </span>
+                  </td>
+
+                  <!-- Ações -->
+                  <td class="text-end px-4">
+                    <div class="d-flex justify-content-end gap-2">
+                      <button class="btn btn-outline-success btn-sm d-inline-flex align-items-center gap-1"
+                        (click)="abrirObservacoes(i)" title="Comentários da visita">
+                        <i class="bi bi-chat-left-text"></i> Comentários
+                      </button>
+                      <button class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1"
+                        (click)="abrirDetalhes(i)" title="Visualizar dados do cliente">
+                        <i class="bi bi-eye"></i> Ver Dados
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </ng-container>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+  </ng-container>
+</div>
+
+<!-- ===== MODAL: COMENTÁRIOS DA VISITA (HISTÓRICO) ===== -->
+<div *ngIf="modalObsAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
+  <div class="crn-modal__dialog" role="document" aria-labelledby="modalObsTitulo">
+    <div class="crn-modal__header">
+      <h5 id="modalObsTitulo" class="mb-0">Histórico de Comentários da Visita</h5>
+      <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
+    </div>
+
+    <div class="crn-modal__body" *ngIf="viewItem() as v">
+      <p class="mb-3">
+        <strong>Cliente:</strong> {{ v.nomeCompleto || '—' }}<br>
+        <small class="text-muted">CPF {{ v.cpf || '—' }}</small>
+      </p>
+
+      <!-- Indicador de Carregamento -->
+      <div *ngIf="obsCarregando()" class="text-center py-3">
+        <span class="spinner-border spinner-border-sm text-success" role="status" aria-hidden="true"></span>
+        <span class="ms-2 text-muted small">Carregando histórico...</span>
+      </div>
+
+      <!-- Feed / Histórico de Comentários -->
+      <div *ngIf="!obsCarregando()" class="observacoes-feed mb-3" style="max-height: 250px; overflow-y: auto; padding-right: 5px;">
+        <div *ngIf="!obsLista().length" class="text-muted text-center py-3 small bg-light rounded">
+          Nenhum comentário registrado.
+        </div>
+
+        <div class="card bg-light border-0 mb-2 p-2 shadow-sm position-relative" *ngFor="let obs of obsLista()">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="badge text-bg-success text-truncate" style="max-width: 150px;">{{ obs.criadoPorNome }}</span>
+            <div class="d-flex align-items-center gap-2">
+              <small class="text-muted small" style="font-size: 0.75rem;">
+                {{ (obs.criadoEm?.toDate ? obs.criadoEm.toDate() : obs.criadoEm) | date:'dd/MM/yyyy' }} às {{ (obs.criadoEm?.toDate ? obs.criadoEm.toDate() : obs.criadoEm) | date:'HH:mm' }}
+              </small>
+              <!-- Botão Deletar se for do próprio gestor -->
+              <button *ngIf="obs.criadoPorUid === currentUserUid" 
+                class="btn btn-link text-danger p-0 border-0" 
+                style="font-size: 0.85rem; line-height: 1;"
+                title="Excluir comentário"
+                (click)="deletarObservacao(obs.id)">
+                <i class="bi bi-trash"></i>
+              </button>
+            </div>
+          </div>
+          <div class="text-dark small text-wrap text-break" style="white-space: pre-wrap;">{{ obs.texto }}</div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Escrever Novo Comentário (Anotação do Gestor) -->
+      <div class="mb-2">
+        <label class="form-label fw-semibold small">Inserir Comentário da Visita</label>
+        <textarea class="form-control" rows="3" placeholder="Escreva um comentário sobre a visita..."
+          [ngModel]="novaObsTexto()" (ngModelChange)="novaObsTexto.set($event)"></textarea>
+      </div>
+    </div>
+
+    <div class="crn-modal__footer">
+      <button class="btn btn-light" (click)="fecharModais()">Fechar</button>
+      <button class="btn btn-success" (click)="salvarNovaObservacao()" [disabled]="!novaObsTexto().trim()">
+        <i class="bi bi-send me-1"></i> Adicionar Nota
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: DETALHES DO CLIENTE ===== -->
+<app-modal-detalhe-cliente
+  *ngIf="modalVerAberto() && viewItem()"
+  [preCadastro]="$any(viewItem())"
+  (fechar)="fecharModais()"
+></app-modal-detalhe-cliente>
