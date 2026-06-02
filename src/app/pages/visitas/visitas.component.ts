@@ -618,7 +618,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
       
       const propostasFormalizadas = itens.filter(c => c.formalizacao?.status === 'formalizado').length;
       
-      const visitasPendentes = itens.filter(c => c.agendamentoStatus === 'agendado').length;
+      const visitasPendentes = Math.max(0, 4 - visitasRealizadas);
 
       const meta = 4;
       const percentualMeta = ((visitasRealizadas / meta) * 100).toFixed(0) + '%';
