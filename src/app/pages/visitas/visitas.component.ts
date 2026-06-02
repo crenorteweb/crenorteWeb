@@ -487,6 +487,30 @@ export class VisitasComponent implements OnInit, OnDestroy {
     );
   }
 
+  obterPreCadastroParaModal(c: PreCadastro | null): any {
+    if (!c) return null;
+    return {
+      id: c.id,
+      clienteNome: c.nomeCompleto,
+      cpf: c.cpf,
+      telefone: c.telefone,
+      municipio: c.cidade,
+      uf: c.uf,
+      bairro: c.bairro,
+      status: c.agendamentoStatus === 'agendado' ? 'Agendado' : c.agendamentoStatus === 'visitado' ? 'Visitado' : 'Não agendado',
+      assessorNome: c.encaminhamento?.assessorNome || c.alocadoParaNome || '—',
+      analistaNome: c.aprovacao?.porNome || '—',
+      resultado: c.aprovacao?.status === 'apto' ? 'apto' : c.aprovacao?.status === 'inapto' ? 'inapto' : null,
+      motivoInapto: c.aprovacao?.motivo || c.aprovacao?.observacao || null,
+      contatoRealizado: c.contatoRealizado,
+      observacaoAssessor: c.observacoes,
+      agendamento: c.agendamentoData ? new Date(c.agendamentoData) : null,
+      formalizado: c.formalizacao?.status === 'formalizado',
+      criadoEm: c.createdAt,
+      encaminhadoEm: c.encaminhamento?.em || (c as any).designadoEm || (c as any).encaminhadoEm || null,
+    };
+  }
+
   obterInfoOrigemFicha(c: PreCadastro): string {
     const assessorUid = this.assessorSelecionadoUid();
     
