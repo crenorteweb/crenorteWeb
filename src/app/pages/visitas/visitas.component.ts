@@ -61,6 +61,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
   modalObsAberto = signal(false);
   modalVerAberto = signal(false);
   viewItem = signal<PreCadastro | null>(null);
+  mappedViewItem = signal<any>(null);
   obsLista = signal<ObservacaoPreCadastro[]>([]);
   obsCarregando = signal(false);
   novaObsTexto = signal('');
@@ -322,6 +323,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
 
   abrirDetalhes(i: PreCadastro) {
     this.viewItem.set(i);
+    this.mappedViewItem.set(this.obterPreCadastroParaModal(i));
     this.modalVerAberto.set(true);
   }
 
@@ -329,6 +331,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
     this.modalObsAberto.set(false);
     this.modalVerAberto.set(false);
     this.viewItem.set(null);
+    this.mappedViewItem.set(null);
     this.obsLista.set([]);
     this.novaObsTexto.set('');
   }

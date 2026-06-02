@@ -347,7 +347,7 @@
 
 <!-- ===== MODAL: DETALHES DO CLIENTE ===== -->
 <app-modal-detalhe-cliente
-  *ngIf="modalVerAberto() && viewItem()"
-  [preCadastro]="obterPreCadastroParaModal(viewItem())"
+  *ngIf="modalVerAberto() && mappedViewItem()"
+  [preCadastro]="mappedViewItem()"
   (fechar)="fecharModais()"
 ></app-modal-detalhe-cliente>
