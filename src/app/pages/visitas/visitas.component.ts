@@ -661,7 +661,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
     // Adiciona tabela usando autoTable
     autoTable(doc, {
       startY: 53,
-      head: [['Dia', 'Propostas Enviadas', 'Visitas Realizadas', 'Relação c/ Meta (4/dia)', 'Propostas Formalizadas', 'Visitas Pendentes']],
+      head: [['Dia', 'Clientes Encaminhados', 'Visitas Realizadas', 'Relação c/ Meta (4/dia)', 'Propostas Formalizadas', 'Visitas Pendentes']],
       body: rows,
       styles: { fontSize: 9, cellPadding: 3 },
       headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
