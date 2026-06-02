@@ -44,6 +44,10 @@
               <button class="btn btn-success text-white d-inline-flex align-items-center gap-1" type="button" (click)="aplicarPeriodo()" title="Buscar visitas do período">
                 <i class="bi bi-search"></i> Buscar
               </button>
+              <button class="btn btn-outline-danger d-inline-flex align-items-center gap-1 text-nowrap" type="button"
+                *ngIf="clientesDoPeriodo().length" (click)="exportarRelatorioVisitasPDF()" title="Exportar relatório diário em PDF">
+                <i class="bi bi-file-earmark-pdf"></i> Relatório PDF
+              </button>
               <button class="btn btn-outline-secondary text-muted px-2" type="button" 
                 *ngIf="dataInicioTemp() || dataFimTemp() || filtroDataInicio() || filtroDataFim()" (click)="limparPeriodo()" title="Limpar período">
                 <i class="bi bi-x-lg"></i>

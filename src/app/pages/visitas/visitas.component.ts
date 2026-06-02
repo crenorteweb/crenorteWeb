@@ -2,6 +2,8 @@ import { Component, OnInit, OnDestroy, inject, signal, computed } from '@angular
 import { CommonModule, DatePipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { HeaderComponent } from '../shared/header/header.component';
 import { AuthService } from '../../services/auth.service';
@@ -517,6 +519,144 @@ export class VisitasComponent implements OnInit, OnDestroy {
     }
 
     return '';
+  }
+
+  formatarDataPt(dateStr: string): string {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const [ano, mes, dia] = parts;
+    return `${dia}/${mes}/${ano}`;
+  }
+
+  async exportarRelatorioVisitasPDF() {
+    const list = this.clientesDoPeriodo();
+    const assessorNome = this.assessores().find(a => a.uid === this.assessorSelecionadoUid())?.nome || 'Assessor';
+    
+    // Agrupar clientes por data de referência (dia)
+    const grupos: Record<string, PreCadastro[]> = {};
+    list.forEach(c => {
+      const chave = this.obterDataReferencia(c) || 'sem_data';
+      if (!grupos[chave]) {
+        grupos[chave] = [];
+      }
+      grupos[chave].push(c);
+    });
+
+    // Encontrar todos os dias únicos ordenados
+    const diasOrdenados = Object.keys(grupos).sort((a, b) => {
+      if (a === 'sem_data') return 1;
+      if (b === 'sem_data') return -1;
+      return a.localeCompare(b);
+    });
+
+    // Determinar a lista de datas
+    const dataInicioStr = this.filtroDataInicio();
+    const dataFimStr = this.filtroDataFim();
+    const datasRelatorio: string[] = [];
+
+    if (dataInicioStr && dataFimStr) {
+      try {
+        const [yi, mi, di] = dataInicioStr.split('-').map(Number);
+        const [yf, mf, df] = dataFimStr.split('-').map(Number);
+        const cursor = new Date(yi, mi - 1, di, 12, 0, 0);
+        const fim = new Date(yf, mf - 1, df, 12, 0, 0);
+        while (cursor <= fim) {
+          datasRelatorio.push(this.formatarDataIso(cursor));
+          cursor.setDate(cursor.getDate() + 1);
+        }
+      } catch {
+        datasRelatorio.push(...diasOrdenados.filter(d => d !== 'sem_data'));
+      }
+    } else {
+      datasRelatorio.push(...diasOrdenados.filter(d => d !== 'sem_data'));
+    }
+
+    if (grupos['sem_data'] && grupos['sem_data'].length > 0) {
+      datasRelatorio.push('sem_data');
+    }
+
+    const rows = datasRelatorio.map(dia => {
+      const itens = grupos[dia] || [];
+      
+      const propostasEnviadas = itens.filter(c => 
+        c.caixaAtual === 'analista' || 
+        c.aprovacao?.status === 'apto' || 
+        c.aprovacao?.status === 'inapto' || 
+        c.formalizacao?.status === 'formalizado' || 
+        c.desistencia?.status === 'desistiu'
+      ).length;
+
+      const visitasRealizadas = itens.filter(c => c.agendamentoStatus === 'visitado').length;
+      
+      const propostasFormalizadas = itens.filter(c => c.formalizacao?.status === 'formalizado').length;
+      
+      const visitasPendentes = itens.filter(c => c.agendamentoStatus === 'agendado').length;
+
+      const meta = 4;
+      const percentualMeta = ((visitasRealizadas / meta) * 100).toFixed(0) + '%';
+      const relacaoMeta = `${visitasRealizadas} / ${meta} (${percentualMeta})`;
+
+      const dataFormatada = dia === 'sem_data' ? 'Sem data definida' : this.formatarDiaSemanaEData(dia);
+
+      return [
+        dataFormatada,
+        String(propostasEnviadas),
+        String(visitasRealizadas),
+        relacaoMeta,
+        String(propostasFormalizadas),
+        String(visitasPendentes)
+      ];
+    });
+
+    // Iniciar jsPDF
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    const agora = new Date().toLocaleString('pt-BR');
+    const periodoLabel = dataInicioStr && dataFimStr
+      ? `${this.formatarDataPt(dataInicioStr)} a ${this.formatarDataPt(dataFimStr)}`
+      : 'Geral';
+
+    // Cabeçalho do PDF
+    doc.setFontSize(18);
+    doc.setTextColor(0, 141, 69);
+    doc.text('CRENORTE', 14, 18);
+
+    doc.setFontSize(12);
+    doc.setTextColor(40, 40, 40);
+    doc.text(`Relatório Diário de Atividades - Módulo de Visitas`, 14, 27);
+
+    doc.setFontSize(10);
+    doc.setTextColor(80, 80, 80);
+    doc.text(`Assessor: ${assessorNome}`, 14, 35);
+    doc.text(`Período: ${periodoLabel}`, 14, 41);
+    doc.text(`Gerado em: ${agora}`, 14, 47);
+
+    // Adiciona tabela usando autoTable
+    autoTable(doc, {
+      startY: 53,
+      head: [['Dia', 'Propostas Enviadas', 'Visitas Realizadas', 'Relação c/ Meta (4/dia)', 'Propostas Formalizadas', 'Visitas Pendentes']],
+      body: rows,
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 240] },
+      columnStyles: {
+        0: { cellWidth: 70 },
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'center' },
+        4: { halign: 'center' },
+        5: { halign: 'center' }
+      },
+      margin: { left: 14, right: 14 }
+    });
+
+    const finalY = (doc as any).lastAutoTable?.finalY ?? 120;
+    doc.setFontSize(8);
+    doc.setTextColor(120);
+    doc.text('CRENORTE Web - Sistema de Acompanhamento de Campo', 14, finalY + 9);
+
+    const safeNome = assessorNome.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_');
+    doc.save(`relatorio_visitas_${safeNome}_${dataInicioStr || 'geral'}_a_${dataFimStr || 'geral'}.pdf`);
   }
 
   private converterParaData(ts: any): Date | null {
