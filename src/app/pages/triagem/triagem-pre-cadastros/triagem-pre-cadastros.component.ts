@@ -1380,7 +1380,6 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
       const porUid = cu?.uid ?? null;
       const porNome = (porUid ? this.assessores.find(x => x.uid === porUid)?.nome : null)
         ?? cu?.displayName
-        ?? cu?.email
         ?? null;
 
       const srcRef = doc(db, row._path);
