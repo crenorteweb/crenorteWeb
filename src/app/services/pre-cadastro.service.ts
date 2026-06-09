@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   getDocs,
+  limit as fsLimit,
   CollectionReference,
   DocumentData,
   doc,
@@ -39,7 +40,7 @@ type UsuarioAssessor = {
   analistaResponsavelUid?: string | null;
 };
 
-export const UFS_NORTE = ['PA', 'AC', 'AP', 'AM', 'RO', 'RR', 'TO'] as const;
+export const UFS_NORTE = ['PA', 'AC', 'AP', 'AM', 'RO', 'RR', 'TO', 'MA', 'MT'] as const;
 
 export function filtrarUfsNorte<T>(rows: T[]): T[] {
   return rows.filter(r => UFS_NORTE.includes(((r as any)?.uf ?? '').toString().toUpperCase().trim() as any));
@@ -118,11 +119,11 @@ export class PreCadastroService {
     if (!useUid) throw new Error('Usuário não autenticado.');
 
     try {
-      const qy = query(this.colRef, where('createdByUid', '==', useUid), orderBy('createdAt', 'desc'));
+      const qy = query(this.colRef, where('createdByUid', '==', useUid), orderBy('createdAt', 'desc'), fsLimit(500));
       const snap = await getDocs(qy);
       return filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
     } catch {
-      const qy = query(this.colRef, where('createdByUid', '==', useUid));
+      const qy = query(this.colRef, where('createdByUid', '==', useUid), fsLimit(500));
       const snap = await getDocs(qy);
       const rows = filtrarUfsNorte(snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as PreCadastro[]);
 
@@ -292,12 +293,22 @@ export class PreCadastroService {
     const chunks: string[][] = [];
     for (let i = 0; i < uids.length; i += 10) chunks.push(uids.slice(i, i + 10));
 
+    const LIMIT = 500;
     const rows: PreCadastro[] = [];
-    const tryGet = async (qy: any) => {
+
+    // Tenta query com orderBy (requer índice composto); se falhar usa fallback sem ordenação
+    const tryGet = async (qy: any, fallback?: any) => {
       try {
         const snap = await getDocs(qy);
         snap.docs.forEach(d => rows.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
-      } catch {}
+      } catch {
+        if (fallback) {
+          try {
+            const snap = await getDocs(fallback);
+            snap.docs.forEach(d => rows.push({ id: d.id, ...(d.data() as any) } as PreCadastro));
+          } catch {}
+        }
+      }
     };
 
     await Promise.all(chunks.map(chunk => {
@@ -306,9 +317,18 @@ export class PreCadastroService {
           ? where(field, '==', chunk[0])
           : where(field, 'in', chunk);
       return Promise.all([
-        tryGet(query(this.colRef, eq('caixaUid'))),
-        tryGet(query(this.colRef, eq('encaminhamento.assessorUid'))),
-        tryGet(query(this.colRef, eq('createdByUid'))),
+        tryGet(
+          query(this.colRef, eq('caixaUid'), orderBy('createdAt', 'desc'), fsLimit(LIMIT)),
+          query(this.colRef, eq('caixaUid'), fsLimit(LIMIT))
+        ),
+        tryGet(
+          query(this.colRef, eq('encaminhamento.assessorUid'), orderBy('createdAt', 'desc'), fsLimit(LIMIT)),
+          query(this.colRef, eq('encaminhamento.assessorUid'), fsLimit(LIMIT))
+        ),
+        tryGet(
+          query(this.colRef, eq('createdByUid'), orderBy('createdAt', 'desc'), fsLimit(LIMIT)),
+          query(this.colRef, eq('createdByUid'), fsLimit(LIMIT))
+        ),
       ]);
     }));
 
