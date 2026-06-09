@@ -517,43 +517,16 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   // ===== Busca extra: pré-cadastros que ESTE usuário ENCAMINHOU (analista) =====
   private async buscarPreCadastrosEncaminhadosPor(uid: string): Promise<PreCadastro[]> {
     try {
-      console.log('[PreCadastro] buscarPreCadastrosEncaminhadosPor UID =', uid);
-
-      // 🔴 ANTES
-      // const ref = collection(this.afs, 'pre-cadastros');
-
-      // ✅ AGORA (igual ao nome real da coleção no banco)
       const ref = collection(this.afs, 'pre_cadastros');
-
-      const q = fsQuery(
-        ref,
-        where('encaminhadoPorUid', '==', uid)
-      );
-
+      const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
       const snap = await getDocs(q);
-
-      console.log('[PreCadastro] snapshot size =', snap.size);
 
       const lista: PreCadastro[] = [];
       snap.forEach(docSnap => {
-        const data = docSnap.data() as any;
-
-        console.log('[PreCadastro] enc doc:', docSnap.id, {
-          encaminhadoPorUid: data?.encaminhadoPorUid,
-          caixaAtual: data?.caixaAtual,
-          caixaUid: data?.caixaUid,
-          encaminhadoParaUid: data?.encaminhadoParaUid
-        });
-
-        lista.push({
-          id: docSnap.id,
-          ...data
-        } as PreCadastro);
+        lista.push({ id: docSnap.id, ...(docSnap.data() as any) } as PreCadastro);
       });
 
-      console.log('[PreCadastro] Encaminhados por', uid, '=>', lista.length, 'doc(s)');
       return lista;
-
     } catch (e) {
       console.error('[PreCadastro] erro ao buscar encaminhados por uid:', e);
       return [];
@@ -563,38 +536,15 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 // ===== Busca extra: GRUPOS que ESTE usuário ENCAMINHOU (analista) =====
 private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]> {
   try {
-    console.log('[Grupos] buscarGruposEncaminhadosPor UID =', uid);
-
-    // Ajuste o nome da coleção se no seu banco estiver diferente
-    // (ex.: 'grupos_solidarios' ou 'grupos-solidarios')
     const ref = collection(this.afs, 'grupos_solidarios');
-
-    const q = fsQuery(
-      ref,
-      where('encaminhadoPorUid', '==', uid)
-    );
-
+    const q = fsQuery(ref, where('encaminhadoPorUid', '==', uid));
     const snap = await getDocs(q);
-    console.log('[Grupos] snapshot encaminhados size =', snap.size);
 
     const lista: GrupoSolidario[] = [];
     snap.forEach(docSnap => {
-      const data = docSnap.data() as any;
-
-      console.log('[Grupos] enc doc:', docSnap.id, {
-        encaminhadoPorUid: data?.encaminhadoPorUid,
-        encaminhadoParaUid: data?.encaminhadoParaUid,
-        caixaAtual: data?.caixaAtual,
-        caixaUid: data?.caixaUid
-      });
-
-      lista.push({
-        id: docSnap.id,
-        ...data
-      } as GrupoSolidario);
+      lista.push({ id: docSnap.id, ...(docSnap.data() as any) } as GrupoSolidario);
     });
 
-    console.log('[Grupos] Encaminhados por', uid, '=>', lista.length, 'grupo(s)');
     return lista;
   } catch (e) {
     console.error('[Grupos] erro ao buscar grupos encaminhados por uid:', e);
@@ -931,10 +881,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       for (const [preId, info] of faltando.entries()) {
         try {
           const snap = await getDoc(doc(this.afs, 'pre_cadastros', preId));
-          if (!snap.exists()) {
-            console.warn('[Grupos->Pessoas] pre_cadastro não encontrado para membroId =', preId);
-            continue;
-          }
+          if (!snap.exists()) continue;
 
           const data = snap.data() as any;
 
@@ -968,7 +915,6 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       }
 
       this.itens.set(Array.from(atuais.values()));
-      console.log('[Grupos->Pessoas] total na aba Pessoas após merge =', this.itens().length);
     } catch (e) {
       console.error('[Grupos->Pessoas] erro geral ao mesclar membrosIds:', e);
     }
