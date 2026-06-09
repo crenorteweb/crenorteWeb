@@ -31,6 +31,11 @@ export class ProducaoService {
     } catch { return 0; }
   }
 
+  private cleanStr(val: any): string {
+    const s = (val ?? '').toString().trim();
+    return s === 'undefined' || s === 'null' ? '' : s;
+  }
+
   /** Verifica se um Timestamp está dentro do intervalo [dataInicio, dataFim] (YYYY-MM-DD, fuso local) */
   private isInRange(ts: any, dataInicio: string, dataFim: string): boolean {
     if (!ts) return false;
@@ -92,11 +97,11 @@ export class ProducaoService {
 
   /** Mapeia dado bruto do Firestore para PreCadastro do módulo */
   private mapRaw(raw: any, nomes?: Map<string, string>): PreCadastro {
-    const assessorUid: string = raw.createdByUid || '';
+    const assessorUid: string = this.cleanStr(raw.createdByUid);
     const assessorNome: string = nomes?.get(assessorUid)
-      || (raw.createdByNome && raw.createdByNome !== 'Assessor' ? raw.createdByNome : '')
+      || (raw.createdByNome && raw.createdByNome !== 'Assessor' ? this.cleanStr(raw.createdByNome) : '')
       || nomes?.get(assessorUid)
-      || raw.createdByNome
+      || this.cleanStr(raw.createdByNome)
       || '';
 
     return {
@@ -111,10 +116,10 @@ export class ProducaoService {
       status: raw.aprovacao?.status,
       assessorId: assessorUid,
       assessorNome,
-      analistaId: raw.aprovacao?.porUid || raw.analistaId,
+      analistaId: this.cleanStr(raw.aprovacao?.porUid || raw.analistaId),
       analistaNome: (() => {
-        const uid  = raw.aprovacao?.porUid || raw.analistaId || '';
-        const nome = raw.aprovacao?.porNome || raw.analistaNome || '';
+        const uid  = this.cleanStr(raw.aprovacao?.porUid || raw.analistaId || '');
+        const nome = this.cleanStr(raw.aprovacao?.porNome || raw.analistaNome || '');
         // Se porNome foi salvo erroneamente como o próprio UID, ignora e usa o mapa
         return (nome && nome !== uid ? nome : '') || nomes?.get(uid) || '';
       })(),
@@ -130,11 +135,17 @@ export class ProducaoService {
       encaminhadoEm: raw.encaminhadoEm || raw.encaminhamento?.em || raw.createdAt,
       analisadoEm: raw.aprovacao?.em,
       elegivel: raw.elegivel ? { status: raw.elegivel.status } : undefined,
-      encaminhadoPorUid: raw.encaminhadoPorUid || '',
-      encaminhadoPorNome: raw.encaminhadoPorNome
-        || (!raw.encaminhadoPorUid && raw.encaminhamento?.assessorUid ? 'Call Center' : ''),
-      encaminhadoParaUid: raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || '',
-      encaminhadoParaNome: raw.encaminhadoParaNome || raw.designadoParaNome || raw.encaminhamento?.assessorNome || '',
+      encaminhadoPorUid: this.cleanStr(raw.encaminhadoPorUid),
+      encaminhadoPorNome: (() => {
+        const stored = this.cleanStr(raw.encaminhadoPorNome);
+        const nome = stored.includes('@') ? '' : stored;
+        return nome
+          || nomes?.get(this.cleanStr(raw.encaminhadoPorUid))
+          || (!this.cleanStr(raw.encaminhadoPorUid) && this.cleanStr(raw.encaminhamento?.assessorUid) ? 'Call Center' : '');
+      })(),
+      encaminhadoParaUid: this.cleanStr(raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || raw.analistaUid),
+      encaminhadoParaNome: this.cleanStr(raw.encaminhadoParaNome || raw.designadoParaNome || raw.encaminhamento?.assessorNome || raw.analistaNome)
+        || nomes?.get(this.cleanStr(raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || raw.analistaUid)) || '',
     };
   }
 
@@ -257,8 +268,8 @@ export class ProducaoService {
 
     const filtered = [...analisados, ...naoAnalisados];
 
-    const assessorUids = [...new Set(filtered.map(r => r.createdByUid).filter(Boolean) as string[])];
-    const analistaUids = [...new Set(filtered.map(r => r.aprovacao?.porUid).filter(Boolean) as string[])];
+    const assessorUids = [...new Set(filtered.map(r => this.cleanStr(r.createdByUid)).filter(Boolean) as string[])];
+    const analistaUids = [...new Set(filtered.map(r => this.cleanStr(r.aprovacao?.porUid)).filter(Boolean) as string[])];
 
     const [nomesAssessores, nomesAnalistas] = await Promise.all([
       this.fetchNomesByUids(assessorUids),
@@ -280,14 +291,18 @@ export class ProducaoService {
     const filtered = snap.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r => {
-        const foiEncaminhado = r.encaminhadoParaUid || r.encaminhadoPorUid || r.encaminhamento?.assessorUid;
+        const para = this.cleanStr(r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid);
+        const por = this.cleanStr(r.encaminhadoPorUid);
+        const foiEncaminhado = para || por;
         const dataRef = r.encaminhadoEm ?? r.encaminhamento?.em ?? null;
         return foiEncaminhado && this.isInRange(dataRef, dataInicio, dataFim);
       });
 
     // Nomes de quem encaminhou e para quem foi — busca por docId e por authUid (analistas têm docId ≠ authUid)
-    const porUids  = [...new Set(filtered.map(r => r.encaminhadoPorUid).filter(Boolean)  as string[])];
-    const paraUids = [...new Set(filtered.map(r => r.encaminhadoParaUid).filter(Boolean) as string[])];
+    const porUids  = [...new Set(filtered.map(r => this.cleanStr(r.encaminhadoPorUid)).filter(Boolean)  as string[])];
+    const paraUids = [...new Set(filtered.map(r => this.cleanStr(
+      r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid || r.analistaUid
+    )).filter(Boolean) as string[])];
     const todosUids = [...new Set([...porUids, ...paraUids])];
 
     const [nomesPorDoc, nomesPorAuth] = await Promise.all([
@@ -310,8 +325,8 @@ export class ProducaoService {
     if (!all.length) return [];
 
     const uids = [...new Set([
-      ...all.map(r => r.createdByUid).filter(Boolean),
-      ...all.map(r => r.encaminhadoParaUid).filter(Boolean),
+      ...all.map(r => this.cleanStr(r.createdByUid)).filter(Boolean),
+      ...all.map(r => this.cleanStr(r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid)).filter(Boolean),
     ] as string[])];
     const nomes = await this.fetchNomesByUids(uids);
 
@@ -326,7 +341,7 @@ export class ProducaoService {
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
 
-    const assessorUids = [...new Set(filtered.map(r => r.createdByUid).filter(Boolean) as string[])];
+    const assessorUids = [...new Set(filtered.map(r => this.cleanStr(r.createdByUid)).filter(Boolean) as string[])];
     const nomes = await this.fetchNomesByUids(assessorUids);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
