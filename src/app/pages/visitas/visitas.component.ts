@@ -201,8 +201,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
         const supervisados = allAssessors.filter(a => a.supervisorUid === this.currentUserUid);
         this.assessores.set(supervisados);
       } else if (this.currentUserPapel === 'analista') {
-        const sobAnalise = allAssessors.filter(a => a.analistaResponsavelUid === this.currentUserUid);
-        this.assessores.set(sobAnalise);
+        this.assessores.set(allAssessors);
       } else {
         this.assessores.set([]);
       }

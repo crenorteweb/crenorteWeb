@@ -57,6 +57,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 
   // ====== UI STATE ======
   searchTerm = signal<string>('');
+  searchCpf = signal<string>('');
 
   // filtros principais
   filtroStatus = signal<'todos' | 'nao_agendado' | 'agendado' | 'visitado'>('todos');
@@ -83,6 +84,9 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
 
   // ====== NOVO: Abas Pessoas | Grupos | Agenda ======
   aba = signal<'pessoas' | 'grupos' | 'agenda'>('pessoas');
+
+  // Sub-abas dentro de "Pessoas"
+  subAbaPessoas = signal<'mes_atual' | 'anteriores'>('mes_atual');
 
   // Estado GRUPOS (lista do assessor)
   gruposLoading = signal(false);
@@ -222,6 +226,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
     // sempre que busca/filtros mudarem, voltar para a primeira página (PESSOAS)
     effect(() => {
       this.searchTerm();
+      this.searchCpf();
       this.filtroStatus();
       this.filtroHasPhone();
       this.filtroHasEmail();
@@ -236,6 +241,7 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
       this.filtroSomenteAgendados();
       this.filtroSomenteVisitados();
       this.filtroProximosAgendamentos();
+      this.subAbaPessoas();
 
       this.page.set(1);
     });
@@ -661,6 +667,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
 
   filteredItems = computed<PreCadastro[]>(() => {
     const term = this.normalize(this.searchTerm());
+    const cpfBusca = this.onlyDigits(this.searchCpf());
     const st = this.filtroStatus();
     const hasPhone = this.filtroHasPhone();
     const hasEmail = this.filtroHasEmail();
@@ -690,6 +697,12 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       if (term) {
         const nome = this.normalize(i.nomeCompleto ?? (i as any).nome ?? '');
         if (!nome.includes(term)) return false;
+      }
+
+      // Busca por CPF (somente dígitos)
+      if (cpfBusca) {
+        const cpfItem = this.onlyDigits(i.cpf);
+        if (!cpfItem.includes(cpfBusca)) return false;
       }
 
       // Filtro status principal
@@ -750,7 +763,49 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     });
   });
 
-  totalFiltrado = computed<number>(() => this.filteredItems().length);
+  // ====== Sub-abas de Pessoas: mês atual vs anteriores ======
+  private isNoMesAtual(d: Date | null): boolean {
+    if (!d) return false;
+    const agora = new Date();
+    return d.getMonth() === agora.getMonth() && d.getFullYear() === agora.getFullYear();
+  }
+
+  private dataReferenciaItem(i: PreCadastro): Date | null {
+    // Data de criação (próprios do assessor)
+    const criacao = this.toJSDate(i.createdAt);
+    if (this.isNoMesAtual(criacao)) return criacao;
+
+    // Data em que foi encaminhado para ele
+    const encQuando = this.encaminhadoQuando(i);
+    if (this.isNoMesAtual(encQuando)) return encQuando;
+
+    // Retorna criacao como referência para decidir "anteriores"
+    return criacao;
+  }
+
+  filteredItemsMesAtual = computed<PreCadastro[]>(() =>
+    this.filteredItems().filter(i => {
+      const criacao = this.toJSDate(i.createdAt);
+      const encQuando = this.encaminhadoQuando(i);
+      return this.isNoMesAtual(criacao) || this.isNoMesAtual(encQuando);
+    })
+  );
+
+  filteredItemsAnteriores = computed<PreCadastro[]>(() =>
+    this.filteredItems().filter(i => {
+      const criacao = this.toJSDate(i.createdAt);
+      const encQuando = this.encaminhadoQuando(i);
+      return !this.isNoMesAtual(criacao) && !this.isNoMesAtual(encQuando);
+    })
+  );
+
+  filteredItemsAtivos = computed<PreCadastro[]>(() =>
+    this.subAbaPessoas() === 'mes_atual'
+      ? this.filteredItemsMesAtual()
+      : this.filteredItemsAnteriores()
+  );
+
+  totalFiltrado = computed<number>(() => this.filteredItemsAtivos().length);
   totalGeral = computed<number>(() => this.itens().length);
 
   totalPages = computed<number>(() => {
@@ -761,7 +816,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
   pagedItems = computed<PreCadastro[]>(() => {
     const p = this.page();
     const ps = this.pageSize();
-    const arr = this.filteredItems();
+    const arr = this.filteredItemsAtivos();
     const start = (p - 1) * ps;
     return arr.slice(start, start + ps);
   });

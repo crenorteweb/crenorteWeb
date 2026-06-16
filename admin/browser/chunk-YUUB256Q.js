@@ -1,0 +1,1 @@
+import{Pa as n,fb as t,gb as m,wb as p}from"./chunk-Z5ODBJQU.js";import"./chunk-RA2WU32H.js";var a=class e{static \u0275fac=function(o){return new(o||e)};static \u0275cmp=n({type:e,selectors:[["app-novomodulo"]],decls:2,vars:0,template:function(o,s){o&1&&(t(0,"p"),p(1,"novomodulo works!"),m())},encapsulation:2})};export{a as NovomoduloComponent};
