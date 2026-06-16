@@ -59,6 +59,36 @@
   <!-- ======================= ABA: PESSOAS ======================= -->
   <ng-container *ngIf="aba()==='pessoas'">
 
+    <!-- Sub-abas: Mês atual | Anteriores -->
+    <div class="mt-3 mb-3">
+      <ul class="nav nav-pills gap-2">
+        <li class="nav-item">
+          <button class="nav-link d-flex align-items-center gap-2"
+            [class.active]="subAbaPessoas()==='mes_atual'"
+            (click)="subAbaPessoas.set('mes_atual')">
+            <i class="bi bi-calendar-check"></i>
+            Mês atual
+            <span class="badge" [class.text-bg-light]="subAbaPessoas()==='mes_atual'"
+              [class.text-bg-secondary]="subAbaPessoas()!=='mes_atual'">
+              {{ filteredItemsMesAtual().length }}
+            </span>
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link d-flex align-items-center gap-2"
+            [class.active]="subAbaPessoas()==='anteriores'"
+            (click)="subAbaPessoas.set('anteriores')">
+            <i class="bi bi-archive"></i>
+            Anteriores
+            <span class="badge" [class.text-bg-light]="subAbaPessoas()==='anteriores'"
+              [class.text-bg-secondary]="subAbaPessoas()!=='anteriores'">
+              {{ filteredItemsAnteriores().length }}
+            </span>
+          </button>
+        </li>
+      </ul>
+    </div>
+
     <!-- Toolbar: Busca + Filtros -->
     <div class="card shadow-sm border-0 mb-3">
       <div class="card-body py-3">
@@ -66,18 +96,28 @@
         <!-- Linha 1: busca + grupo + resumo -->
         <div class="row g-3 align-items-end">
 
-          <!-- Busca -->
-          <div class="col-12 col-md-6">
+          <!-- Busca por nome -->
+          <div class="col-12 col-md-4">
             <label class="form-label mb-1">Buscar por nome</label>
             <div class="input-group">
               <span class="input-group-text"><i class="bi bi-search"></i></span>
-              <input type="search" class="form-control" placeholder="Digite o nome do cliente…" [ngModel]="searchTerm()"
+              <input type="search" class="form-control" placeholder="Nome do cliente…" [ngModel]="searchTerm()"
                 (ngModelChange)="searchTerm.set($event)" />
             </div>
           </div>
 
+          <!-- Busca por CPF -->
+          <div class="col-12 col-md-3">
+            <label class="form-label mb-1">Buscar por CPF</label>
+            <div class="input-group">
+              <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+              <input type="search" class="form-control" placeholder="Digite o CPF…" [ngModel]="searchCpf()"
+                (ngModelChange)="searchCpf.set($event)" />
+            </div>
+          </div>
+
           <!-- Grupo Solidário -->
-          <div class="col-12 col-md-4">
+          <div class="col-12 col-md-3">
             <label class="form-label mb-1">Grupo solidário</label>
             <select class="form-select" [ngModel]="filtroGrupo()" (ngModelChange)="filtroGrupo.set($event)">
               <option value="todos">Todos</option>
@@ -87,7 +127,7 @@
           </div>
 
           <!-- Resumo -->
-          <div class="col-12 col-md-2 text-md-end">
+          <div class="col-12 col-md-2 text-md-end" style="min-width:110px">
             <label class="form-label mb-1 d-block">Resumo</label>
             <div class="mt-md-1">
               <span class="badge-soft me-2">Total: {{ totalGeral() }}</span>

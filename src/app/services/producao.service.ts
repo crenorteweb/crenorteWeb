@@ -6,15 +6,18 @@ import {
   where,
   getDocs,
   documentId,
+  Timestamp,
   CollectionReference,
   DocumentData,
 } from '@angular/fire/firestore';
 import { from, Observable } from 'rxjs';
 import { PreCadastro, CargoFiltro } from '../models/producao.model';
+import { CacheService } from './cache.service';
 
 @Injectable({ providedIn: 'root' })
 export class ProducaoService {
-  private db = inject(Firestore);
+  private db    = inject(Firestore);
+  private cache = inject(CacheService);
 
   private readonly preCadRef: CollectionReference<DocumentData> =
     collection(this.db, 'pre_cadastros') as CollectionReference<DocumentData>;
@@ -48,6 +51,19 @@ export class ProducaoService {
       const fim    = new Date(yf, mf - 1, df, 23, 59, 59, 999);
       return d >= inicio && d <= fim;
     } catch { return false; }
+  }
+
+  private cacheKey(...parts: string[]): string {
+    return `producao_${parts.join('_')}`;
+  }
+
+  private toTimestampRange(dataInicio: string, dataFim: string): { inicio: Timestamp; fim: Timestamp } {
+    const [yi, mi, di] = dataInicio.split('-').map(Number);
+    const [yf, mf, df] = dataFim.split('-').map(Number);
+    return {
+      inicio: Timestamp.fromDate(new Date(yi, mi - 1, di, 0, 0, 0, 0)),
+      fim:    Timestamp.fromDate(new Date(yf, mf - 1, df, 23, 59, 59, 999)),
+    };
   }
 
   /** Busca nomes de colaboradores em lote por IDs de documento (assessores) */
@@ -182,44 +198,74 @@ export class ProducaoService {
   // ── Implementações privadas ───────────────────────────────────────────────
 
   private async _assessor(uid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    const snap = await getDocs(
-      query(this.preCadRef, where('createdByUid', '==', uid))
-    );
-    const filtered = snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
+    const key = this.cacheKey('assessor', uid, dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
 
-    const result = filtered.map(r => this.mapRaw(r));
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
+    let raws: any[];
+    try {
+      const snap = await getDocs(query(
+        this.preCadRef,
+        where('createdByUid', '==', uid),
+        where('createdAt', '>=', inicio),
+        where('createdAt', '<=', fim),
+      ));
+      raws = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    } catch {
+      const snap = await getDocs(query(this.preCadRef, where('createdByUid', '==', uid)));
+      raws = snap.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
+    }
+
+    const result = raws.map(r => this.mapRaw(r));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _analista(uid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    const snap = await getDocs(
-      query(this.preCadRef, where('aprovacao.porUid', '==', uid))
-    );
-    const filtered = snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
+    const key = this.cacheKey('analista', uid, dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
 
-    // Enriquece nomes dos assessores via colaboradores
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
+    let filtered: any[];
+    try {
+      const snap = await getDocs(query(
+        this.preCadRef,
+        where('aprovacao.porUid', '==', uid),
+        where('aprovacao.em', '>=', inicio),
+        where('aprovacao.em', '<=', fim),
+      ));
+      filtered = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    } catch {
+      const snap = await getDocs(query(this.preCadRef, where('aprovacao.porUid', '==', uid)));
+      filtered = snap.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
+    }
+
     const uids = filtered.map(r => r.createdByUid).filter(Boolean);
     const nomes = await this.fetchNomesByUids(uids);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.analisadoEm) - this.getTime(a.analisadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _supervisor(supervisorUid: string, dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    // Passo 1 — assessores sob este supervisor
-    const assessoresSnap = await getDocs(
-      query(
-        this.colabRef,
-        where('supervisorId', '==', supervisorUid),
-        where('papel', '==', 'assessor')
-      )
-    );
+    const key = this.cacheKey('supervisor', supervisorUid, dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
+
+    const assessoresSnap = await getDocs(query(
+      this.colabRef,
+      where('supervisorId', '==', supervisorUid),
+      where('papel', '==', 'assessor'),
+    ));
 
     const nomes = new Map<string, string>();
     assessoresSnap.docs.forEach(d => {
@@ -230,35 +276,65 @@ export class ProducaoService {
     const assessorUids = assessoresSnap.docs.map(d => d.id);
     if (!assessorUids.length) return [];
 
-    // Passo 2 — pre_cadastros dos assessores (chunks de 10)
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
     const all: any[] = [];
+
     for (let i = 0; i < assessorUids.length; i += 10) {
       const chunk = assessorUids.slice(i, i + 10);
-      const qy = chunk.length === 1
-        ? query(this.preCadRef, where('createdByUid', '==', chunk[0]))
-        : query(this.preCadRef, where('createdByUid', 'in', chunk));
-      const snap = await getDocs(qy);
-      snap.docs.forEach(d => all.push({ id: d.id, ...(d.data() as any) }));
+      const eq = chunk.length === 1
+        ? where('createdByUid', '==', chunk[0])
+        : where('createdByUid', 'in', chunk);
+      try {
+        const snap = await getDocs(query(
+          this.preCadRef, eq,
+          where('createdAt', '>=', inicio),
+          where('createdAt', '<=', fim),
+        ));
+        snap.docs.forEach(d => all.push({ id: d.id, ...(d.data() as any) }));
+      } catch {
+        const snap = await getDocs(query(this.preCadRef, eq));
+        snap.docs
+          .filter(d => this.isInRange((d.data() as any).createdAt, dataInicio, dataFim))
+          .forEach(d => all.push({ id: d.id, ...(d.data() as any) }));
+      }
     }
 
-    const filtered = all.filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
-    const result = filtered.map(r => this.mapRaw(r, nomes));
+    const result = all.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _todosAnalisados(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    const [snapAnalisados, snapNaCaixa] = await Promise.all([
-      getDocs(query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto']))),
-      getDocs(query(this.preCadRef, where('caixaAtual', '==', 'analista'))),
-    ]);
+    const key = this.cacheKey('todosAnalisados', dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
 
-    const analisados = snapAnalisados.docs
-      .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
+
+    // Firestore não permite `in` + range em campos diferentes.
+    // Solução: duas queries separadas (apto e inapto) com filtro de data no servidor.
+    // Fallback caso os índices compostos ainda não existam.
+    let analisados: any[];
+    try {
+      const [snapApto, snapInapto] = await Promise.all([
+        getDocs(query(this.preCadRef, where('aprovacao.status', '==', 'apto'),   where('aprovacao.em', '>=', inicio), where('aprovacao.em', '<=', fim))),
+        getDocs(query(this.preCadRef, where('aprovacao.status', '==', 'inapto'), where('aprovacao.em', '>=', inicio), where('aprovacao.em', '<=', fim))),
+      ]);
+      analisados = [
+        ...snapApto.docs.map(d => ({ id: d.id, ...(d.data() as any) })),
+        ...snapInapto.docs.map(d => ({ id: d.id, ...(d.data() as any) })),
+      ];
+    } catch {
+      const snap = await getDocs(query(this.preCadRef, where('aprovacao.status', 'in', ['apto', 'inapto'])));
+      analisados = snap.docs
+        .map(d => ({ id: d.id, ...(d.data() as any) }))
+        .filter(r => this.isInRange(r.aprovacao?.em, dataInicio, dataFim));
+    }
 
     const idsAnalisados = new Set(analisados.map(r => r.id));
 
+    const snapNaCaixa = await getDocs(query(this.preCadRef, where('caixaAtual', '==', 'analista')));
     const naoAnalisados = snapNaCaixa.docs
       .map(d => ({ id: d.id, ...(d.data() as any) }))
       .filter(r =>
@@ -275,7 +351,6 @@ export class ProducaoService {
       this.fetchNomesByUids(assessorUids),
       this.fetchNomesByAuthUid(analistaUids),
     ]);
-
     const nomes = new Map([...nomesAssessores, ...nomesAnalistas]);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
@@ -283,23 +358,44 @@ export class ProducaoService {
       this.getTime(b.analisadoEm ?? b.encaminhadoEm) -
       this.getTime(a.analisadoEm ?? a.encaminhadoEm)
     );
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _encaminhados(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    const snap = await getDocs(this.preCadRef);
-    const filtered = snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => {
-        const para = this.cleanStr(r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid);
-        const por = this.cleanStr(r.encaminhadoPorUid);
-        const foiEncaminhado = para || por;
-        const dataRef = r.encaminhadoEm ?? r.encaminhamento?.em ?? null;
-        return foiEncaminhado && this.isInRange(dataRef, dataInicio, dataFim);
-      });
+    const key = this.cacheKey('encaminhados', dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
 
-    // Nomes de quem encaminhou e para quem foi — busca por docId e por authUid (analistas têm docId ≠ authUid)
-    const porUids  = [...new Set(filtered.map(r => this.cleanStr(r.encaminhadoPorUid)).filter(Boolean)  as string[])];
+    // Usa encaminhadoEm (campo top-level salvo com serverTimestamp) para filtrar no servidor.
+    // Fallback: filtra por createdAt caso o índice ainda não exista.
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
+    let raws: any[];
+    try {
+      const snap = await getDocs(query(
+        this.preCadRef,
+        where('encaminhadoEm', '>=', inicio),
+        where('encaminhadoEm', '<=', fim),
+      ));
+      raws = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    } catch {
+      const snap = await getDocs(query(
+        this.preCadRef,
+        where('createdAt', '>=', inicio),
+        where('createdAt', '<=', fim),
+      ));
+      raws = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    }
+
+    // Confirmação in-memory: deve ter sido encaminhado e data dentro do intervalo
+    const filtered = raws.filter(r => {
+      const para = this.cleanStr(r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid);
+      const por  = this.cleanStr(r.encaminhadoPorUid);
+      const dataRef = r.encaminhadoEm ?? r.encaminhamento?.em ?? null;
+      return (para || por) && this.isInRange(dataRef, dataInicio, dataFim);
+    });
+
+    const porUids  = [...new Set(filtered.map(r => this.cleanStr(r.encaminhadoPorUid)).filter(Boolean) as string[])];
     const paraUids = [...new Set(filtered.map(r => this.cleanStr(
       r.encaminhadoParaUid || r.designadoParaUid || r.encaminhamento?.assessorUid || r.analistaUid
     )).filter(Boolean) as string[])];
@@ -309,18 +405,20 @@ export class ProducaoService {
       this.fetchNomesByUids(todosUids),
       this.fetchNomesByAuthUid(todosUids),
     ]);
-
     const nomes = new Map([...nomesPorDoc, ...nomesPorAuth]);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _caixaAssessores(): Promise<PreCadastro[]> {
-    const snap = await getDocs(
-      query(this.preCadRef, where('caixaAtual', '==', 'assessor'))
-    );
+    const key = this.cacheKey('caixaAssessores');
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
+
+    const snap = await getDocs(query(this.preCadRef, where('caixaAtual', '==', 'assessor')));
     const all = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
     if (!all.length) return [];
 
@@ -332,20 +430,30 @@ export class ProducaoService {
 
     const result = all.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 
   private async _adicionados(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
-    const snap = await getDocs(this.preCadRef);
-    const filtered = snap.docs
-      .map(d => ({ id: d.id, ...(d.data() as any) }))
-      .filter(r => this.isInRange(r.createdAt, dataInicio, dataFim));
+    const key = this.cacheKey('adicionados', dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
 
+    // Filtro de data direto no Firestore — elimina o scan completo de 60k docs
+    const { inicio, fim } = this.toTimestampRange(dataInicio, dataFim);
+    const snap = await getDocs(query(
+      this.preCadRef,
+      where('createdAt', '>=', inicio),
+      where('createdAt', '<=', fim),
+    ));
+
+    const filtered = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
     const assessorUids = [...new Set(filtered.map(r => this.cleanStr(r.createdByUid)).filter(Boolean) as string[])];
     const nomes = await this.fetchNomesByUids(assessorUids);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.criadoEm) - this.getTime(a.criadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }
 }

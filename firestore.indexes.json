@@ -12,6 +12,14 @@
       "collectionGroup": "pre_cadastros",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "createdByUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pre_cadastros",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "caixaUid", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
       ]
@@ -29,7 +37,15 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "aprovacao.status", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
+        { "fieldPath": "aprovacao.em", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "pre_cadastros",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "aprovacao.porUid", "order": "ASCENDING" },
+        { "fieldPath": "aprovacao.em", "order": "ASCENDING" }
       ]
     }
   ],
