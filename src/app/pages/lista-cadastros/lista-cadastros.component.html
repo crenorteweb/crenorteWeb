@@ -7,6 +7,7 @@
         <h3 class="mb-0 text-crn-dark fw-bold">Meus Cadastros</h3>
         <div class="mt-1 d-flex align-items-center gap-2">
           <span class="badge-soft">Total: {{ itens().length }}</span>
+          <span class="badge-soft">Filtrados: {{ itensFiltrados().length }}</span>
           <span class="text-muted" style="font-size:.9rem">Visão geral dos seus cadastros recentes</span>
         </div>
       </div>
@@ -19,15 +20,34 @@
     </div>
   </div>
 
-  <!-- Toolbar: busca -->
+  <!-- Toolbar: busca + filtros -->
   <div class="card shadow-sm border-0 mb-3">
     <div class="card-body py-3">
-      <div class="row g-2 align-items-center">
-        <div class="col-12">
+      <div class="row g-3 align-items-end">
+        <div class="col-12 col-md-5">
+          <label class="form-label mb-1">Buscar por nome</label>
           <div class="input-group">
             <span class="input-group-text"><i class="bi bi-search"></i></span>
-            <input type="search" class="form-control" placeholder="Buscar por nome, CPF, e-mail…">
+            <input type="search" class="form-control" placeholder="Nome do cliente…" [ngModel]="searchTerm()"
+              (ngModelChange)="searchTerm.set($event)">
           </div>
+        </div>
+
+        <div class="col-12 col-md-3">
+          <label class="form-label mb-1">Buscar por CPF</label>
+          <div class="input-group">
+            <span class="input-group-text"><i class="bi bi-person-vcard"></i></span>
+            <input type="search" class="form-control" placeholder="Digite o CPF…" [ngModel]="searchCpf()"
+              (ngModelChange)="searchCpf.set($event)">
+          </div>
+        </div>
+
+        <div class="col-12 col-md-4">
+          <label class="form-label mb-1">Origem</label>
+          <select class="form-select" [ngModel]="filtroOrigem()" (ngModelChange)="filtroOrigem.set($event)">
+            <option value="">Todas as origens</option>
+            <option *ngFor="let o of origensDisponiveis()" [value]="o">{{ o }}</option>
+          </select>
         </div>
       </div>
     </div>
@@ -43,7 +63,7 @@
   <div class="card shadow-sm border-0" *ngIf="!loading()">
     <div class="card-body">
       <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3">
-        <div class="col" *ngFor="let i of itens()">
+        <div class="col" *ngFor="let i of itensFiltrados()">
           <div class="crn-card h-100 d-flex flex-column">
             <!-- Cabeçalho -->
             <div class="crn-card__header d-flex align-items-center gap-3">
@@ -102,6 +122,13 @@
                 </span>
               </div>
 
+              <div class="crn-field" *ngIf="i.origem">
+                <span class="crn-label">Origem</span>
+                <span class="crn-value text-break">
+                  {{ i.origem }}
+                </span>
+              </div>
+
               <div class="crn-field">
                 <span class="crn-label">Criado em</span>
                 <span class="crn-value">
@@ -142,7 +169,9 @@
         </div>
       </div>
 
-      <div *ngIf="!itens()?.length" class="text-center text-muted py-4">Nenhum registro ainda.</div>
+      <div *ngIf="!itensFiltrados()?.length" class="text-center text-muted py-4">
+        {{ itens().length ? 'Nenhum registro encontrado para os filtros/busca.' : 'Nenhum registro ainda.' }}
+      </div>
     </div>
   </div>
 </div>
@@ -179,6 +208,8 @@
         <dd class="col-sm-9 text-break">{{ v.endereco || '—' }}</dd>
         <dt class="col-sm-3">Bairro</dt>
         <dd class="col-sm-9 text-break">{{ v.bairro || '—' }}</dd>
+        <dt class="col-sm-3">Origem</dt>
+        <dd class="col-sm-9 text-break">{{ v.origem || '—' }}</dd>
         <dt class="col-sm-3">Status</dt>
         <dd class="col-sm-9 text-break">{{ v.status || '—' }}</dd>
       </dl>
@@ -224,6 +255,11 @@
           <div class="col-md-6">
             <label class="form-label">Bairro</label>
             <input type="text" class="form-control" name="bairro" [(ngModel)]="m.bairro" autocomplete="address-level2">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Origem</label>
+            <input type="text" class="form-control" name="origem" [(ngModel)]="m.origem">
           </div>
 
           <div class="col-12">

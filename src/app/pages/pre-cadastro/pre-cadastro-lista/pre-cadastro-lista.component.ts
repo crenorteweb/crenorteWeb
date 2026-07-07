@@ -192,6 +192,11 @@ export class PreCadastroListaComponent implements OnInit, OnDestroy {
   modalObsAberto = signal(false);
   modalArqsAberto = signal(false);
 
+  // Repasse para a caixa geral de triagem (assessor não teve sucesso no atendimento)
+  modalRepasseAberto = signal(false);
+  motivoRepasse = signal<string>('');
+  repasseSalvando = signal(false);
+
   viewItem = signal<PreCadastro | null>(null);
   editModel = signal<PreCadastroEdit | null>(null);
   itemAgendar = signal<PreCadastro | null>(null);
@@ -1063,6 +1068,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     this.modalAgendarAberto.set(false);
     this.modalObsAberto.set(false);
     this.modalArqsAberto.set(false);
+    this.modalRepasseAberto.set(false);
 
     this.viewItem.set(null);
     this.editModel.set(null);
@@ -1073,6 +1079,66 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
     this.obsLista.set([]);
     this.novaObsTexto.set('');
     this.arqsLista.set([]);
+    this.motivoRepasse.set('');
+  }
+
+  // ===== Repasse para a caixa geral (não teve sucesso no atendimento) =====
+  abrirRepasse(i: PreCadastro) {
+    this.viewItem.set(i);
+    this.motivoRepasse.set('');
+    this.modalRepasseAberto.set(true);
+  }
+
+  async confirmarRepasse() {
+    const item = this.viewItem();
+    const motivo = this.motivoRepasse().trim();
+    if (!item?.id) return;
+    if (!motivo) { alert('Informe o motivo do repasse.'); return; }
+
+    this.repasseSalvando.set(true);
+    try {
+      await this.service.repassarParaCaixa(item.id, motivo);
+
+      const souCriador = !!this.currentUserUid && item.createdByUid === this.currentUserUid;
+
+      if (souCriador) {
+        // Continua na "Minha Lista" (createdByUid), mas sem vínculo de caixa/designação
+        this.itens.update(list => list.map(x => {
+          if (x.id !== item.id) return x;
+          const atualizado: any = { ...x };
+          delete atualizado.caixaUid;
+          delete atualizado.caixaAtual;
+          delete atualizado.designadoParaUid;
+          delete atualizado.designadoPara;
+          delete atualizado.designadoParaNome;
+          delete atualizado.designadoEm;
+          delete atualizado.analistaUid;
+          delete atualizado.analistaNome;
+          delete atualizado.analistaEm;
+          delete atualizado.encaminhadoParaUid;
+          delete atualizado.encaminhadoParaNome;
+          delete atualizado.encaminhadoEm;
+          delete atualizado.encaminhadoPorUid;
+          delete atualizado.encaminhadoPorNome;
+          atualizado.encaminhamento = null;
+          atualizado.atendimento = { status: 'nao_atendido', observacao: motivo };
+          atualizado.repasseCaixa = { motivo, porUid: this.currentUserUid, porNome: this.currentUserNome };
+          return atualizado as PreCadastro;
+        }));
+      } else {
+        // Não foi criado por mim: some da minha lista, volta pra fila geral
+        this.itens.update(list => list.filter(x => x.id !== item.id));
+      }
+
+      this.fecharModais();
+      this.toastVisivel.set(true);
+      setTimeout(() => this.toastVisivel.set(false), 3000);
+    } catch (e) {
+      console.error('[PreCadastro] erro ao repassar para caixa:', e);
+      alert('Não foi possível mover para a caixa de inativos. Tente novamente.');
+    } finally {
+      this.repasseSalvando.set(false);
+    }
   }
 
   // ===== Atualização do editModel =====
@@ -1241,6 +1307,7 @@ private async buscarGruposEncaminhadosPor(uid: string): Promise<GrupoSolidario[]
       email: (pc as any)?.email ?? '',
       endereco: (pc as any)?.endereco ?? (pc as any)?.enderecoCompleto ?? '',
       preCadastroId: (pc as any)?.id ?? (pc as any)?.uid ?? '',
+      origem: (pc as any)?.origem ?? '',
     };
   }
 

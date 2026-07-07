@@ -1,4 +1,4 @@
-import { Component, inject, OnInit, OnDestroy, signal } from '@angular/core';
+import { Component, inject, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -11,6 +11,7 @@ import {
   atualizarCliente,
   removerCliente,
 } from '../../services/cadastro.service';
+import { normalizarTexto } from '../../core/constants/regioes-prioritarias.constant';
 
 // 👇 Extensão local só para o template aceitar campos opcionais
 type ClienteView = ClienteDoc & {
@@ -36,6 +37,43 @@ export class ListaCadastrosComponent implements OnInit, OnDestroy {
   loading = signal(true);
   itens = signal<ClienteView[]>([]);
   private sub?: Subscription;
+
+  // ====== Filtros ======
+  searchTerm = signal<string>('');
+  searchCpf = signal<string>('');
+  filtroOrigem = signal<string>('');
+
+  private onlyDigits(v?: string | null): string {
+    return (v ?? '').replace(/\D+/g, '');
+  }
+
+  origensDisponiveis = computed<string[]>(() => {
+    const set = new Set<string>();
+    for (const i of this.itens()) {
+      const o = (i.origem ?? '').toString().trim();
+      if (o) set.add(o);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  });
+
+  itensFiltrados = computed<ClienteView[]>(() => {
+    const term = normalizarTexto(this.searchTerm());
+    const cpfBusca = this.onlyDigits(this.searchCpf());
+    const origem = this.filtroOrigem();
+
+    return this.itens().filter((i) => {
+      if (term) {
+        const nome = normalizarTexto(i.nomeCompleto ?? '');
+        if (!nome.includes(term)) return false;
+      }
+      if (cpfBusca) {
+        const cpfItem = this.onlyDigits(i.cpf);
+        if (!cpfItem.includes(cpfBusca)) return false;
+      }
+      if (origem && (i.origem ?? '') !== origem) return false;
+      return true;
+    });
+  });
 
   // estado modais
   modalVerAberto = signal(false);
@@ -104,6 +142,7 @@ export class ListaCadastrosComponent implements OnInit, OnDestroy {
         email: (m.email ?? '').toString().trim() || (null as any),
         endereco: (m.endereco ?? '').toString().trim() || (null as any),
         bairro: (m.bairro ?? '').toString().trim() || (null as any),
+        origem: (m.origem ?? '').toString().trim() || (null as any),
       };
       await atualizarCliente(m.id, patch);
       this.itens.update((list) =>

@@ -145,6 +145,11 @@ type PreCadastroRow = {
   analistaUid?: string | null;
   analistaNome?: string | null;
   analistaEm?: Date | null;
+
+  // Caixa de Inativos (repassado por assessor/analista sem sucesso)
+  repasseCaixaMotivo?: string | null;
+  repasseCaixaPorNome?: string | null;
+  repasseCaixaEm?: Date | null;
 };
 
 type Assessor = {
@@ -210,8 +215,11 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   setDensity(mode: 'relax' | 'compact') { this.density = mode; }
 
   // Tabs
-  activeTab: 'pessoas' | 'grupos' = 'pessoas';
-  setTab(tab: 'pessoas' | 'grupos') { this.activeTab = tab; this.onBusca(this.busca); }
+  activeTab: 'pessoas' | 'grupos' | 'inativos' = 'pessoas';
+  setTab(tab: 'pessoas' | 'grupos' | 'inativos') {
+    this.activeTab = tab;
+    if (tab !== 'inativos') this.onBusca(this.busca);
+  }
 
   // Drawer lateral (mobile)
   showFilters = false;
@@ -346,6 +354,35 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   get pageEndG() { return Math.min(this.pageStartG + this.pageSizeG, this.pageSizeG * this.currentPageG); }
   get pageItemsG() { return this.viewGrupos.slice(this.pageStartG, this.pageEndG); }
 
+  // ===== INATIVOS (repassados por assessor/analista) =====
+  pageSizeInativos = 20;
+  currentPageInativos = 1;
+
+  get listaInativos(): PreCadastroRow[] {
+    return this.all
+      .filter(p => !!p.repasseCaixaEm)
+      .sort((a, b) => (b.repasseCaixaEm?.getTime() ?? 0) - (a.repasseCaixaEm?.getTime() ?? 0));
+  }
+  get totalItemsInativos() { return this.listaInativos.length; }
+  get totalPagesInativos() { return Math.max(1, Math.ceil(this.totalItemsInativos / this.pageSizeInativos)); }
+  get pageStartInativos() { return this.totalItemsInativos ? (this.currentPageInativos - 1) * this.pageSizeInativos : 0; }
+  get pageEndInativos() { return Math.min(this.pageStartInativos + this.pageSizeInativos, this.pageSizeInativos * this.currentPageInativos); }
+  get pageItemsInativos() { return this.listaInativos.slice(this.pageStartInativos, this.pageEndInativos); }
+  nextPageInativos() { if (this.currentPageInativos < this.totalPagesInativos) this.currentPageInativos++; }
+  prevPageInativos() { if (this.currentPageInativos > 1) this.currentPageInativos--; }
+
+  // Modal de detalhes (INATIVOS)
+  showInativoDetalhe = false;
+  rowInativoDetalhe: PreCadastroRow | null = null;
+  abrirDetalheInativo(r: PreCadastroRow) {
+    this.rowInativoDetalhe = r;
+    this.showInativoDetalhe = true;
+  }
+  fecharDetalheInativo() {
+    this.showInativoDetalhe = false;
+    this.rowInativoDetalhe = null;
+  }
+
   // modal GRUPO
   showAssessorModalGrupo = false;
   assessorBuscaGrupo = '';
@@ -474,6 +511,10 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
             analistaUid: data?.analistaUid ?? null,
             analistaNome: data?.analistaNome ?? null,
             analistaEm: this.toDate(data?.analistaEm) ?? null,
+
+            repasseCaixaMotivo: data?.repasseCaixa?.motivo ?? null,
+            repasseCaixaPorNome: data?.repasseCaixa?.porNome ?? null,
+            repasseCaixaEm: this.toDate(data?.repasseCaixa?.em) ?? null,
           };
         });
 

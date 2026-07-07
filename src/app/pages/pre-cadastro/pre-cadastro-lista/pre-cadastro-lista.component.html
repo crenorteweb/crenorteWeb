@@ -296,6 +296,12 @@
                   </span>
                 </div>
 
+                <!-- Origem -->
+                <div class="crn-field" *ngIf="i.origem">
+                  <span class="crn-label">Origem</span>
+                  <span class="crn-value text-break">{{ i.origem }}</span>
+                </div>
+
                 <!-- Cadastrado em -->
                 <div class="crn-field" *ngIf="$any(i).createdAt">
                   <span class="crn-label">Cadastrado em</span>
@@ -550,6 +556,15 @@
                       <button type="button" class="btn btn-outline-dark" *ngIf="desistenciaStatus(i) === 'desistiu'"
                         (click)="acToggle.checked=false; desfazerDesistencia(i)">
                         <i class="bi bi-emoji-smile me-1"></i> Desfazer desistência
+                      </button>
+                    </div>
+
+                    <!-- Repasse para caixa de inativos -->
+                    <div class="group-title">Caixa de Inativos</div>
+                    <div class="actions-grid">
+                      <button type="button" class="btn btn-outline-danger"
+                        (click)="acToggle.checked=false; abrirRepasse(i)">
+                        <i class="bi bi-box-arrow-right me-1"></i> Mover para caixa de inativos
                       </button>
                     </div>
                   </div>
@@ -1269,6 +1284,47 @@
       <button class="btn btn-light" (click)="fecharModais()">Fechar</button>
       <button class="btn btn-success" (click)="salvarNovaObservacao()" [disabled]="!novaObsTexto().trim()">
         <i class="bi bi-send me-1"></i> Adicionar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== MODAL: REPASSAR PARA CAIXA (NÃO ATENDIDO) ===== -->
+<div *ngIf="modalRepasseAberto()" class="crn-modal" role="dialog" aria-modal="true">
+  <div class="crn-modal__backdrop" (click)="fecharModais()"></div>
+  <div class="crn-modal__dialog" role="document" aria-labelledby="modalRepasseTitulo">
+    <div class="crn-modal__header">
+      <h5 id="modalRepasseTitulo" class="mb-0">Mover para caixa de inativos</h5>
+      <button class="btn-close" (click)="fecharModais()" aria-label="Fechar"></button>
+    </div>
+
+    <div class="crn-modal__body" *ngIf="viewItem() as v">
+      <p class="mb-3">
+        <strong>Cliente:</strong> {{ v.nomeCompleto || '—' }}<br>
+        <small class="text-muted">CPF {{ v.cpf || '—' }}</small>
+      </p>
+
+      <p class="text-muted small mb-3">
+        Use esta opção para mover este pré-cadastro para a caixa de inativos. Ele será
+        removido da sua caixa atual e ficará disponível na fila geral de triagem para que
+        outra pessoa possa assumir.
+      </p>
+
+      <div class="mb-2">
+        <label class="form-label fw-semibold small">Motivo do repasse <span class="text-danger">*</span></label>
+        <textarea class="form-control" rows="3"
+          placeholder="Ex.: cliente não atende, endereço não localizado, telefone inválido..."
+          [ngModel]="motivoRepasse()" (ngModelChange)="motivoRepasse.set($event)"></textarea>
+      </div>
+    </div>
+
+    <div class="crn-modal__footer">
+      <button class="btn btn-light" (click)="fecharModais()" [disabled]="repasseSalvando()">Cancelar</button>
+      <button class="btn btn-danger" (click)="confirmarRepasse()"
+        [disabled]="!motivoRepasse().trim() || repasseSalvando()">
+        <span *ngIf="repasseSalvando()" class="spinner-border spinner-border-sm me-1"></span>
+        <i class="bi bi-box-arrow-right me-1" *ngIf="!repasseSalvando()"></i>
+        Mover para caixa de inativos
       </button>
     </div>
   </div>

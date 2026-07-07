@@ -129,6 +129,15 @@ export interface PreCadastro {
   caixaAtual?: 'analista' | 'assessor';
   caixaUid?: string | null;
 
+  // Repasse feito pelo assessor de volta para a caixa geral de triagem
+  // (usado quando o assessor não teve sucesso no atendimento/contato)
+  repasseCaixa?: {
+    motivo: string;
+    porUid: string;
+    porNome: string;
+    em: Timestamp | Date | any;
+  } | null;
+
   destinatarioTipo?: 'analista' | 'assessor';
   destinatarioUid?: string | null;
 

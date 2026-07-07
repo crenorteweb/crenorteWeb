@@ -35,6 +35,12 @@
           <label class="form-label">RG</label>
           <input class="form-control" name="rg" [(ngModel)]="cliente.rg" />
         </div>
+
+        <div class="col-md-3">
+          <label class="form-label">Origem do cadastro</label>
+          <input class="form-control" name="origem" [(ngModel)]="cliente.origem"
+            placeholder="Ex.: Panfleto, WhatsApp, Indicação…" />
+        </div>
       </div>
 
       <!-- Linha 2: Data de Nascimento, Gênero, Estado Civil -->
