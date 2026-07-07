@@ -70,6 +70,9 @@ export interface Cliente {
   paisOrigem: string;                // preenchido quando nacionalidade = país estrangeiro
   dataNascimento: string;            // ISO "YYYY-MM-DD"
 
+  // Origem do cadastro (ex.: panfleto, indicação, whatsapp...) — herdado do pré-cadastro quando houver
+  origem?: string;
+
   // Contato / Endereço
   contato: string;                   // máscara no form; persistência pode ficar como string formatada
   email: string;

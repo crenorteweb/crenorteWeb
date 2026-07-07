@@ -423,12 +423,17 @@
                   </span>
                 </div>
               </div>
-              <button type="button" class="btn btn-sm w-100"
+              <button type="button" class="btn btn-sm w-100 mb-2"
                 [class.btn-outline-secondary]="$any(p).caixaAtual === 'assessor'"
                 [class.btn-outline-success]="$any(p).caixaAtual !== 'assessor'"
                 (click)="abrirModalAssessorPessoa(p)">
                 <i class="bi bi-send me-1"></i>
                 {{ $any(p).caixaAtual === 'assessor' ? 'Redirecionar assessor' : 'Encaminhar para assessor' }}
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-danger w-100"
+                (click)="abrirModalRepasseInativos(p)">
+                <i class="bi bi-box-arrow-right me-1"></i>
+                Mover para caixa de inativos
               </button>
             </div>
           </div>
@@ -831,6 +836,49 @@
       <button type="button" class="btn btn-success" [disabled]="!selectedAssessorUidPessoa"
         (click)="confirmarEncaminharPessoa()">
         Encaminhar
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — MOVER PARA CAIXA DE INATIVOS                      -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="showRepasseInativosModal">
+  <div class="overlay__backdrop" (click)="fecharModalRepasseInativos()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <h5 class="mb-0">Mover para caixa de inativos</h5>
+      <button type="button" class="btn-close" (click)="fecharModalRepasseInativos()"></button>
+    </div>
+
+    <div class="mb-3">
+      <div class="fw-semibold">{{ itemRepasseInativos?.nomeCompleto || 'Pré-cadastro' }}</div>
+      <small class="text-muted">CPF: {{ cpfMask(itemRepasseInativos?.cpf || '') }}</small>
+    </div>
+
+    <p class="text-muted small mb-3">
+      O pré-cadastro sairá da sua caixa e ficará disponível na fila geral de triagem para
+      que outra pessoa possa assumir.
+    </p>
+
+    <div class="mb-3">
+      <label class="form-label mb-1 fw-semibold">Motivo <span class="text-danger">*</span></label>
+      <textarea class="form-control" rows="3"
+        placeholder="Ex.: cliente não atende, endereço não localizado, telefone inválido..."
+        [(ngModel)]="motivoRepasseInativos"></textarea>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2">
+      <button type="button" class="btn btn-outline-secondary" [disabled]="salvandoRepasseInativos"
+        (click)="fecharModalRepasseInativos()">
+        Cancelar
+      </button>
+      <button type="button" class="btn btn-danger"
+        [disabled]="!motivoRepasseInativos.trim() || salvandoRepasseInativos"
+        (click)="confirmarRepasseInativos()">
+        <span *ngIf="salvandoRepasseInativos" class="spinner-border spinner-border-sm me-1"></span>
+        Mover para caixa de inativos
       </button>
     </div>
   </div>

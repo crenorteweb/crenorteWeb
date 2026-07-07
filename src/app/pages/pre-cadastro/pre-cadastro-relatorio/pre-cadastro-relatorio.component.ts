@@ -126,6 +126,17 @@ export class PreCadastroRelatorioComponent implements OnInit {
     return Array.from(map.values()).sort((a, b) => b.total - a.total);
   }
 
+  // === Caixa de Inativos (repassados por assessor/analista) ===
+  inativos(): RowVM[] {
+    return this.rows()
+      .filter((r) => !!(r as any)?.repasseCaixa)
+      .sort((a, b) => (this.inativoData(b)?.getTime() ?? 0) - (this.inativoData(a)?.getTime() ?? 0));
+  }
+
+  inativoData(r: RowVM): Date | null {
+    return this.toDate((r as any)?.repasseCaixa?.em);
+  }
+
   // === Modal com cards de pré-cadastros ===
   abrirPreCadastros(uid: string, nome: string) {
     this.selectedAssessorUid = uid;
@@ -177,6 +188,7 @@ private buildQueryFromPre(pc: RowVM): Record<string, any> {
     email: pc.email ?? '',
     endereco: pc.endereco ?? pc.enderecoCompleto ?? '',
     preCadastroId: pc.id ?? pc.uid ?? '',
+    origem: pc.origem ?? '',
   };
 }
 

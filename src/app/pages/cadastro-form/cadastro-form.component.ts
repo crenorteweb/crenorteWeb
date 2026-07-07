@@ -186,12 +186,14 @@ export class CadastroFormComponent implements OnInit, AfterViewInit {
       const email = params['email'] ?? '';
       const endereco = params['endereco'] ?? '';
       const preId = params['preCadastroId'] ?? '';
+      const origem = params['origem'] ?? '';
 
       if (nome) this.cliente.nomeCompleto = nome;
       if (cpf) this.cliente.cpf = cpf;
       if (contato) this.cliente.contato = contato;
       if (email) this.cliente.email = email;
       if (endereco) this.cliente.endereco = endereco;
+      if (origem) this.cliente.origem = origem;
       (this.cliente as any).preCadastroId = preId;
 
       if (cpf) this.cpfValido = this.validarCPF(cpf);
@@ -658,6 +660,7 @@ export class CadastroFormComponent implements OnInit, AfterViewInit {
       religiao: '',
       paisOrigem: '',
       dataNascimento: '',
+      origem: '',
       contato: '',
       email: '',
       endereco: '',

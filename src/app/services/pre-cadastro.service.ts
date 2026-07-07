@@ -16,6 +16,7 @@ import {
   getDoc,
   deleteDoc,
   updateDoc,
+  deleteField,
   documentId,
 } from '@angular/fire/firestore';
 import { Auth } from '@angular/fire/auth';
@@ -354,6 +355,86 @@ export class PreCadastroService {
       },
       atualizadoEm: serverTimestamp(),
     } as any);
+  }
+
+  /**
+   * Repasse feito pelo ASSESSOR ou pelo ANALISTA de volta para a caixa geral
+   * de triagem — usado quando não teve sucesso no atendimento/contato do
+   * cliente (assessor) ou quando quer tirar o item da própria caixa (analista).
+   *
+   * - Limpa TODOS os vínculos de caixa/designação/encaminhamento atuais
+   *   (caixaUid, caixaAtual, designadoPara*, encaminhamento legado,
+   *   analista*, encaminhadoPara*, encaminhadoPor*), fazendo o registro
+   *   voltar a aparecer como "sem dono" na fila geral de triagem (que lista
+   *   todos os pré-cadastros via collectionGroup, sem filtro de dono) e
+   *   também sumir de qualquer "Minha Caixa" (assessor ou analista), já que
+   *   ambas as telas verificam esses mesmos campos para decidir o que exibir.
+   * - Registra o insucesso em `atendimento` (status volta para 'nao_atendido'
+   *   com o motivo como observação) e em `repasseCaixa`, para histórico.
+   * - Também grava uma observação no histórico de comentários do pré-cadastro.
+   *
+   * Observação: se quem repassou foi também quem criou o pré-cadastro
+   * (createdByUid), ele continua aparecendo na "Minha Lista"/lista de
+   * criados dele — o que é esperado, pois `listarParaCaixa`/`listarDoAssessor`
+   * também buscam por createdByUid. O repasse apenas o torna
+   * visível/disponível para outra pessoa assumir via triagem.
+   */
+  async repassarParaCaixa(preCadastroId: string, motivo: string): Promise<void> {
+    const user = this.auth.currentUser;
+    if (!user) throw new Error('Usuário não autenticado.');
+
+    const motivoLimpo = (motivo ?? '').trim();
+    if (!motivoLimpo) throw new Error('Informe o motivo do repasse.');
+
+    let porNome = user.displayName || 'Assessor';
+    try {
+      const snap = await getDoc(doc(this.db, 'colaboradores', user.uid));
+      porNome = (snap.data() as any)?.nome || porNome;
+    } catch {}
+
+    await updateDoc(doc(this.db, 'pre_cadastros', preCadastroId), {
+      // limpa vínculos de caixa/designação atuais
+      caixaUid: deleteField(),
+      caixaAtual: deleteField(),
+      designadoParaUid: deleteField(),
+      designadoPara: deleteField(),
+      designadoParaNome: deleteField(),
+      designadoEm: deleteField(),
+      encaminhamento: null,
+      analistaUid: deleteField(),
+      analistaNome: deleteField(),
+      analistaEm: deleteField(),
+      encaminhadoParaUid: deleteField(),
+      encaminhadoParaNome: deleteField(),
+      encaminhadoEm: deleteField(),
+      encaminhadoPorUid: deleteField(),
+      encaminhadoPorNome: deleteField(),
+
+      // registra o insucesso no atendimento
+      'atendimento.status': 'nao_atendido',
+      'atendimento.porUid': user.uid,
+      'atendimento.porNome': porNome,
+      'atendimento.em': serverTimestamp(),
+      'atendimento.observacao': motivoLimpo,
+
+      repasseCaixa: {
+        motivo: motivoLimpo,
+        porUid: user.uid,
+        porNome,
+        em: serverTimestamp(),
+      },
+      atualizadoEm: serverTimestamp(),
+    } as any);
+
+    try {
+      await this.adicionarObservacao(
+        preCadastroId,
+        `Repassado para a caixa geral (não atendido): ${motivoLimpo}`,
+        { uid: user.uid, nome: porNome }
+      );
+    } catch (e) {
+      console.warn('[repassarParaCaixa] Falha ao registrar observação de histórico:', e);
+    }
   }
 
   /* ========== Elegibilidade ========== */

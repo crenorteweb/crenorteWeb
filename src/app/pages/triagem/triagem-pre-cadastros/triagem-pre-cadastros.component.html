@@ -27,6 +27,13 @@
         Grupos
       </button>
     </li>
+    <li class="nav-item">
+      <button class="nav-link" [class.active]="activeTab==='inativos'" (click)="setTab('inativos')"
+        [attr.aria-selected]="activeTab==='inativos'">
+        Inativos
+        <span class="badge bg-danger ms-1" *ngIf="totalItemsInativos">{{ totalItemsInativos }}</span>
+      </button>
+    </li>
   </ul>
 </div>
 
@@ -475,6 +482,150 @@
           <button class="btn btn-success" (click)="abrirModalAssessorGrupo(grupoSelecionado!)">Distribuir</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- =========================
+     ABA: INATIVOS
+     ========================= -->
+<div class="container-fluid" *ngIf="activeTab==='inativos'">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-3">
+    <div class="text-muted small">
+      Mostrando {{ totalItemsInativos ? (pageStartInativos + 1) : 0 }}–{{ pageEndInativos }} de {{ totalItemsInativos }} clientes
+    </div>
+  </div>
+
+  <div class="card mb-4" *ngIf="!carregando() && !erro()">
+    <div class="list-group list-group-flush">
+      <div class="list-group-item" *ngIf="!listaInativos.length">Nenhum cliente na caixa de inativos.</div>
+
+      <div class="list-group-item" *ngFor="let r of pageItemsInativos; trackBy: trackById">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+          <!-- Identificação -->
+          <div>
+            <div class="fw-semibold d-flex align-items-center gap-2">
+              <span>{{ r.nome || '(sem nome)' }}</span>
+
+              <span class="ms-2 badge" [ngClass]="statusChipClass(r.statusAprovacao)"
+                [title]="'Status: ' + statusLabel(r.statusAprovacao)">
+                {{ statusIcon(r.statusAprovacao) }} {{ statusLabel(r.statusAprovacao) }}
+              </span>
+
+              <span class="badge" [ngClass]="elegivelClass(r.elegivelStatus)"
+                [title]="elegivelLabel(r.elegivelStatus)">
+                {{ elegivelLabel(r.elegivelStatus) }}
+              </span>
+            </div>
+
+            <div class="text-muted small">
+              <span *ngIf="r.cidade || r.uf">
+                {{ r.cidade || '—' }}<span *ngIf="r.uf">/{{ r.uf }}</span>
+              </span>
+              <span *ngIf="r.bairro"> • {{ r.bairro }}</span>
+              <span *ngIf="r.cpf"> • CPF: {{ cpfMask(r.cpf) }}</span>
+            </div>
+
+            <div class="text-muted small">
+              Movido para inativos em: {{ r.repasseCaixaEm ? (r.repasseCaixaEm | date:'dd/MM/yy, HH:mm') : '—' }}
+            </div>
+          </div>
+
+          <!-- Ações -->
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-dark" (click)="abrirDetalheInativo(r)">
+              Detalhes
+            </button>
+
+            <button class="btn btn-sm btn-outline-primary" (click)="abrirModalAprovacao(r)">
+              Analisar (apto/elegível)
+            </button>
+
+            <button class="btn btn-sm btn-outline-warning" *ngIf="podeEncaminharParaAnalista"
+              (click)="abrirModalAnalista(r)" [disabled]="enviandoAnalista[r.id]">
+              {{ r.analistaUid ? 'Trocar analista' : 'Encaminhar p/ analista' }}
+            </button>
+
+            <button class="btn btn-sm btn-outline-success" (click)="abrirModalAssessor(r)">
+              Encaminhar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Paginação -->
+  <div class="d-flex align-items-center justify-content-between my-3" *ngIf="totalPagesInativos > 1">
+    <div class="text-muted small">
+      Página {{ currentPageInativos }} de {{ totalPagesInativos }}
+    </div>
+    <ul class="pagination pagination-sm mb-0">
+      <li class="page-item" [class.disabled]="currentPageInativos===1">
+        <button class="page-link" (click)="prevPageInativos()" aria-label="Anterior">«</button>
+      </li>
+      <li class="page-item disabled">
+        <span class="page-link">{{ currentPageInativos }} / {{ totalPagesInativos }}</span>
+      </li>
+      <li class="page-item" [class.disabled]="currentPageInativos===totalPagesInativos">
+        <button class="page-link" (click)="nextPageInativos()" aria-label="Próxima">»</button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- =========================
+     MODAL: Detalhes (INATIVOS)
+     ========================= -->
+<div class="overlay" *ngIf="showInativoDetalhe">
+  <div class="overlay__backdrop" (click)="fecharDetalheInativo()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <h5 class="mb-0">Detalhes do cliente</h5>
+      <button type="button" class="btn-close" (click)="fecharDetalheInativo()"></button>
+    </div>
+
+    <ng-container *ngIf="rowInativoDetalhe as r">
+      <div class="mb-3">
+        <div class="fw-semibold">{{ r.nome || '(sem nome)' }}</div>
+        <small class="text-muted">CPF: {{ r.cpf ? cpfMask(r.cpf) : '—' }}</small>
+      </div>
+
+      <div class="mb-2 small">
+        <div><span class="text-muted">Telefone:</span> {{ r.telefone || '—' }}</div>
+        <div><span class="text-muted">E-mail:</span> {{ r.email || '—' }}</div>
+        <div><span class="text-muted">Endereço:</span> {{ r.endereco || '—' }}</div>
+        <div>
+          <span class="text-muted">Local:</span>
+          {{ r.cidade || '—' }}<span *ngIf="r.uf">/{{ r.uf }}</span>
+          <span *ngIf="r.bairro"> • {{ r.bairro }}</span>
+        </div>
+        <div><span class="text-muted">Origem:</span> {{ r.origemLabel || '—' }}</div>
+      </div>
+
+      <hr>
+
+      <div class="mb-2 small">
+        <div>
+          <span class="text-muted">Criado por:</span>
+          {{ r.createdByNome || r.createdByUid || '—' }}
+          <span class="text-muted" *ngIf="r.data" style="opacity:.65"> ({{ r.data | date:'dd/MM/yyyy HH:mm' }})</span>
+        </div>
+      </div>
+
+      <div class="alert alert-light border small mb-0">
+        <div class="fw-semibold mb-1">
+          <i class="bi bi-box-arrow-right me-1 text-danger"></i>
+          Movido para a caixa de inativos
+        </div>
+        <div><span class="text-muted">Por:</span> {{ r.repasseCaixaPorNome || '—' }}</div>
+        <div><span class="text-muted">Quando:</span> {{ r.repasseCaixaEm ? (r.repasseCaixaEm | date:'dd/MM/yyyy HH:mm') : '—' }}</div>
+        <div><span class="text-muted">Motivo:</span> {{ r.repasseCaixaMotivo || '—' }}</div>
+      </div>
+    </ng-container>
+
+    <div class="d-flex justify-content-end gap-2 mt-3">
+      <button type="button" class="btn btn-outline-secondary" (click)="fecharDetalheInativo()">Fechar</button>
     </div>
   </div>
 </div>

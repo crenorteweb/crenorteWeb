@@ -145,6 +145,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   selectedAssessorUidPessoa: string | null = null;
   buscaAssessorPessoa = '';
 
+  // ====== modal mover para caixa de inativos (analista/supervisor tirando da própria caixa) ======
+  showRepasseInativosModal = false;
+  itemRepasseInativos: PreCadastro | null = null;
+  motivoRepasseInativos = '';
+  salvandoRepasseInativos = false;
+
   // ====== modal encaminhar GRUPO ======
   showAssessorGrupoModal = false;
   grupoSelecionado: GrupoSolidario | null = null;
@@ -1531,6 +1537,73 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.selectedAssessorUidPessoa = null;
     this.buscaAssessorPessoa = '';
     this.buscaAnalistaModal = '';
+  }
+
+  // ====================================================
+  // MODAL — MOVER PARA CAIXA DE INATIVOS (tirar da Minha Caixa)
+  // ====================================================
+  abrirModalRepasseInativos(p: PreCadastro) {
+    this.itemRepasseInativos = p;
+    this.motivoRepasseInativos = '';
+    this.showRepasseInativosModal = true;
+  }
+
+  fecharModalRepasseInativos() {
+    this.showRepasseInativosModal = false;
+    this.itemRepasseInativos = null;
+    this.motivoRepasseInativos = '';
+  }
+
+  async confirmarRepasseInativos() {
+    const item = this.itemRepasseInativos;
+    const motivo = this.motivoRepasseInativos.trim();
+    if (!item?.id) return;
+    if (!motivo) { alert('Informe o motivo do repasse.'); return; }
+
+    this.salvandoRepasseInativos = true;
+    try {
+      await this.preSvc.repassarParaCaixa(item.id, motivo);
+
+      const limpar = (p: PreCadastro): PreCadastro => {
+        if (p.id !== item.id) return p;
+        const atualizado: any = { ...p };
+        delete atualizado.caixaUid;
+        delete atualizado.caixaAtual;
+        delete atualizado.designadoParaUid;
+        delete atualizado.designadoPara;
+        delete atualizado.designadoParaNome;
+        delete atualizado.designadoEm;
+        delete atualizado.analistaUid;
+        delete atualizado.analistaNome;
+        delete atualizado.analistaEm;
+        delete atualizado.encaminhadoParaUid;
+        delete atualizado.encaminhadoParaNome;
+        delete atualizado.encaminhadoEm;
+        delete atualizado.encaminhadoPorUid;
+        delete atualizado.encaminhadoPorNome;
+        atualizado.encaminhamento = null;
+        atualizado.atendimento = { status: 'nao_atendido', observacao: motivo };
+        atualizado.repasseCaixa = {
+          motivo,
+          porUid: this.currentUserUid,
+          porNome: this.currentUserNome,
+        };
+        return atualizado as PreCadastro;
+      };
+
+      this.pessoas = this.pessoas.map(limpar);
+      this.pessoasTodos = this.pessoasTodos.map(limpar);
+
+      this.aplicarFiltrosPessoas();
+      this.aplicarFiltrosMinhaCaixa();
+
+      this.fecharModalRepasseInativos();
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao mover para caixa de inativos:', e);
+      alert('Não foi possível mover para a caixa de inativos. Tente novamente.');
+    } finally {
+      this.salvandoRepasseInativos = false;
+    }
   }
 
   setTipoDestinoModal(tipo: 'assessor' | 'analista') {
