@@ -46,27 +46,34 @@ function titleCase(s: string): string {
   return (s || '').toLowerCase().replace(/(^|\s)\S/g, (t) => t.toUpperCase());
 }
 
+// Vocabulário real de origem, igual ao select "Origem do Cliente"
+// (origensCliente) em pre-cadastro-form.component.ts — não inventar categorias.
 const ORIGEM_SYNONYMS: Record<string, string> = {
-  'panfleto': 'panfleto', 'panfletos': 'panfleto',
-  'online': 'online', 'on-line': 'online', 'site': 'online',
-  'formulario': 'online', 'formulário': 'online',
-  'telefone': 'telefone', 'tel': 'telefone', 'celular': 'telefone', 'cel': 'telefone',
-  'whatsapp': 'whatsapp', 'wpp': 'whatsapp', 'zap': 'whatsapp', 'wtz': 'whatsapp', 'whats': 'whatsapp',
-  'igreja': 'igreja',
-  'presencial': 'presencial', 'visita': 'presencial', 'visita presencial': 'presencial', 'cadastro presencial': 'presencial',
-  'indicacao': 'indicacao', 'indicação': 'indicacao',
-  'proprio': 'proprio', 'próprio': 'proprio', 'própria': 'proprio'
+  'indicacao de cliente': 'indicacao_cliente',
+  'indicacao de parceiro': 'indicacao_parceiro',
+  'visita do assessor': 'visita_assessor',
+  'planilha cadunico': 'planilha_cadunico',
+  'redes sociais': 'redes_sociais',
+  'panfleto / material impresso': 'panfleto',
+  'panfleto': 'panfleto', 'panfletos': 'panfleto', 'material impresso': 'panfleto',
+  'site / portal': 'site_portal', 'site/portal': 'site_portal', 'site': 'site_portal', 'portal': 'site_portal',
+  'evento / feira': 'evento_feira', 'evento': 'evento_feira', 'feira': 'evento_feira',
+  'radio / tv': 'radio_tv', 'radio': 'radio_tv', 'tv': 'radio_tv',
+  'van itinerante': 'van_itinerante', 'van': 'van_itinerante',
+  'outros': 'outros',
 };
 
 const ORIGEM_LABELS: Record<string, string> = {
-  panfleto: 'Panfleto',
-  online: 'Online',
-  telefone: 'Telefone',
-  whatsapp: 'WhatsApp',
-  igreja: 'Igreja',
-  presencial: 'Presencial',
-  indicacao: 'Indicação',
-  proprio: 'Próprio',
+  indicacao_cliente: 'Indicação de cliente',
+  indicacao_parceiro: 'Indicação de parceiro',
+  visita_assessor: 'Visita do assessor',
+  planilha_cadunico: 'Planilha CadUnico',
+  redes_sociais: 'Redes sociais',
+  panfleto: 'Panfleto / material impresso',
+  site_portal: 'Site / portal',
+  evento_feira: 'Evento / feira',
+  radio_tv: 'Rádio / TV',
+  van_itinerante: 'Van Itinerante',
   outros: 'Outros',
 };
 
@@ -93,13 +100,16 @@ function canonicalizeOrigem(raw: string): { key: string; label: string } {
     const key = ORIGEM_SYNONYMS[n];
     return { key, label: ORIGEM_LABELS[key as keyof typeof ORIGEM_LABELS] || titleCase(key) };
   }
-  if (/whats|zap|wpp/.test(n)) return { key: 'whatsapp', label: ORIGEM_LABELS['whatsapp'] };
-  if (/on\s?-?\s?line|site|formul/.test(n)) return { key: 'online', label: ORIGEM_LABELS['online'] };
-  if (/telefone|tel|cel/.test(n)) return { key: 'telefone', label: ORIGEM_LABELS['telefone'] };
-  if (/igreja/.test(n)) return { key: 'igreja', label: ORIGEM_LABELS['igreja'] };
-  if (/presencial|visita/.test(n)) return { key: 'presencial', label: ORIGEM_LABELS['presencial'] };
-  if (/indic/.test(n)) return { key: 'indicacao', label: ORIGEM_LABELS['indicacao'] };
-  if (/propri/.test(n)) return { key: 'proprio', label: ORIGEM_LABELS['proprio'] };
+  if (/indic.*cliente/.test(n)) return { key: 'indicacao_cliente', label: ORIGEM_LABELS['indicacao_cliente'] };
+  if (/indic.*parceiro/.test(n)) return { key: 'indicacao_parceiro', label: ORIGEM_LABELS['indicacao_parceiro'] };
+  if (/visita.*assessor/.test(n)) return { key: 'visita_assessor', label: ORIGEM_LABELS['visita_assessor'] };
+  if (/cadunico|cad unico/.test(n)) return { key: 'planilha_cadunico', label: ORIGEM_LABELS['planilha_cadunico'] };
+  if (/rede.*social/.test(n)) return { key: 'redes_sociais', label: ORIGEM_LABELS['redes_sociais'] };
+  if (/panflet|material impresso/.test(n)) return { key: 'panfleto', label: ORIGEM_LABELS['panfleto'] };
+  if (/site|portal/.test(n)) return { key: 'site_portal', label: ORIGEM_LABELS['site_portal'] };
+  if (/evento|feira/.test(n)) return { key: 'evento_feira', label: ORIGEM_LABELS['evento_feira'] };
+  if (/radio|\btv\b/.test(n)) return { key: 'radio_tv', label: ORIGEM_LABELS['radio_tv'] };
+  if (/van itinerante|\bvan\b/.test(n)) return { key: 'van_itinerante', label: ORIGEM_LABELS['van_itinerante'] };
 
   if (n) return { key: n, label: titleCase(raw) };
   return { key: 'outros', label: ORIGEM_LABELS['outros'] };

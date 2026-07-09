@@ -6,6 +6,8 @@ import { CommonModule } from '@angular/common';
 import { ReactiveFormsModule, FormBuilder, Validators } from '@angular/forms';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
+import { UnidadesService } from '../../services/unidades.service';
+import { Unidade } from '../../models/unidade.model';
 import { HeaderComponent } from '../shared/header/header.component';
 
 // Firebase
@@ -38,6 +40,7 @@ export type Colaborador = {
   papel: Papel;
   cargo?: string | null;
   rota: string;
+  unidadeId?: string | null;
   status: Status;
   photoURL?: string | null;
   supervisorId?: string | null;
@@ -70,14 +73,26 @@ const TEL_REGEX = /^\d{10,11}$/;
 export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit {
   private fb = inject(FormBuilder);
   private auth = inject(AuthService);
+  private unidadesService = inject(UnidadesService);
   private storage: FirebaseStorage = fbStorage;
 
-  // Estados
+  // Aba ativa
+  abaAtiva = signal<'colaboradores' | 'unidades'>('colaboradores');
+
+  // Estados colaboradores
   loading = signal(false);       // criação
   loadingList = signal(false);   // listagem
   savingEdit = signal(false);    // edição
   erro = signal<string | null>(null);
   ok = signal<string | null>(null);
+
+  // Estados unidades
+  unidades = signal<Unidade[]>([]);
+  loadingUnidades = signal(false);
+  savingUnidade = signal(false);
+  erroUnidade = signal<string | null>(null);
+  okUnidade = signal<string | null>(null);
+  editandoUnidade = signal<Unidade | null>(null);
 
   // Preview
   private fotoFile: File | null = null;
@@ -92,8 +107,9 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
   supervisorsAtivos = signal<Colaborador[]>([]);
   analistasAtivos = signal<Colaborador[]>([]);
 
-  // Firestore unsub
+  // Firestore unsubs
   private unsub?: Unsubscribe;
+  private unidadesUnsub?: Unsubscribe;
 
   // Modal edição
   @ViewChild('editModal', { static: false }) editModalRef?: ElementRef;
@@ -116,6 +132,13 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
     analistaId: [null as string | null],
   });
 
+  // FORM UNIDADES (criação e edição)
+  unidadeForm = this.fb.group({
+    nome: ['', Validators.required],
+    descricao: [''],
+    status: ['ativa' as 'ativa' | 'inativa', Validators.required],
+  });
+
   // EDIÇÃO (BEM ABERTA: sem required; só atualiza o que vier preenchido)
   editForm = this.fb.group({
     nome: [''],
@@ -134,6 +157,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
   // ---------- Lifecycle ----------
   ngOnInit(): void {
     this.carregarLista();
+    this.carregarUnidades();
   }
 
   ngAfterViewInit(): void {
@@ -144,6 +168,7 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
 
   ngOnDestroy(): void {
     if (this.unsub) this.unsub();
+    if (this.unidadesUnsub) this.unidadesUnsub();
   }
 
   // ---------- Listagem ----------
@@ -454,6 +479,85 @@ export class ColaboradoresComponent implements OnInit, OnDestroy, AfterViewInit 
       this.erro.set(e?.message ?? 'Falha ao excluir colaborador');
     } finally {
       this.savingEdit.set(false);
+    }
+  }
+
+  // ---------- Unidades ----------
+  private carregarUnidades() {
+    this.loadingUnidades.set(true);
+    const q = query(collection(db, 'unidades'), orderBy('nome'));
+    this.unidadesUnsub = onSnapshot(q, (snap) => {
+      this.unidades.set(snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<Unidade, 'id'>) })));
+      this.loadingUnidades.set(false);
+    }, (err) => {
+      console.error(err);
+      this.erroUnidade.set('Falha ao carregar unidades.');
+      this.loadingUnidades.set(false);
+    });
+  }
+
+  editarUnidade(u: Unidade) {
+    this.editandoUnidade.set(u);
+    this.unidadeForm.reset({ nome: u.nome, descricao: u.descricao ?? '', status: u.status });
+    this.erroUnidade.set(null);
+    this.okUnidade.set(null);
+  }
+
+  cancelarEdicaoUnidade() {
+    this.editandoUnidade.set(null);
+    this.unidadeForm.reset({ nome: '', descricao: '', status: 'ativa' });
+    this.erroUnidade.set(null);
+    this.okUnidade.set(null);
+  }
+
+  async salvarUnidade() {
+    if (this.unidadeForm.invalid) {
+      this.unidadeForm.markAllAsTouched();
+      return;
+    }
+    const v = this.unidadeForm.value;
+    this.savingUnidade.set(true);
+    this.erroUnidade.set(null);
+    this.okUnidade.set(null);
+    try {
+      const editando = this.editandoUnidade();
+      if (editando?.id) {
+        await this.unidadesService.atualizar(editando.id, {
+          nome: v.nome!.trim(),
+          descricao: v.descricao?.trim() || null,
+          status: v.status as 'ativa' | 'inativa',
+        });
+        this.okUnidade.set('Unidade atualizada.');
+      } else {
+        await this.unidadesService.criar({
+          nome: v.nome!.trim(),
+          descricao: v.descricao?.trim() || null,
+          status: v.status as 'ativa' | 'inativa',
+        });
+        this.okUnidade.set('Unidade criada com sucesso!');
+      }
+      this.cancelarEdicaoUnidade();
+    } catch (e: any) {
+      console.error(e);
+      this.erroUnidade.set(e?.message ?? 'Falha ao salvar unidade.');
+    } finally {
+      this.savingUnidade.set(false);
+    }
+  }
+
+  async excluirUnidade(u: Unidade) {
+    if (!confirm(`Excluir a unidade "${u.nome}"? Essa ação não pode ser desfeita.`)) return;
+    this.savingUnidade.set(true);
+    this.erroUnidade.set(null);
+    this.okUnidade.set(null);
+    try {
+      await this.unidadesService.excluir(u.id!);
+      this.okUnidade.set('Unidade excluída.');
+    } catch (e: any) {
+      console.error(e);
+      this.erroUnidade.set(e?.message ?? 'Falha ao excluir unidade.');
+    } finally {
+      this.savingUnidade.set(false);
     }
   }
 }

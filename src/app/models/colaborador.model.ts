@@ -12,6 +12,7 @@ export interface Colaborador {
   cargo?: string | null;
 
   rota: string;
+  unidadeId?: string | null;
   status: StatusColaborador;
 
   // Hierarquia (para assessor)
