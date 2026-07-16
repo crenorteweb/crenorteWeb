@@ -530,6 +530,14 @@
               CPF: {{ cpfMask(r.cpf) }}
             </div>
 
+            <div class="small mb-1" *ngIf="r.telefone">
+              <a *ngIf="whatsHref(r.telefone) as wa" [href]="wa" target="_blank"
+                rel="noopener noreferrer" class="text-success text-decoration-none">
+                <i class="bi bi-whatsapp me-1"></i>{{ r.telefone }}
+              </a>
+              <span class="text-muted" *ngIf="!whatsHref(r.telefone)">{{ r.telefone }}</span>
+            </div>
+
             <div class="text-muted small mb-1" *ngIf="r.origemLabel">
               Origem: <span class="text-body">{{ r.origemLabel }}</span>
             </div>

@@ -1041,6 +1041,22 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     return `${d.slice(0, 3)}.${d.slice(3, 6)}.${d.slice(6, 9)}-${d.slice(9)}`;
   }
 
+  whatsHref(v?: string | null): string | null {
+    const core = this.normalizeBRPhone(v);
+    return core ? `https://wa.me/${core}` : null;
+  }
+
+  private normalizeBRPhone(v?: string | null): string | null {
+    if (!v) return null;
+    let d = String(v).replace(/\D+/g, '');
+    if (d.startsWith('55')) d = d.slice(2);
+    d = d.replace(/^0+/, '');
+    if (d.length < 10 || d.length > 11) return null;
+    const full = `55${d}`;
+    if (full.length < 12 || full.length > 13) return null;
+    return full;
+  }
+
   private distBase() {
     let arr = (this.view || []).filter(r => !!r.designadoEm && !!r.designadoParaUid);
     arr = arr.filter(r => this.periodoDistribuicaoDentro(r.designadoEm || null));
