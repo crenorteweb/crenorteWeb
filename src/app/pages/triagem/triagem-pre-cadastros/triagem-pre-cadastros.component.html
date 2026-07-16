@@ -86,8 +86,8 @@
     </div>
   </div>
 
-  <!-- Linha 2: selects de localidade + origem (só aba Pessoas) -->
-  <div class="row g-2" *ngIf="activeTab==='pessoas'">
+  <!-- Linha 2: selects de localidade + origem (abas Pessoas e Inativos) -->
+  <div class="row g-2" *ngIf="activeTab==='pessoas' || activeTab==='inativos'">
     <div class="col-6 col-sm-3 col-md-2 col-lg-1">
       <select class="form-select form-select-sm"
         [(ngModel)]="filtroUf"
@@ -496,18 +496,21 @@
     </div>
   </div>
 
-  <div class="card mb-4" *ngIf="!carregando() && !erro()">
-    <div class="list-group list-group-flush">
-      <div class="list-group-item" *ngIf="!listaInativos.length">Nenhum cliente na caixa de inativos.</div>
+  <div *ngIf="!carregando() && !erro()">
+    <div class="alert alert-light border text-center" *ngIf="!listaInativos.length">
+      Nenhum cliente na caixa de inativos.
+    </div>
 
-      <div class="list-group-item" *ngFor="let r of pageItemsInativos; trackBy: trackById">
-        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-          <!-- Identificação -->
-          <div>
-            <div class="fw-semibold d-flex align-items-center gap-2">
-              <span>{{ r.nome || '(sem nome)' }}</span>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-3 mb-4" *ngIf="listaInativos.length">
+      <div class="col" *ngFor="let r of pageItemsInativos; trackBy: trackById">
+        <div class="card h-100 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+              <h6 class="card-title mb-0">{{ r.nome || '(sem nome)' }}</h6>
+            </div>
 
-              <span class="ms-2 badge" [ngClass]="statusChipClass(r.statusAprovacao)"
+            <div class="d-flex flex-wrap gap-1 mb-2">
+              <span class="badge" [ngClass]="statusChipClass(r.statusAprovacao)"
                 [title]="'Status: ' + statusLabel(r.statusAprovacao)">
                 {{ statusIcon(r.statusAprovacao) }} {{ statusLabel(r.statusAprovacao) }}
               </span>
@@ -518,12 +521,17 @@
               </span>
             </div>
 
-            <div class="text-muted small">
-              <span *ngIf="r.cidade || r.uf">
-                {{ r.cidade || '—' }}<span *ngIf="r.uf">/{{ r.uf }}</span>
-              </span>
+            <div class="text-muted small mb-1" *ngIf="r.cidade || r.uf || r.bairro">
+              <span *ngIf="r.cidade || r.uf">{{ r.cidade || '—' }}<span *ngIf="r.uf">/{{ r.uf }}</span></span>
               <span *ngIf="r.bairro"> • {{ r.bairro }}</span>
-              <span *ngIf="r.cpf"> • CPF: {{ cpfMask(r.cpf) }}</span>
+            </div>
+
+            <div class="text-muted small mb-1" *ngIf="r.cpf">
+              CPF: {{ cpfMask(r.cpf) }}
+            </div>
+
+            <div class="text-muted small mb-1" *ngIf="r.origemLabel">
+              Origem: <span class="text-body">{{ r.origemLabel }}</span>
             </div>
 
             <div class="text-muted small">
@@ -531,8 +539,7 @@
             </div>
           </div>
 
-          <!-- Ações -->
-          <div class="d-flex flex-wrap align-items-center gap-2">
+          <div class="card-footer bg-transparent d-flex flex-wrap gap-2">
             <button class="btn btn-sm btn-outline-dark" (click)="abrirDetalheInativo(r)">
               Detalhes
             </button>

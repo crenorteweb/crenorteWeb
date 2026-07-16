@@ -369,9 +369,14 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   currentPageInativos = 1;
 
   get listaInativos(): PreCadastroRow[] {
-    return this.all
-      .filter(p => !!p.repasseCaixaEm)
-      .sort((a, b) => (b.repasseCaixaEm?.getTime() ?? 0) - (a.repasseCaixaEm?.getTime() ?? 0));
+    let list = this.all.filter(p => !!p.repasseCaixaEm);
+
+    if (this.filtroUf) list = list.filter(p => (p.uf || '').toUpperCase() === this.filtroUf);
+    if (this.filtroCidade) list = list.filter(p => this.normalize(p.cidade || '') === this.normalize(this.filtroCidade));
+    if (this.filtroBairro) list = list.filter(p => titleCase(p.bairro || '') === this.filtroBairro);
+    if (this.filtroOrigemKey) list = list.filter(p => p.origemKey === this.filtroOrigemKey);
+
+    return list.sort((a, b) => (b.repasseCaixaEm?.getTime() ?? 0) - (a.repasseCaixaEm?.getTime() ?? 0));
   }
   get totalItemsInativos() { return this.listaInativos.length; }
   get totalPagesInativos() { return Math.max(1, Math.ceil(this.totalItemsInativos / this.pageSizeInativos)); }
@@ -689,6 +694,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     this.filtroCriadorUid = '';
     this.filtroDistribuidoUid = '';
     this.elegivelFilter = 'todos';
+    this.currentPageInativos = 1;
     this.aplicarFiltros();
   }
 
@@ -743,20 +749,22 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   }
   isElegivelActive(k: 'todos' | 'sim' | 'nao') { return this.elegivelFilter === k; }
 
-  setOrigem(key: string) { this.filtroOrigemKey = (this.filtroOrigemKey === key ? '' : key); this.aplicarFiltros(); }
+  setOrigem(key: string) { this.filtroOrigemKey = (this.filtroOrigemKey === key ? '' : key); this.currentPageInativos = 1; this.aplicarFiltros(); }
   isOrigemActive(key: string) { return this.filtroOrigemKey === key; }
 
-  setBairro(label: string) { this.filtroBairro = (this.filtroBairro === label ? '' : label); this.aplicarFiltros(); }
+  setBairro(label: string) { this.filtroBairro = (this.filtroBairro === label ? '' : label); this.currentPageInativos = 1; this.aplicarFiltros(); }
   isBairroActive(label: string) { return this.filtroBairro === label; }
 
   onFiltroUfChange() {
     this.filtroCidade = '';
     this.filtroBairro = '';
+    this.currentPageInativos = 1;
     this.aplicarFiltros();
   }
 
   onFiltroCidadeChange() {
     this.filtroBairro = '';
+    this.currentPageInativos = 1;
     this.aplicarFiltros();
   }
 
