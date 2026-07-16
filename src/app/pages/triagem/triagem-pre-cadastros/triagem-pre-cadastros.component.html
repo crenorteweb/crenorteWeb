@@ -121,6 +121,27 @@
       </select>
     </div>
   </div>
+
+  <!-- Linha 3: status/elegibilidade (só aba Inativos) -->
+  <div class="row g-2 mt-1" *ngIf="activeTab==='inativos'">
+    <div class="col-12">
+      <div class="d-flex flex-wrap gap-2">
+        <div class="btn-group btn-group-sm" role="group" aria-label="Status">
+          <button class="btn btn-outline-success" [class.active]="statusFilter==='apto'"
+            (click)="setStatus('apto')">Apto</button>
+          <button class="btn btn-outline-success" [class.active]="statusFilter==='inapto'"
+            (click)="setStatus('inapto')">Inapto</button>
+        </div>
+
+        <div class="btn-group btn-group-sm" role="group" aria-label="Elegibilidade">
+          <button class="btn btn-outline-info" [class.active]="isElegivelActive('sim')"
+            (click)="setElegivel('sim')">Elegível</button>
+          <button class="btn btn-outline-danger" [class.active]="isElegivelActive('nao')"
+            (click)="setElegivel('nao')">Inelegível</button>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <!-- Estado de carregamento/erro -->

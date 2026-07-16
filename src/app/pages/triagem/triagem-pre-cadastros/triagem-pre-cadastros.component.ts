@@ -376,6 +376,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
     if (this.filtroCidade) list = list.filter(p => this.normalize(p.cidade || '') === this.normalize(this.filtroCidade));
     if (this.filtroBairro) list = list.filter(p => titleCase(p.bairro || '') === this.filtroBairro);
     if (this.filtroOrigemKey) list = list.filter(p => p.origemKey === this.filtroOrigemKey);
+    if (this.statusFilter !== 'todos') list = list.filter(p => (p.statusAprovacao || 'nao') === this.statusFilter);
+    if (this.elegivelFilter !== 'todos') list = list.filter(p => (p.elegivelStatus ?? null) === this.elegivelFilter);
 
     return list.sort((a, b) => (b.repasseCaixaEm?.getTime() ?? 0) - (a.repasseCaixaEm?.getTime() ?? 0));
   }
@@ -742,10 +744,12 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
 
   setStatus(k: 'todos' | 'nao' | 'apto' | 'inapto') {
     this.statusFilter = (this.statusFilter === k ? 'todos' : k);
+    this.currentPageInativos = 1;
     this.aplicarFiltros();
   }
   setElegivel(k: 'todos' | 'sim' | 'nao') {
     this.elegivelFilter = (this.elegivelFilter === k ? 'todos' : k);
+    this.currentPageInativos = 1;
     this.aplicarFiltros();
   }
   isElegivelActive(k: 'todos' | 'sim' | 'nao') { return this.elegivelFilter === k; }
