@@ -26,6 +26,7 @@ import {
   where,
   orderBy,
   writeBatch,
+  deleteField,
 } from 'firebase/firestore';
 
 import { filtrarUfsNorte } from '../../../services/pre-cadastro.service';
@@ -946,6 +947,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
         designadoEm: serverTimestamp(),
         caixaAtual: 'assessor',
         caixaUid: uid,
+        // Sai da caixa de inativos ao ser encaminhado novamente
+        repasseCaixa: deleteField(),
       };
       await setDoc(srcRef, patchRemote, { merge: true });
 
@@ -953,6 +956,9 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
         designadoParaUid: uid,
         designadoParaNome: assessorNome || this.resolveAssessorNome(uid),
         designadoEm: new Date(),
+        repasseCaixaEm: null,
+        repasseCaixaMotivo: null,
+        repasseCaixaPorNome: null,
       } as Partial<PreCadastroRow>;
 
       this.all = this.patchById(this.all, r.id, patchLocal);
@@ -1451,6 +1457,8 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
         encaminhadoPorUid: porUid,
         encaminhadoPorNome: porNome,
         encaminhadoEm: serverTimestamp(),
+        // Sai da caixa de inativos ao ser encaminhado novamente
+        repasseCaixa: deleteField(),
       }, { merge: true });
 
       // Inbox: best-effort — não bloqueia se regras Firestore impedirem
@@ -1472,6 +1480,9 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
         analistaEm: new Date(),
         encaminhadoPorUid: porUid,
         encaminhadoPorNome: porNome,
+        repasseCaixaEm: null,
+        repasseCaixaMotivo: null,
+        repasseCaixaPorNome: null,
       };
       this.all = this.patchById(this.all, row.id, patchLocal);
       this.view = this.patchById(this.view, row.id, patchLocal);
