@@ -229,6 +229,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   activeTab: 'pessoas' | 'grupos' | 'inativos' = 'pessoas';
   setTab(tab: 'pessoas' | 'grupos' | 'inativos') {
     this.activeTab = tab;
+    if (tab !== 'pessoas') this.limparSelecao();
     if (tab !== 'inativos') this.onBusca(this.busca);
   }
 
@@ -331,6 +332,9 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   get podeEncaminharParaAnalista(): boolean {
     return this.currentUserPapel === 'admin' || this.currentUserPapel === 'operacional';
   }
+  get isAdmin(): boolean {
+    return this.currentUserPapel === 'admin';
+  }
 
   // Modal analista
   showAnalistaModal = false;
@@ -342,6 +346,189 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
 
   get analistas(): Assessor[] {
     return this.assessores.filter(a => a.papel === 'analista');
+  }
+
+  /* ===== Seleção múltipla (aba Pessoas) — encaminhamento em lote (admin) ===== */
+  selecionados = new Set<string>();
+  get qtdSelecionados(): number { return this.selecionados.size; }
+  isSelecionado(r: PreCadastroRow): boolean { return this.selecionados.has(r.id); }
+  toggleSelecionado(r: PreCadastroRow) {
+    if (this.selecionados.has(r.id)) this.selecionados.delete(r.id);
+    else this.selecionados.add(r.id);
+  }
+  get todosSelecionadosNaPagina(): boolean {
+    return this.pageItems.length > 0 && this.pageItems.every(r => this.selecionados.has(r.id));
+  }
+  toggleSelecionarTodosPagina() {
+    if (this.todosSelecionadosNaPagina) {
+      this.pageItems.forEach(r => this.selecionados.delete(r.id));
+    } else {
+      this.pageItems.forEach(r => this.selecionados.add(r.id));
+    }
+  }
+  limparSelecao() { this.selecionados.clear(); }
+
+  /* ===== Modal: Encaminhar selecionados em lote (admin) ===== */
+  showLoteModal = false;
+  loteDestino: 'assessor' | 'analista' = 'assessor';
+  loteBusca = '';
+  loteOpcoesFiltradas: Assessor[] = [];
+  loteSelectedUid: string | null = null;
+  enviandoLote = false;
+  loteErro: string | null = null;
+
+  abrirModalLote() {
+    if (!this.isAdmin || !this.selecionados.size) return;
+    this.loteDestino = 'assessor';
+    this.loteBusca = '';
+    this.loteSelectedUid = null;
+    this.loteErro = null;
+    this.filtrarLote();
+    this.showLoteModal = true;
+    try { document.body.classList.add('no-scroll'); } catch { }
+  }
+  fecharModalLote() {
+    if (this.enviandoLote) return;
+    this.showLoteModal = false;
+    this.loteSelectedUid = null;
+    this.loteErro = null;
+    try { document.body.classList.remove('no-scroll'); } catch { }
+  }
+  setLoteDestino(d: 'assessor' | 'analista') {
+    if (d === 'analista' && !this.podeEncaminharParaAnalista) return;
+    this.loteDestino = d;
+    this.loteSelectedUid = null;
+    this.filtrarLote();
+  }
+  filtrarLote() {
+    const t = this.normalize(this.loteBusca);
+    const origem = this.loteDestino === 'analista' ? this.analistas : this.assessores;
+    let arr = [...origem];
+    if (t) {
+      arr = arr.filter(a => this.normalize(`${a.nome ?? ''} ${a.email ?? ''} ${a.rota ?? ''}`).includes(t));
+    }
+    arr.sort((a, b) => (a.nome ?? a.email ?? '').localeCompare(b.nome ?? b.email ?? ''));
+    this.loteOpcoesFiltradas = arr;
+  }
+  escolherLote(a: Assessor) {
+    this.loteSelectedUid = a.uid;
+  }
+
+  /** Encaminha (em lote) todos os pré-cadastros selecionados para 1 assessor ou 1 analista. */
+  async confirmarEncaminharLote() {
+    if (!this.isAdmin || !this.loteSelectedUid || !this.selecionados.size) return;
+
+    const destino = this.loteDestino;
+    const uidDestino = this.loteSelectedUid;
+    const ids = Array.from(this.selecionados);
+    const rows = ids
+      .map(id => this.all.find(r => r.id === id))
+      .filter((r): r is PreCadastroRow => !!r);
+
+    if (!rows.length) { this.fecharModalLote(); return; }
+
+    this.enviandoLote = true;
+    this.loteErro = null;
+    try {
+      const alvo = (destino === 'analista' ? this.analistas : this.assessores)
+        .find(a => a.uid === uidDestino);
+      const nomeDestino = alvo?.nome || this.resolveAssessorNome(uidDestino);
+
+      const cu = getAuth().currentUser;
+      const porUid = cu?.uid ?? null;
+      const porNome = (porUid ? this.assessores.find(x => x.uid === porUid)?.nome : null)
+        ?? cu?.displayName
+        ?? null;
+
+      // Firestore aceita no máx. 500 operações por batch — processa em blocos de 400
+      const CHUNK = 400;
+      for (let i = 0; i < rows.length; i += CHUNK) {
+        const slice = rows.slice(i, i + CHUNK);
+        const batch = writeBatch(db);
+        for (const row of slice) {
+          const ref = doc(db, row._path);
+          if (destino === 'assessor') {
+            batch.set(ref, {
+              designadoParaUid: uidDestino,
+              designadoPara: uidDestino,
+              designadoParaNome: nomeDestino || null,
+              designadoEm: serverTimestamp(),
+              caixaAtual: 'assessor',
+              caixaUid: uidDestino,
+              // Sai da caixa de inativos ao ser encaminhado novamente
+              repasseCaixa: deleteField(),
+            }, { merge: true });
+          } else {
+            batch.set(ref, {
+              analistaUid: uidDestino,
+              analistaNome: nomeDestino || null,
+              analistaEm: serverTimestamp(),
+              caixaAtual: 'analista',
+              caixaUid: uidDestino,
+              encaminhadoPorUid: porUid,
+              encaminhadoPorNome: porNome,
+              encaminhadoEm: serverTimestamp(),
+              // Sai da caixa de inativos ao ser encaminhado novamente
+              repasseCaixa: deleteField(),
+            }, { merge: true });
+          }
+        }
+        await batch.commit();
+      }
+
+      // Inbox do analista — best-effort, não bloqueia o encaminhamento
+      if (destino === 'analista') {
+        rows.forEach(row => {
+          setDoc(
+            doc(db, `inboxes_analistas/${uidDestino}/itens/${row.id}`),
+            {
+              preCadastroId: row.id,
+              path: row._path,
+              nomeCompleto: row.nome ?? null,
+              cpf: row.cpf ?? null,
+              em: serverTimestamp(),
+            },
+            { merge: true }
+          ).catch(err => console.warn('[Triagem] inbox analista (lote, non-blocking):', err));
+        });
+      }
+
+      // Atualiza estado local (all/view) sem esperar o próximo snapshot
+      const agora = new Date();
+      for (const row of rows) {
+        const patchLocal: Partial<PreCadastroRow> = destino === 'assessor'
+          ? {
+              designadoParaUid: uidDestino,
+              designadoParaNome: nomeDestino || this.resolveAssessorNome(uidDestino),
+              designadoEm: agora,
+              repasseCaixaEm: null,
+              repasseCaixaMotivo: null,
+              repasseCaixaPorNome: null,
+            }
+          : {
+              analistaUid: uidDestino,
+              analistaNome: nomeDestino || this.resolveAssessorNome(uidDestino),
+              analistaEm: agora,
+              encaminhadoPorUid: porUid,
+              encaminhadoPorNome: porNome,
+              repasseCaixaEm: null,
+              repasseCaixaMotivo: null,
+              repasseCaixaPorNome: null,
+            };
+        this.all = this.patchById(this.all, row.id, patchLocal);
+        this.view = this.patchById(this.view, row.id, patchLocal);
+      }
+      this.reapplyPeoplePreservingPage();
+
+      this.limparSelecao();
+      this.showLoteModal = false;
+      try { document.body.classList.remove('no-scroll'); } catch { }
+    } catch (e) {
+      console.error('[Triagem] confirmarEncaminharLote erro:', e);
+      this.loteErro = 'Não foi possível encaminhar os selecionados. Tente novamente.';
+    } finally {
+      this.enviandoLote = false;
+    }
   }
 
   // Modal de aprovação

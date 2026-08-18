@@ -136,6 +136,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   private pessoasTodos: PreCadastro[] = [];
   private gruposTodos: GrupoSolidario[] = [];
 
+  // ====== "minha caixa" própria quando o papel NÃO é analista (admin/supervisor/etc.) ======
+  // A aba Pessoas/Grupos desses papéis mostra o time inteiro (pessoasTodos/gruposTodos);
+  // isso aqui guarda separadamente o que foi atribuído diretamente ao MEU uid, pra
+  // "Minha caixa" também funcionar quando o destinatário do encaminhamento é admin/supervisor.
+  private minhaCaixaPessoasTodos: PreCadastro[] = [];
+  private minhaCaixaGruposTodos: GrupoSolidario[] = [];
+
   // indica busca em andamento ao trocar filtro de assessor
   loadingFiltro = false;
 
@@ -242,6 +249,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           await Promise.all([
             this.carregarPessoasDoAnalista(todosUids),
             this.carregarGruposDoAnalista(todosUids),
+            // "Minha caixa" própria (itens encaminhados diretamente pro MEU uid,
+            // independente de eu ser admin/supervisor) — separado da visão de equipe acima.
+            this.carregarMinhaCaixaProprio(u.uid),
           ]);
           await this.mesclarPreCadastrosDeGrupos(); // garante membros de grupos na aba Pessoas
         }
@@ -273,6 +283,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.gruposView = [];
     this.minhaCaixaPessoasView = [];
     this.minhaCaixaGruposView = [];
+    this.minhaCaixaPessoasTodos = [];
+    this.minhaCaixaGruposTodos = [];
     this.assessores = [];
     this.assessoresFiltrados = [];
     this.analistas = [];
@@ -763,59 +775,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====================================================
   private async carregarCaixaAnalista(uid: string): Promise<void> {
     try {
-      const preCadRef = collection(this.afs, 'pre_cadastros');
-      const gruposRef = collection(this.afs, 'grupos_solidarios');
-
-      // Cobre todos os campos usados pelos diferentes módulos ao encaminhar para analista:
-      // - triagem       → analistaUid + caixaUid/caixaAtual='analista'
-      // - supervisao    → encaminhadoParaUid + designadoParaUid
-      const [
-        snapAnalistaPessoas,
-        snapCaixaPessoas,
-        snapEncPessoas,
-        snapDesPessoas,
-        snapCaixaGrupos,
-        snapEncGrupos,
-        snapDesGrupos,
-      ] = await Promise.all([
-        getDocs(fsQuery(preCadRef, where('analistaUid',         '==', uid))),
-        getDocs(fsQuery(preCadRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
-        getDocs(fsQuery(preCadRef, where('encaminhadoParaUid',  '==', uid))),
-        getDocs(fsQuery(preCadRef, where('designadoParaUid',    '==', uid))),
-        getDocs(fsQuery(gruposRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
-        getDocs(fsQuery(gruposRef, where('encaminhadoParaUid',  '==', uid))),
-        getDocs(fsQuery(gruposRef, where('designadoParaUid',    '==', uid))),
-      ]);
-
-      const mapPessoas = new Map<string, PreCadastro>();
-      const allPessoasDocs = [
-        ...snapAnalistaPessoas.docs,
-        ...snapCaixaPessoas.docs,
-        ...snapEncPessoas.docs,
-        ...snapDesPessoas.docs,
-      ];
-      allPessoasDocs.forEach(d => {
-        if (mapPessoas.has(d.id)) return;
-        const r = { id: d.id, ...d.data() } as any;
-        mapPessoas.set(d.id, {
-          ...r,
-          agendamentoStatus: r.agendamentoStatus || 'nao_agendado',
-          formalizacao: { status: r.formalizacao?.status || 'nao_formalizado', ...(r.formalizacao || {}) },
-          desistencia:  { status: r.desistencia?.status  || 'nao_desistiu',    ...(r.desistencia  || {}) },
-        } as PreCadastro);
-      });
-
-      this.pessoas = Array.from(mapPessoas.values());
+      const { pessoas, grupos } = await this.buscarCaixaDoUsuario(uid);
+      this.pessoas = pessoas;
       this.pessoasView = [...this.pessoas];
-
-      const mapGrupos = new Map<string, GrupoSolidario>();
-      [...snapCaixaGrupos.docs, ...snapEncGrupos.docs, ...snapDesGrupos.docs].forEach(d => {
-        if (!mapGrupos.has(d.id))
-          mapGrupos.set(d.id, { id: d.id, ...d.data() } as GrupoSolidario);
-      });
-
-      const gruposJoin = await this.gruposSvc.joinGruposView(Array.from(mapGrupos.values()));
-      this.grupos = gruposJoin || [];
+      this.grupos = grupos;
       this.gruposView = [...this.grupos];
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar caixa do analista:', e);
@@ -824,6 +787,84 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       this.grupos = [];
       this.gruposView = [];
     }
+  }
+
+  // ====================================================
+  // "MINHA CAIXA" PRÓPRIA — para papéis que NÃO são analista (admin/supervisor/etc.)
+  // Usa o mesmo critério amplo de atribuição (analistaUid/caixaUid/encaminhadoParaUid/
+  // designadoParaUid == meu uid), mas grava em datasets separados de pessoas/grupos,
+  // que continuam mostrando a visão de EQUIPE para esses papéis.
+  // ====================================================
+  private async carregarMinhaCaixaProprio(uid: string): Promise<void> {
+    try {
+      const { pessoas, grupos } = await this.buscarCaixaDoUsuario(uid);
+      this.minhaCaixaPessoasTodos = pessoas;
+      this.minhaCaixaGruposTodos = grupos;
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao carregar minha caixa própria:', e);
+      this.minhaCaixaPessoasTodos = [];
+      this.minhaCaixaGruposTodos = [];
+    }
+  }
+
+  /**
+   * Busca "crua" (sem efeitos colaterais) de tudo que está atribuído ao uid informado,
+   * cobrindo os campos usados pelos diferentes módulos ao encaminhar:
+   * - triagem    → analistaUid + caixaUid/caixaAtual='analista'
+   * - supervisao → encaminhadoParaUid + designadoParaUid
+   */
+  private async buscarCaixaDoUsuario(uid: string): Promise<{ pessoas: PreCadastro[]; grupos: GrupoSolidario[] }> {
+    const preCadRef = collection(this.afs, 'pre_cadastros');
+    const gruposRef = collection(this.afs, 'grupos_solidarios');
+
+    const [
+      snapAnalistaPessoas,
+      snapCaixaPessoas,
+      snapEncPessoas,
+      snapDesPessoas,
+      snapCaixaGrupos,
+      snapEncGrupos,
+      snapDesGrupos,
+    ] = await Promise.all([
+      getDocs(fsQuery(preCadRef, where('analistaUid',         '==', uid))),
+      getDocs(fsQuery(preCadRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
+      getDocs(fsQuery(preCadRef, where('encaminhadoParaUid',  '==', uid))),
+      getDocs(fsQuery(preCadRef, where('designadoParaUid',    '==', uid))),
+      getDocs(fsQuery(gruposRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
+      getDocs(fsQuery(gruposRef, where('encaminhadoParaUid',  '==', uid))),
+      getDocs(fsQuery(gruposRef, where('designadoParaUid',    '==', uid))),
+    ]);
+
+    const mapPessoas = new Map<string, PreCadastro>();
+    const allPessoasDocs = [
+      ...snapAnalistaPessoas.docs,
+      ...snapCaixaPessoas.docs,
+      ...snapEncPessoas.docs,
+      ...snapDesPessoas.docs,
+    ];
+    allPessoasDocs.forEach(d => {
+      if (mapPessoas.has(d.id)) return;
+      const r = { id: d.id, ...d.data() } as any;
+      mapPessoas.set(d.id, {
+        ...r,
+        agendamentoStatus: r.agendamentoStatus || 'nao_agendado',
+        formalizacao: { status: r.formalizacao?.status || 'nao_formalizado', ...(r.formalizacao || {}) },
+        desistencia:  { status: r.desistencia?.status  || 'nao_desistiu',    ...(r.desistencia  || {}) },
+      } as PreCadastro);
+    });
+
+    const mapGrupos = new Map<string, GrupoSolidario>();
+    [...snapCaixaGrupos.docs, ...snapEncGrupos.docs, ...snapDesGrupos.docs].forEach(d => {
+      if (!mapGrupos.has(d.id))
+        mapGrupos.set(d.id, { id: d.id, ...d.data() } as GrupoSolidario);
+    });
+
+    const gruposJoin = await this.gruposSvc.joinGruposView(Array.from(mapGrupos.values()));
+
+    return {
+      pessoas: Array.from(mapPessoas.values()),
+      grupos: gruposJoin || [],
+    };
   }
 
   private async carregarGruposPorCriador(uid: string): Promise<void> {
@@ -1043,13 +1084,17 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   // ====== getters de filtros Minha Caixa ======
+  // Para analista, "minha caixa" É a base carregada em pessoasTodos.
+  // Para os demais papéis (admin/supervisor/etc.), pessoasTodos guarda a visão de EQUIPE
+  // (não a minha própria), então usamos o dataset separado minhaCaixaPessoasTodos.
   private get minhaCaixaBase(): PreCadastro[] {
-    if (this.isAnalista) {
-      return this.pessoasTodos.filter(p => this.eNaCaixaDoAnalista(p));
-    }
-    return this.pessoasTodos.filter(p =>
-      (p as any).caixaUid === this.currentUserUid
-    );
+    const base = this.isAnalista ? this.pessoasTodos : this.minhaCaixaPessoasTodos;
+    return base.filter(p => this.eNaCaixaDoAnalista(p));
+  }
+
+  private get minhaCaixaGruposBase(): GrupoSolidario[] {
+    const base = this.isAnalista ? this.gruposTodos : this.minhaCaixaGruposTodos;
+    return base.filter(g => this.eGrupoNaCaixaDoAnalista(g));
   }
 
   private eNaCaixaDoAnalista(p: any): boolean {
@@ -1058,6 +1103,15 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       p.encaminhadoParaUid  === this.currentUserUid ||
       p.designadoParaUid    === this.currentUserUid ||
       (p.caixaUid === this.currentUserUid && p.caixaAtual === 'analista')
+    );
+  }
+
+  private eGrupoNaCaixaDoAnalista(g: any): boolean {
+    return (
+      g.analistaUid         === this.currentUserUid ||
+      g.encaminhadoParaUid  === this.currentUserUid ||
+      g.designadoParaUid    === this.currentUserUid ||
+      (g.caixaUid === this.currentUserUid && g.caixaAtual === 'analista')
     );
   }
 
@@ -1307,9 +1361,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
     const term = this.normalize(this.searchTermMinhaCaixa);
 
-    let pessoas = this.isAnalista
-      ? this.pessoasTodos.filter(p => this.eNaCaixaDoAnalista(p))
-      : this.pessoasTodos.filter(p => (p as any).caixaUid === this.currentUserUid);
+    let pessoas = this.minhaCaixaBase;
 
     if (this.minhaCaixaFiltroUf) {
       pessoas = pessoas.filter(p => ((p as any).uf || '') === this.minhaCaixaFiltroUf);
@@ -1365,14 +1417,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     });
     this.minhaCaixaPessoasView = pessoas;
 
-    let grupos = this.isAnalista
-      ? this.gruposTodos.filter(g =>
-          (g as any).analistaUid        === this.currentUserUid ||
-          (g as any).encaminhadoParaUid === this.currentUserUid ||
-          (g as any).designadoParaUid   === this.currentUserUid ||
-          ((g as any).caixaUid === this.currentUserUid && (g as any).caixaAtual === 'analista')
-        )
-      : this.gruposTodos.filter(g => (g as any).caixaUid === this.currentUserUid);
+    let grupos = this.minhaCaixaGruposBase;
     if (term) {
       grupos = grupos.filter(g => {
         const coord: any = (g as any).coordenadorView || {};
@@ -1593,6 +1638,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
       this.pessoas = this.pessoas.map(limpar);
       this.pessoasTodos = this.pessoasTodos.map(limpar);
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map(limpar);
 
       this.aplicarFiltrosPessoas();
       this.aplicarFiltrosMinhaCaixa();
@@ -1704,6 +1750,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
       );
       this.pessoasTodos = this.pessoasTodos.map((p) =>
+        p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      );
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
         p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
       );
       this.aplicarFiltrosPessoas();
@@ -1864,6 +1913,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
           : gg
       );
+      this.minhaCaixaGruposTodos = this.minhaCaixaGruposTodos.map((gg) =>
+        (gg as any).id === gid
+          ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
+          : gg
+      );
       this.aplicarFiltrosGrupos();
 
       // e atualiza localmente as pessoas (membros + coordenador)
@@ -1875,6 +1929,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           : p
       );
       this.pessoasTodos = this.pessoasTodos.map((p) =>
+        p.id && idsArr.includes(p.id)
+          ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
+          : p
+      );
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
         p.id && idsArr.includes(p.id)
           ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
           : p

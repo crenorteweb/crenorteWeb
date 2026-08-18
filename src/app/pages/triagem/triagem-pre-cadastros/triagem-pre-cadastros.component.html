@@ -170,14 +170,37 @@
     </div>
   </div>
 
+  <!-- Barra de encaminhamento em lote (admin) -->
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 my-2 p-2 bg-light border rounded"
+    *ngIf="isAdmin && qtdSelecionados > 0">
+    <div class="small fw-medium">
+      {{ qtdSelecionados }} selecionado(s)
+    </div>
+    <div class="d-flex gap-2">
+      <button class="btn btn-sm btn-outline-secondary" (click)="limparSelecao()">Limpar seleção</button>
+      <button class="btn btn-sm btn-primary" (click)="abrirModalLote()">Encaminhar selecionados</button>
+    </div>
+  </div>
+
   <!-- Lista -->
   <div class="card mb-4" *ngIf="!carregando() && !erro()">
     <div class="list-group list-group-flush">
+      <div class="list-group-item py-2" *ngIf="isAdmin && pageItems.length">
+        <label class="d-flex align-items-center gap-2 small text-muted mb-0" style="cursor: pointer">
+          <input type="checkbox" class="form-check-input" [checked]="todosSelecionadosNaPagina"
+            (change)="toggleSelecionarTodosPagina()">
+          Selecionar todos nesta página
+        </label>
+      </div>
+
       <div class="list-group-item" *ngIf="!view.length">Nenhum registro encontrado.</div>
 
       <div class="list-group-item" *ngFor="let r of pageItems; trackBy: trackById">
         <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
           <!-- Identificação -->
+          <div class="d-flex align-items-start gap-2">
+            <input *ngIf="isAdmin" type="checkbox" class="form-check-input mt-1" style="flex: 0 0 auto"
+              [checked]="isSelecionado(r)" (change)="toggleSelecionado(r)">
           <div>
             <div class="fw-semibold d-flex align-items-center gap-2">
               <span [ngSwitch]="(r.uf || '').toUpperCase()">
@@ -234,6 +257,7 @@
               <span class="text-body fw-medium">{{ r.analistaNome || r.analistaUid }}</span>
               <span class="text-muted" *ngIf="r.analistaEm" style="opacity:0.65"> ({{ r.analistaEm | date:'dd/MM HH:mm' }})</span>
             </div>
+          </div>
           </div>
 
           <!-- Ações + status de envio -->
@@ -771,6 +795,79 @@
       <button class="btn btn-outline-secondary" (click)="fecharModalAssessor()">Cancelar</button>
       <button class="btn btn-success" [disabled]="!selectedAssessorUid" (click)="enviarSelecionadoDoModal()">
         Enviar
+      </button>
+    </div>
+  </div>
+</div>
+
+
+<!-- =========================
+     MODAL: Encaminhar selecionados em lote (admin)
+     ========================= -->
+<div class="overlay" *ngIf="showLoteModal">
+  <div class="overlay__backdrop" (click)="fecharModalLote()"></div>
+  <div class="overlay__panel" (keyup.escape)="fecharModalLote()" tabindex="0">
+    <div class="d-flex align-items-center justify-content-between border-bottom mb-2">
+      <div class="py-2">
+        <div class="fw-semibold">Encaminhar selecionados</div>
+        <small class="text-muted d-block">
+          {{ qtdSelecionados }} pré-cadastro(s) selecionado(s)
+        </small>
+      </div>
+      <button class="btn-close" aria-label="Fechar" (click)="fecharModalLote()"></button>
+    </div>
+
+    <div class="py-2">
+      <div class="btn-group btn-group-sm mb-3" role="group" aria-label="Destino do encaminhamento em lote">
+        <button type="button" class="btn btn-outline-success" [class.active]="loteDestino==='assessor'"
+          (click)="setLoteDestino('assessor')">
+          Assessor
+        </button>
+        <button type="button" class="btn btn-outline-warning" *ngIf="podeEncaminharParaAnalista"
+          [class.active]="loteDestino==='analista'" (click)="setLoteDestino('analista')">
+          Analista
+        </button>
+      </div>
+
+      <input class="form-control mb-3"
+        [placeholder]="loteDestino==='analista' ? 'Buscar analista por nome ou e-mail' : 'Buscar por nome, e-mail ou rota'"
+        [(ngModel)]="loteBusca" (ngModelChange)="filtrarLote()" />
+
+      <div class="alert alert-info py-2 small" *ngIf="loteDestino==='analista' && !analistas.length">
+        Nenhum colaborador com papel <strong>analista</strong> cadastrado.
+      </div>
+
+      <ul class="list-group">
+        <li class="list-group-item d-flex align-items-center justify-content-between gap-3"
+            *ngFor="let a of loteOpcoesFiltradas">
+          <div>
+            <div class="fw-semibold">{{ nomeAssessor(a) }}</div>
+            <div class="text-muted small" *ngIf="a.email">{{ a.email }}</div>
+            <div class="text-muted small" *ngIf="loteDestino==='assessor' && a.rota">Rota: {{ a.rota }}</div>
+          </div>
+          <button type="button" class="btn btn-sm px-3"
+            [class.btn-success]="loteSelectedUid===a.uid"
+            [class.btn-outline-secondary]="loteSelectedUid!==a.uid"
+            (click)="escolherLote(a)">
+            {{ loteSelectedUid===a.uid ? 'Selecionado' : 'Selecionar' }}
+          </button>
+        </li>
+
+        <li class="list-group-item text-muted py-3" *ngIf="!loteOpcoesFiltradas.length">
+          Nenhum resultado encontrado{{ loteBusca ? ' para “' + loteBusca + '”' : '' }}.
+        </li>
+      </ul>
+
+      <div class="alert alert-danger py-2 small mt-3 mb-0" *ngIf="loteErro">{{ loteErro }}</div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 border-top pt-3">
+      <button class="btn btn-outline-secondary" [disabled]="enviandoLote" (click)="fecharModalLote()">
+        Cancelar
+      </button>
+      <button class="btn btn-success" [disabled]="!loteSelectedUid || enviandoLote"
+        (click)="confirmarEncaminharLote()">
+        {{ enviandoLote ? 'Encaminhando…' : 'Encaminhar ' + qtdSelecionados + ' selecionado(s)' }}
       </button>
     </div>
   </div>
