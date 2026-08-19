@@ -66,6 +66,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   currentUserPodeEncaminharParaAnalista = false;
 
   get isAnalista(): boolean { return this.currentUserPapel === 'analista'; }
+  get isAdmin(): boolean { return this.currentUserPapel === 'admin'; }
   private subUser?: Subscription;
 
   // cache de nomes para não ficar lendo o mesmo colaborador sempre
@@ -151,6 +152,40 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   pessoaSelecionada: PreCadastro | null = null;
   selectedAssessorUidPessoa: string | null = null;
   buscaAssessorPessoa = '';
+
+  // ====== seleção múltipla (aba Minha Caixa) — encaminhar vários de uma vez ======
+  selecionadosMinhaCaixa = new Set<string>();
+  get qtdSelecionadosMinhaCaixa(): number { return this.selecionadosMinhaCaixa.size; }
+  isSelecionadoMinhaCaixa(p: PreCadastro): boolean { return !!p.id && this.selecionadosMinhaCaixa.has(p.id); }
+  toggleSelecionadoMinhaCaixa(p: PreCadastro) {
+    if (!p.id) return;
+    if (this.selecionadosMinhaCaixa.has(p.id)) this.selecionadosMinhaCaixa.delete(p.id);
+    else this.selecionadosMinhaCaixa.add(p.id);
+  }
+  get todosSelecionadosMinhaCaixaNaPagina(): boolean {
+    const pagina = this.minhaCaixaPessoasPaginadas;
+    return pagina.length > 0 && pagina.every(p => !!p.id && this.selecionadosMinhaCaixa.has(p.id));
+  }
+  toggleSelecionarTodosMinhaCaixaPagina() {
+    const pagina = this.minhaCaixaPessoasPaginadas;
+    if (this.todosSelecionadosMinhaCaixaNaPagina) {
+      pagina.forEach(p => { if (p.id) this.selecionadosMinhaCaixa.delete(p.id); });
+    } else {
+      pagina.forEach(p => { if (p.id) this.selecionadosMinhaCaixa.add(p.id); });
+    }
+  }
+  limparSelecaoMinhaCaixa() { this.selecionadosMinhaCaixa.clear(); }
+
+  // ====== modal ENCAMINHAR EM LOTE (Minha Caixa) ======
+  showEncaminharLoteModal = false;
+  loteTipoDestino: 'assessor' | 'analista' = 'assessor';
+  loteBuscaAssessor = '';
+  loteBuscaAnalista = '';
+  loteAssessoresFiltrados: Assessor[] = [];
+  loteAnalistasFiltrados: Analista[] = [];
+  loteSelectedUid: string | null = null;
+  enviandoLote = false;
+  loteErro: string | null = null;
 
   // ====== modal mover para caixa de inativos (analista/supervisor tirando da própria caixa) ======
   showRepasseInativosModal = false;
@@ -817,23 +852,35 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     const preCadRef = collection(this.afs, 'pre_cadastros');
     const gruposRef = collection(this.afs, 'grupos_solidarios');
 
-    const [
-      snapAnalistaPessoas,
-      snapCaixaPessoas,
-      snapEncPessoas,
-      snapDesPessoas,
-      snapCaixaGrupos,
-      snapEncGrupos,
-      snapDesGrupos,
-    ] = await Promise.all([
-      getDocs(fsQuery(preCadRef, where('analistaUid',         '==', uid))),
-      getDocs(fsQuery(preCadRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
-      getDocs(fsQuery(preCadRef, where('encaminhadoParaUid',  '==', uid))),
-      getDocs(fsQuery(preCadRef, where('designadoParaUid',    '==', uid))),
-      getDocs(fsQuery(gruposRef, where('caixaUid',            '==', uid), where('caixaAtual', '==', 'analista'))),
-      getDocs(fsQuery(gruposRef, where('encaminhadoParaUid',  '==', uid))),
-      getDocs(fsQuery(gruposRef, where('designadoParaUid',    '==', uid))),
-    ]);
+    const queridas = [
+      { nome: 'analistaUid',                q: fsQuery(preCadRef, where('analistaUid',        '==', uid)) },
+      { nome: 'caixaUid+analista (pessoa)',  q: fsQuery(preCadRef, where('caixaUid',           '==', uid), where('caixaAtual', '==', 'analista')) },
+      { nome: 'encaminhadoParaUid (pessoa)', q: fsQuery(preCadRef, where('encaminhadoParaUid', '==', uid)) },
+      { nome: 'designadoParaUid (pessoa)',   q: fsQuery(preCadRef, where('designadoParaUid',   '==', uid)) },
+      { nome: 'caixaUid+analista (grupo)',   q: fsQuery(gruposRef, where('caixaUid',           '==', uid), where('caixaAtual', '==', 'analista')) },
+      { nome: 'encaminhadoParaUid (grupo)',  q: fsQuery(gruposRef, where('encaminhadoParaUid', '==', uid)) },
+      { nome: 'designadoParaUid (grupo)',    q: fsQuery(gruposRef, where('designadoParaUid',   '==', uid)) },
+    ];
+
+    // Usa allSettled em vez de Promise.all: se UMA query falhar (ex.: índice composto
+    // ausente), as demais ainda populam a caixa em vez de tudo virar lista vazia.
+    const resultados = await Promise.allSettled(queridas.map(q => getDocs(q.q)));
+
+    resultados.forEach((r, i) => {
+      if (r.status === 'rejected') {
+        console.error(`[TriagemSupervisao][buscarCaixaDoUsuario] query "${queridas[i].nome}" falhou p/ uid=${uid}:`, r.reason);
+      }
+    });
+
+    const snapOf = (i: number) => (resultados[i].status === 'fulfilled' ? (resultados[i] as PromiseFulfilledResult<any>).value : { docs: [] });
+
+    const snapAnalistaPessoas = snapOf(0);
+    const snapCaixaPessoas    = snapOf(1);
+    const snapEncPessoas      = snapOf(2);
+    const snapDesPessoas      = snapOf(3);
+    const snapCaixaGrupos     = snapOf(4);
+    const snapEncGrupos       = snapOf(5);
+    const snapDesGrupos       = snapOf(6);
 
     const mapPessoas = new Map<string, PreCadastro>();
     const allPessoasDocs = [
@@ -1087,14 +1134,23 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // Para analista, "minha caixa" É a base carregada em pessoasTodos.
   // Para os demais papéis (admin/supervisor/etc.), pessoasTodos guarda a visão de EQUIPE
   // (não a minha própria), então usamos o dataset separado minhaCaixaPessoasTodos.
+  //
+  // Observação: NÃO reaplicamos eNaCaixaDoAnalista/eGrupoNaCaixaDoAnalista aqui.
+  // Ambas as bases já vêm 100% filtradas pelo servidor (buscarCaixaDoUsuario faz as
+  // queries com where(...uid) direto no Firestore). Reaplicar o filtro client-side é
+  // redundante no carregamento inicial, mas se torna PREJUDICIAL logo após um
+  // encaminhamento local (single ou em lote): assim que os campos designadoParaUid/
+  // encaminhadoParaUid/caixaUid passam a apontar para o destinatário, o item deixa de
+  // bater no filtro e "some" da tela do remetente antes mesmo de recarregar a página —
+  // mesmo a gravação no Firestore tendo funcionado normalmente. Como a UI depende desse
+  // item continuar visível (com o selo "Enc. para assessor") até o próximo reload, a
+  // base já carregada é a fonte da verdade local.
   private get minhaCaixaBase(): PreCadastro[] {
-    const base = this.isAnalista ? this.pessoasTodos : this.minhaCaixaPessoasTodos;
-    return base.filter(p => this.eNaCaixaDoAnalista(p));
+    return this.isAnalista ? this.pessoasTodos : this.minhaCaixaPessoasTodos;
   }
 
   private get minhaCaixaGruposBase(): GrupoSolidario[] {
-    const base = this.isAnalista ? this.gruposTodos : this.minhaCaixaGruposTodos;
-    return base.filter(g => this.eGrupoNaCaixaDoAnalista(g));
+    return this.isAnalista ? this.gruposTodos : this.minhaCaixaGruposTodos;
   }
 
   private eNaCaixaDoAnalista(p: any): boolean {
@@ -1200,6 +1256,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====================================================
   setAba(aba: Aba) {
     if (this.isAnalista && aba !== 'minha-caixa') return;
+    if (aba !== 'minha-caixa') this.limparSelecaoMinhaCaixa();
     this.aba = aba;
     this.aplicarFiltrosPessoas();
     this.aplicarFiltrosGrupos();
@@ -1695,6 +1752,147 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       this.tipoDestinoModal
     );
     this.fecharModalAssessorPessoa();
+  }
+
+  // ====================================================
+  // MODAL — ENCAMINHAR VÁRIOS DE UMA VEZ (Pessoas selecionadas)
+  // ====================================================
+  abrirModalEncaminharLote() {
+    if (!this.selecionadosMinhaCaixa.size) return;
+    if (!this.assessores.length) {
+      alert('Não há assessores vinculados ao seu time.');
+      return;
+    }
+    this.loteTipoDestino = 'assessor';
+    this.loteBuscaAssessor = '';
+    this.loteBuscaAnalista = '';
+    this.loteSelectedUid = null;
+    this.loteErro = null;
+    this.loteAssessoresFiltrados = [...this.assessores];
+    this.loteAnalistasFiltrados = [...this.analistas];
+    this.showEncaminharLoteModal = true;
+  }
+
+  fecharModalEncaminharLote() {
+    if (this.enviandoLote) return;
+    this.showEncaminharLoteModal = false;
+    this.loteSelectedUid = null;
+    this.loteErro = null;
+  }
+
+  setLoteTipoDestino(tipo: 'assessor' | 'analista') {
+    if (tipo === 'analista' && !this.currentUserPodeEncaminharParaAnalista) return;
+    this.loteTipoDestino = tipo;
+    this.loteSelectedUid = null;
+    this.loteBuscaAssessor = '';
+    this.loteBuscaAnalista = '';
+    this.loteAssessoresFiltrados = [...this.assessores];
+    this.loteAnalistasFiltrados = [...this.analistas];
+  }
+
+  filtrarLoteAssessores() {
+    const term = this.normalize(this.loteBuscaAssessor);
+    if (!term) { this.loteAssessoresFiltrados = [...this.assessores]; return; }
+    this.loteAssessoresFiltrados = this.assessores.filter((a) =>
+      this.normalize(`${a.nome || ''} ${a.email || ''} ${a.rota || ''}`).includes(term)
+    );
+  }
+
+  filtrarLoteAnalistas() {
+    const term = this.normalize(this.loteBuscaAnalista);
+    if (!term) { this.loteAnalistasFiltrados = [...this.analistas]; return; }
+    this.loteAnalistasFiltrados = this.analistas.filter((a) =>
+      this.normalize(a.nome || '').includes(term)
+    );
+  }
+
+  /** Encaminha (em lote) todos os pré-cadastros selecionados na aba Minha Caixa para 1 assessor ou 1 analista. */
+  async confirmarEncaminharLote() {
+    if (!this.loteSelectedUid || !this.selecionadosMinhaCaixa.size) return;
+
+    const destinoUid = this.loteSelectedUid;
+    const tipoDestino = this.loteTipoDestino;
+    const ids = Array.from(this.selecionadosMinhaCaixa);
+    const itens = ids
+      .map((id) => this.minhaCaixaPessoasView.find((p) => p.id === id))
+      .filter((p): p is PreCadastro => !!p);
+
+    if (!itens.length) { this.fecharModalEncaminharLote(); return; }
+
+    this.enviandoLote = true;
+    this.loteErro = null;
+    try {
+      const colabRef = doc(this.afs, 'colaboradores', destinoUid);
+      const colabSnap = await getDoc(colabRef);
+      const colabData: any = colabSnap.data() || {};
+      const destinoNome = colabData?.nome || colabData?.displayName || colabData?.email || null;
+
+      const meUid = this.currentUserUid;
+      const meNome = this.currentUserNome;
+
+      // Firestore aceita no máx. 500 operações por batch — processa em blocos de 400
+      const CHUNK = 400;
+      for (let i = 0; i < itens.length; i += CHUNK) {
+        const slice = itens.slice(i, i + CHUNK);
+        const batch = writeBatch(this.afs);
+        for (const pre of slice) {
+          if (!pre.id) continue;
+          const ref = doc(this.afs, 'pre_cadastros', pre.id);
+          batch.set(
+            ref,
+            {
+              designadoParaUid: destinoUid,
+              designadoPara: destinoUid,
+              designadoParaNome: destinoNome,
+              designadoEm: serverTimestamp(),
+
+              encaminhadoParaUid: destinoUid,
+              encaminhadoParaNome: destinoNome,
+              encaminhadoEm: serverTimestamp(),
+              encaminhadoPorUid: meUid,
+              encaminhadoPorNome: meNome ?? null,
+
+              caixaAtual: tipoDestino,
+              caixaUid: destinoUid,
+            },
+            { merge: true }
+          );
+        }
+        await batch.commit();
+      }
+
+      // Atualiza estado local sem esperar novo carregamento
+      const patch: any = {
+        designadoParaUid: destinoUid,
+        designadoParaNome: destinoNome,
+        encaminhadoParaUid: destinoUid,
+        encaminhadoParaNome: destinoNome,
+        encaminhadoPorUid: meUid,
+        encaminhadoPorNome: meNome ?? null,
+        caixaAtual: tipoDestino,
+        caixaUid: destinoUid,
+      };
+      const idsSet = new Set(itens.map((p) => p.id));
+      this.pessoas = this.pessoas.map((p) =>
+        p.id && idsSet.has(p.id) ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      );
+      this.pessoasTodos = this.pessoasTodos.map((p) =>
+        p.id && idsSet.has(p.id) ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      );
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
+        p.id && idsSet.has(p.id) ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      );
+      this.aplicarFiltrosPessoas();
+      this.aplicarFiltrosMinhaCaixa();
+
+      this.limparSelecaoMinhaCaixa();
+      this.showEncaminharLoteModal = false;
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao encaminhar em lote:', e);
+      this.loteErro = 'Não foi possível encaminhar os selecionados. Tente novamente.';
+    } finally {
+      this.enviandoLote = false;
+    }
   }
 
   private async encaminharPreCadastro(
