@@ -345,7 +345,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
   enviandoAnalista: Record<string, boolean> = {};
 
   get analistas(): Assessor[] {
-    return this.assessores.filter(a => a.papel === 'analista');
+    return this.assessores.filter(a => a.papel === 'analista' || a.papel === 'admin');
   }
 
   /* ===== Seleção múltipla (aba Pessoas) — encaminhamento em lote (admin) ===== */
