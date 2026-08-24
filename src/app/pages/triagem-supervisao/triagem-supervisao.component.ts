@@ -1781,7 +1781,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   }
 
   setLoteTipoDestino(tipo: 'assessor' | 'analista') {
-    if (tipo === 'analista' && !this.currentUserPodeEncaminharParaAnalista) return;
+    if (tipo === 'analista' && !this.currentUserPodeEncaminharParaAnalista && !this.isAdmin) return;
     this.loteTipoDestino = tipo;
     this.loteSelectedUid = null;
     this.loteBuscaAssessor = '';

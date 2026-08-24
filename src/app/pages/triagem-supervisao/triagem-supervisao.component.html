@@ -874,8 +874,8 @@
       <div class="fw-semibold">{{ qtdSelecionadosMinhaCaixa }} pré-cadastro(s) selecionado(s)</div>
     </div>
 
-    <!-- Seletor de tipo de destino (visível apenas para quem pode encaminhar para analista) -->
-    <div class="mb-3" *ngIf="currentUserPodeEncaminharParaAnalista">
+    <!-- Seletor de tipo de destino (visível para quem pode encaminhar para analista, ou para admin) -->
+    <div class="mb-3" *ngIf="currentUserPodeEncaminharParaAnalista || isAdmin">
       <label class="form-label mb-1 fw-semibold">Encaminhar para</label>
       <div class="btn-group w-100" role="group">
         <button type="button" class="btn btn-sm"
