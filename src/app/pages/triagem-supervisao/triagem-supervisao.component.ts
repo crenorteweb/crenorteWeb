@@ -1695,7 +1695,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
       this.pessoas = this.pessoas.map(limpar);
       this.pessoasTodos = this.pessoasTodos.map(limpar);
-      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map(limpar);
+      // Remove (em vez de só limpar os campos) da "Minha caixa": o item deixou de ser meu —
+      // some da lista na hora, igual já aconteceria após um reload.
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.filter((p) => p.id !== item.id);
 
       this.aplicarFiltrosPessoas();
       this.aplicarFiltrosMinhaCaixa();
@@ -1758,6 +1760,11 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // MODAL — ENCAMINHAR VÁRIOS DE UMA VEZ (Pessoas selecionadas)
   // ====================================================
   abrirModalEncaminharLote() {
+    console.log('[TriagemSupervisao][lote][abrir] currentUserPapel:', this.currentUserPapel,
+      'isAdmin:', this.isAdmin,
+      'currentUserPodeEncaminharParaAnalista:', this.currentUserPodeEncaminharParaAnalista,
+      'assessores.length:', this.assessores.length,
+      'analistas.length:', this.analistas.length);
     if (!this.selecionadosMinhaCaixa.size) return;
     if (!this.assessores.length) {
       alert('Não há assessores vinculados ao seu time.');
@@ -1879,8 +1886,10 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       this.pessoasTodos = this.pessoasTodos.map((p) =>
         p.id && idsSet.has(p.id) ? ({ ...(p as any), ...patch } as PreCadastro) : p
       );
-      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
-        p.id && idsSet.has(p.id) ? ({ ...(p as any), ...patch } as PreCadastro) : p
+      // Remove (em vez de só atualizar os campos) da "Minha caixa": depois de encaminhado,
+      // o item deixa de ser meu — some da lista na hora, igual já aconteceria após um reload.
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.filter(
+        (p) => !(p.id && idsSet.has(p.id))
       );
       this.aplicarFiltrosPessoas();
       this.aplicarFiltrosMinhaCaixa();
@@ -1950,9 +1959,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       this.pessoasTodos = this.pessoasTodos.map((p) =>
         p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
       );
-      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
-        p.id === pre.id ? ({ ...(p as any), ...patch } as PreCadastro) : p
-      );
+      // Remove (em vez de só atualizar os campos) da "Minha caixa": depois de encaminhado,
+      // o item deixa de ser meu — some da lista na hora, igual já aconteceria após um reload.
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.filter((p) => p.id !== pre.id);
       this.aplicarFiltrosPessoas();
       this.aplicarFiltrosMinhaCaixa();
     } catch (e) {
@@ -2111,11 +2120,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
           : gg
       );
-      this.minhaCaixaGruposTodos = this.minhaCaixaGruposTodos.map((gg) =>
-        (gg as any).id === gid
-          ? ({ ...(gg as any), ...patchGrupo } as GrupoSolidario)
-          : gg
-      );
+      // Remove (em vez de só atualizar os campos) da "Minha caixa": depois de encaminhado,
+      // o grupo deixa de ser meu — some da lista na hora, igual já aconteceria após um reload.
+      this.minhaCaixaGruposTodos = this.minhaCaixaGruposTodos.filter((gg) => (gg as any).id !== gid);
       this.aplicarFiltrosGrupos();
 
       // e atualiza localmente as pessoas (membros + coordenador)
@@ -2131,10 +2138,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
           : p
       );
-      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.map((p) =>
-        p.id && idsArr.includes(p.id)
-          ? ({ ...(p as any), ...patchPessoa } as PreCadastro)
-          : p
+      this.minhaCaixaPessoasTodos = this.minhaCaixaPessoasTodos.filter(
+        (p) => !(p.id && idsArr.includes(p.id))
       );
       this.aplicarFiltrosPessoas();
       this.aplicarFiltrosMinhaCaixa();
