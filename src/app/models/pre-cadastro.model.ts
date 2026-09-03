@@ -126,7 +126,7 @@ export interface PreCadastro {
     em?: Timestamp | Date | any;
   };
 
-  caixaAtual?: 'analista' | 'assessor';
+  caixaAtual?: 'analista' | 'assessor' | 'operacional';
   caixaUid?: string | null;
 
   // Repasse feito pelo assessor de volta para a caixa geral de triagem

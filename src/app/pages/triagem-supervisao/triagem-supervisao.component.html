@@ -890,6 +890,12 @@
           (click)="setLoteTipoDestino('analista')">
           <i class="bi bi-person-check me-1"></i>Analista
         </button>
+        <button type="button" class="btn btn-sm"
+          [class.btn-success]="loteTipoDestino === 'operacional'"
+          [class.btn-outline-success]="loteTipoDestino !== 'operacional'"
+          (click)="setLoteTipoDestino('operacional')">
+          <i class="bi bi-person-gear me-1"></i>Operacional
+        </button>
       </div>
     </div>
 
@@ -933,6 +939,27 @@
         </button>
         <div class="list-group-item text-muted text-center" *ngIf="!loteAnalistasFiltrados.length">
           Nenhum analista encontrado.
+        </div>
+      </div>
+    </ng-container>
+
+    <!-- Lista de OPERACIONAL (todos os perfis que não são assessor nem analista) -->
+    <ng-container *ngIf="loteTipoDestino === 'operacional'">
+      <div class="mb-2">
+        <label class="form-label mb-1">Buscar</label>
+        <input type="text" class="form-control" placeholder="Nome ou cargo..."
+          [(ngModel)]="loteBuscaOperacional" (ngModelChange)="filtrarLoteOperacionais()" />
+      </div>
+      <div class="list-group mb-3" style="max-height: 260px; overflow-y: auto;">
+        <button type="button"
+          class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
+          *ngFor="let a of loteOperacionaisFiltrados" (click)="loteSelectedUid = a.uid"
+          [class.active]="loteSelectedUid === a.uid">
+          <div class="fw-semibold">{{ a.nome }}</div>
+          <span class="badge rounded-pill text-bg-light" *ngIf="a.papel">{{ a.papel }}</span>
+        </button>
+        <div class="list-group-item text-muted text-center" *ngIf="!loteOperacionaisFiltrados.length">
+          Nenhum colaborador encontrado.
         </div>
       </div>
     </ng-container>

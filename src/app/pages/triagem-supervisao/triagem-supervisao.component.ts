@@ -133,6 +133,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   assessores: Assessor[] = [];
   assessoresFiltrados: Assessor[] = [];
 
+  // ====== operacionais (colaboradores ativos que não são assessor nem analista) ======
+  operacionais: ColaboradorItem[] = [];
+
   // ====== datasets base (estado "todos") para evitar re-fetch =====
   private pessoasTodos: PreCadastro[] = [];
   private gruposTodos: GrupoSolidario[] = [];
@@ -178,11 +181,13 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
   // ====== modal ENCAMINHAR EM LOTE (Minha Caixa) ======
   showEncaminharLoteModal = false;
-  loteTipoDestino: 'assessor' | 'analista' = 'assessor';
+  loteTipoDestino: 'assessor' | 'analista' | 'operacional' = 'assessor';
   loteBuscaAssessor = '';
   loteBuscaAnalista = '';
+  loteBuscaOperacional = '';
   loteAssessoresFiltrados: Assessor[] = [];
   loteAnalistasFiltrados: Analista[] = [];
+  loteOperacionaisFiltrados: ColaboradorItem[] = [];
   loteSelectedUid: string | null = null;
   enviandoLote = false;
   loteErro: string | null = null;
@@ -944,9 +949,15 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
           };
         })
         .sort((a, b) => a.nome.localeCompare(b.nome));
+
+      // "Operacional": todo colaborador ativo cujo papel não é assessor nem analista
+      this.operacionais = this.colaboradoresList.filter(
+        (c) => c.papel !== 'assessor' && c.papel !== 'analista'
+      );
     } catch (e) {
       console.error('[TriagemSupervisao] erro ao carregar colaboradores:', e);
       this.colaboradoresList = [];
+      this.operacionais = [];
     }
   }
 
@@ -1446,8 +1457,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     }
 
     if (this.minhaCaixaFiltroEncaminhamento) {
-      // "encaminhado" = analista já enviou para assessor (caixaAtual mudou para 'assessor')
-      const encaminhado = (p: any) => (p as any).caixaAtual === 'assessor';
+      // "encaminhado" = analista já enviou para assessor ou operacional (caixaAtual saiu de 'analista')
+      const encaminhado = (p: any) => (p as any).caixaAtual === 'assessor' || (p as any).caixaAtual === 'operacional';
       if (this.minhaCaixaFiltroEncaminhamento === 'encaminhado') {
         pessoas = pessoas.filter(p => encaminhado(p));
       } else {
@@ -1773,10 +1784,12 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.loteTipoDestino = 'assessor';
     this.loteBuscaAssessor = '';
     this.loteBuscaAnalista = '';
+    this.loteBuscaOperacional = '';
     this.loteSelectedUid = null;
     this.loteErro = null;
     this.loteAssessoresFiltrados = [...this.assessores];
     this.loteAnalistasFiltrados = [...this.analistas];
+    this.loteOperacionaisFiltrados = [...this.operacionais];
     this.showEncaminharLoteModal = true;
   }
 
@@ -1787,14 +1800,16 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.loteErro = null;
   }
 
-  setLoteTipoDestino(tipo: 'assessor' | 'analista') {
-    if (tipo === 'analista' && !this.currentUserPodeEncaminharParaAnalista && !this.isAdmin) return;
+  setLoteTipoDestino(tipo: 'assessor' | 'analista' | 'operacional') {
+    if ((tipo === 'analista' || tipo === 'operacional') && !this.currentUserPodeEncaminharParaAnalista && !this.isAdmin) return;
     this.loteTipoDestino = tipo;
     this.loteSelectedUid = null;
     this.loteBuscaAssessor = '';
     this.loteBuscaAnalista = '';
+    this.loteBuscaOperacional = '';
     this.loteAssessoresFiltrados = [...this.assessores];
     this.loteAnalistasFiltrados = [...this.analistas];
+    this.loteOperacionaisFiltrados = [...this.operacionais];
   }
 
   filtrarLoteAssessores() {
@@ -1810,6 +1825,14 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!term) { this.loteAnalistasFiltrados = [...this.analistas]; return; }
     this.loteAnalistasFiltrados = this.analistas.filter((a) =>
       this.normalize(a.nome || '').includes(term)
+    );
+  }
+
+  filtrarLoteOperacionais() {
+    const term = this.normalize(this.loteBuscaOperacional);
+    if (!term) { this.loteOperacionaisFiltrados = [...this.operacionais]; return; }
+    this.loteOperacionaisFiltrados = this.operacionais.filter((a) =>
+      this.normalize(`${a.nome || ''} ${a.papel || ''}`).includes(term)
     );
   }
 
