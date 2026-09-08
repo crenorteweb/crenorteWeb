@@ -441,6 +441,11 @@
                   </span>
                 </div>
               </div>
+              <button type="button" class="btn btn-sm btn-outline-primary w-100 mb-2"
+                (click)="abrirDetalheCliente(p)">
+                <i class="bi bi-person-vcard me-1"></i>
+                Ver cadastro completo
+              </button>
               <button type="button" class="btn btn-sm w-100 mb-2"
                 [class.btn-outline-secondary]="$any(p).caixaAtual === 'assessor'"
                 [class.btn-outline-success]="$any(p).caixaAtual !== 'assessor'"
@@ -634,6 +639,11 @@
               <i class="bi bi-arrow-return-right me-1 text-primary"></i>
               Por: <span class="fw-medium text-body">{{ $any(p).encaminhadoPorNome }}</span>
             </div>
+            <button type="button" class="btn btn-sm btn-outline-primary w-100 mb-2"
+              (click)="abrirDetalheCliente(p)">
+              <i class="bi bi-person-vcard me-1"></i>
+              Ver cadastro completo
+            </button>
             <button type="button" class="btn btn-sm btn-outline-success w-100"
               (click)="abrirModalAssessorPessoa(p)">
               <i class="bi bi-send me-1"></i>
@@ -1234,6 +1244,102 @@
 
       <div class="d-flex justify-content-end gap-2 mt-3">
         <button type="button" class="btn btn-outline-secondary" (click)="fecharDetalheGrupo()">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- MODAL — DETALHE DO CLIENTE (cadastro completo)            -->
+<!-- ========================================================= -->
+<div class="overlay" *ngIf="clienteDetalhe as cli">
+  <div class="overlay__backdrop" (click)="fecharDetalheCliente()"></div>
+  <div class="overlay__panel">
+    <div class="d-flex justify-content-between align-items-center border-bottom mb-2">
+      <div class="py-2">
+        <div class="fw-semibold">{{ cli.nomeCompleto || 'Sem nome' }}</div>
+        <small class="text-muted d-block" *ngIf="cli.cpf">CPF: {{ cpfMask(cli.cpf) }}</small>
+      </div>
+      <button type="button" class="btn-close" aria-label="Fechar" (click)="fecharDetalheCliente()"></button>
+    </div>
+
+    <div class="py-2">
+      <h6 class="mt-1 mb-2">Contato</h6>
+      <div class="row g-2 small mb-2">
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">Telefone:</span>
+          <a *ngIf="whatsHref(cli.telefone) as wa" [href]="wa" target="_blank" class="ms-1 text-success">
+            <i class="bi bi-whatsapp me-1"></i>{{ cli.telefone }}
+          </a>
+          <span *ngIf="!whatsHref(cli.telefone)" class="ms-1">{{ cli.telefone || '—' }}</span>
+        </div>
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">E-mail:</span> {{ cli.email || '—' }}
+        </div>
+        <div class="col-12">
+          <span class="text-muted">Endereço:</span> {{ cli.endereco || '—' }}
+        </div>
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">Bairro:</span> {{ cli.bairro || '—' }}
+        </div>
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">Cidade/UF:</span>
+          {{ cli.cidade || '—' }}<span *ngIf="cli.uf">/{{ cli.uf }}</span>
+        </div>
+      </div>
+
+      <h6 class="mt-3 mb-2">Dados do cadastro</h6>
+      <div class="row g-2 small mb-2">
+        <div class="col-12 col-sm-6" *ngIf="cli.sexo">
+          <span class="text-muted">Sexo:</span> {{ cli.sexo }}
+        </div>
+        <div class="col-12 col-sm-6" *ngIf="cli.modalidade">
+          <span class="text-muted">Modalidade:</span> {{ cli.modalidade }}
+        </div>
+        <div class="col-12 col-sm-6" *ngIf="cli.origem">
+          <span class="text-muted">Origem:</span> {{ cli.origem }}
+        </div>
+        <div class="col-12 col-sm-6" *ngIf="cli.valorSolicitadoFormatado || cli.valorSolicitado">
+          <span class="text-muted">Valor solicitado:</span> {{ cli.valorSolicitadoFormatado || cli.valorSolicitado }}
+        </div>
+        <div class="col-12" *ngIf="cli.grupoNome">
+          <span class="text-muted">Grupo:</span> {{ cli.grupoNome }}
+          <span class="text-muted">({{ cli.papelNoGrupo || 'membro' }})</span>
+        </div>
+      </div>
+
+      <hr>
+
+      <h6 class="mt-1 mb-2">Situação</h6>
+      <div class="row g-2 small mb-2">
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">Status:</span>
+          <span class="badge ms-1" [ngClass]="getStatusClass(cli.aprovacao?.status)">
+            {{ getAprovacaoLabel(cli.aprovacao?.status) }}
+          </span>
+        </div>
+        <div class="col-12 col-sm-6">
+          <span class="text-muted">Elegibilidade:</span>
+          <span class="badge ms-1" [ngClass]="elegivelClass($any(cli).elegivel?.status)">
+            {{ elegivelLabel($any(cli).elegivel?.status) }}
+          </span>
+        </div>
+        <div class="col-12" *ngIf="encaminhadoNome(cli) as encNome">
+          <span class="text-muted">Encaminhado para:</span> {{ encNome }}
+        </div>
+        <div class="col-12">
+          <span class="text-muted">Criado por:</span> {{ cli.createdByNome || '—' }}
+          <span class="text-muted" *ngIf="cli.createdAt" style="opacity:.65"> ({{ formatarDataHora(cli.createdAt) }})</span>
+        </div>
+        <div class="col-12" *ngIf="cli.observacoes">
+          <span class="text-muted">Observações:</span> {{ cli.observacoes }}
+        </div>
+      </div>
+
+      <div class="d-flex justify-content-end gap-2 mt-3">
+        <button type="button" class="btn btn-outline-secondary" (click)="fecharDetalheCliente()">
           Fechar
         </button>
       </div>

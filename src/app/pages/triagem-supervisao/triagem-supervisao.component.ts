@@ -213,6 +213,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   showGrupoDetalhe = false;
   grupoDetalhe: GrupoSolidario | null = null;
 
+  // ====== modal DETALHE CLIENTE (cadastro completo) ======
+  clienteDetalhe: PreCadastro | null = null;
+
   // ====== modal RELATÓRIO PDF ======
   showRelatorioModal = false;
   relatorioAssessorUid = '';
@@ -2183,6 +2186,28 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   fecharDetalheGrupo() {
     this.showGrupoDetalhe = false;
     this.grupoDetalhe = null;
+  }
+
+  // ====================================================
+  // DETALHE DO CLIENTE (cadastro completo)
+  // ====================================================
+  abrirDetalheCliente(p: PreCadastro) {
+    this.clienteDetalhe = p;
+  }
+
+  fecharDetalheCliente() {
+    this.clienteDetalhe = null;
+  }
+
+  formatarDataHora(v: any): string {
+    const d = this.toJSDate(v);
+    if (!d) return '—';
+    const dd   = String(d.getDate()).padStart(2, '0');
+    const mm   = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    const hh   = String(d.getHours()).padStart(2, '0');
+    const min  = String(d.getMinutes()).padStart(2, '0');
+    return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
   }
 
   qtdMembrosGrupo(g: GrupoSolidario): number {

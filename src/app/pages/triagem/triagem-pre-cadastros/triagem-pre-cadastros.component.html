@@ -272,6 +272,10 @@
               Enc. analista: {{ r.analistaNome || r.analistaUid }}
             </span>
 
+            <button class="btn btn-sm btn-outline-dark" (click)="abrirDetalheInativo(r)">
+              Detalhes
+            </button>
+
             <button class="btn btn-sm btn-outline-primary" (click)="abrirModalAprovacao(r)">
               Verificar/Aprovar
             </button>
