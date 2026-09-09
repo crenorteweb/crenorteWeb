@@ -768,7 +768,7 @@ export class TriagemPreCadastrosComponent implements OnInit, OnDestroy {
         .map((d) => {
           const x = d.data() as any;
           return {
-            uid: d.id,
+            uid: x.uid || d.id,
             nome: x?.nome ?? x?.displayName ?? '',
             email: x?.email ?? '',
             status: x?.status,
