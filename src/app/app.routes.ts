@@ -101,7 +101,7 @@ export const routes: Routes = [
   {
     path: 'triagem-supervisao',
     canActivate: [authGuard, roleGuard],
-    data: { roles: ['admin','analista', 'supervisor'] as Papel[] },
+    data: { roles: ['admin','analista', 'supervisor', 'operacional'] as Papel[] },
     loadComponent: () =>
       import('./pages/triagem-supervisao/triagem-supervisao.component')
         .then(m => m.TriagemSupervisaoComponent),

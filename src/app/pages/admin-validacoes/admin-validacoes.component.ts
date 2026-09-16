@@ -52,6 +52,11 @@ export class AdminValidacoesComponent implements OnInit {
 
   // ── Todos os registros carregados ────────────────────────────────────────
   todosRegistros = signal<Registro[]>([]);
+  // Clientes formalizados (coleção 'clientes') — carregados à parte, só para
+  // entrar na detecção de CPFs duplicados; não participam das outras abas
+  // (normalização, criador, status, etc.) nem podem ser editados/excluídos
+  // por esta tela.
+  clientesRegistros = signal<Registro[]>([]);
 
   // ── Aba Normalização ─────────────────────────────────────────────────────
   campo = signal<Campo>('cidade');
@@ -107,7 +112,7 @@ export class AdminValidacoesComponent implements OnInit {
 
   gruposCpf = computed<GrupoCpf[]>(() => {
     const map = new Map<string, Registro[]>();
-    for (const r of this.todosRegistros()) {
+    for (const r of [...this.todosRegistros(), ...this.clientesRegistros()]) {
       const cpf = (r.cpf || '').replace(/\D/g, '');
       if (!cpf) continue;
       if (!map.has(cpf)) map.set(cpf, []);
@@ -325,9 +330,10 @@ export class AdminValidacoesComponent implements OnInit {
   async carregarTudo() {
     this.loading.set(true);
     try {
-      const [snap1, snap2] = await Promise.all([
+      const [snap1, snap2, snap3] = await Promise.all([
         getDocs(collection(this.fs, 'pre_cadastros')),
         getDocs(collection(this.fs, 'pre-cadastros')),
+        getDocs(collection(this.fs, 'clientes')),
       ]);
       const seen = new Set<string>();
       const lista: Registro[] = [];
@@ -341,6 +347,11 @@ export class AdminValidacoesComponent implements OnInit {
       processar(snap1, 'pre_cadastros');
       processar(snap2, 'pre-cadastros');
       this.todosRegistros.set(lista);
+
+      // Clientes formalizados: só para cruzar CPF duplicado, ver comentário acima.
+      const clientesLista: Registro[] = [];
+      snap3.forEach((d: any) => clientesLista.push({ id: d.id, __col: 'clientes', ...d.data() as any }));
+      this.clientesRegistros.set(clientesLista);
     } catch (e) {
       this.showToast('Erro ao carregar dados.', 'danger');
     } finally {
@@ -405,6 +416,10 @@ export class AdminValidacoesComponent implements OnInit {
   }
 
   async salvarEdicaoCpf(reg: Registro) {
+    if ((reg['__col'] ?? 'pre_cadastros') === 'clientes') {
+      this.showToast('Este é um cadastro formalizado (cliente). Edite pela tela de Cadastros, não por aqui.', 'danger');
+      return;
+    }
     const patch = this.editandoCpfReg().get(reg.id);
     if (!patch || !Object.keys(patch).length) return;
     this.salvando.set(true);
@@ -426,6 +441,10 @@ export class AdminValidacoesComponent implements OnInit {
   }
 
   async excluirRegistro(reg: Registro) {
+    if ((reg['__col'] ?? 'pre_cadastros') === 'clientes') {
+      this.showToast('Este é um cadastro formalizado (cliente). Exclua pela tela de Cadastros, não por aqui.', 'danger');
+      return;
+    }
     if (!confirm(`Excluir o registro de "${reg.nomeCompleto || reg.id}"?`)) return;
     this.salvando.set(true);
     try {
@@ -660,7 +679,12 @@ export class AdminValidacoesComponent implements OnInit {
     for (const g of this.gruposCpf()) {
       g.registros.forEach(r => rows.push({
         cpf: g.cpf,
+        cpfSalvoComo: r.cpf || '—',
         nome: r.nomeCompleto || '—',
+        colecao: r['__col'] || '—',
+        status: r['status'] || r['aprovacao']?.status || '—',
+        criador: r['createdByNome'] || '—',
+        criadoEm: this.toDataStr(r['createdAt']),
         cidade: r.cidade || '—',
         bairro: r.bairro || '—',
         uf: r.uf || '—',
@@ -670,7 +694,11 @@ export class AdminValidacoesComponent implements OnInit {
       rows.push({});
     }
     const ws = XLSX.utils.json_to_sheet(rows);
-    ws['!cols'] = [{ wch: 16 }, { wch: 36 }, { wch: 20 }, { wch: 20 }, { wch: 10 }, { wch: 20 }, { wch: 28 }];
+    ws['!cols'] = [
+      { wch: 16 }, { wch: 18 }, { wch: 36 }, { wch: 14 }, { wch: 16 },
+      { wch: 20 }, { wch: 14 }, { wch: 20 }, { wch: 20 }, { wch: 10 },
+      { wch: 20 }, { wch: 28 },
+    ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'CPFs Duplicados');
     XLSX.writeFile(wb, `cpfs_duplicados_${new Date().toISOString().slice(0, 10)}.xlsx`);

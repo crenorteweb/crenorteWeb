@@ -218,6 +218,11 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   private limpar(str: string) {
     return (str || '').trim();
   }
+  // CPF deve ser sempre persistido/comparado só com dígitos (evita duplicidade
+  // por diferença de máscara, ex: "251.856.842-75" vs "25185684275").
+  private cpfSoDigitos(v: unknown): string {
+    return String(v ?? '').replace(/\D/g, '');
+  }
 
   // ===== Moeda (iguais ao cadastro-form) =====
   parseMoedaBR(v: any): number {
@@ -367,7 +372,7 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
   }
 
   async onCpfBlur() {
-    const cpf = this.limpar(this.model.cpf);
+    const cpf = this.cpfSoDigitos(this.model.cpf);
     this.cpfJaCadastrado.set(false);
     if (!this.cpfValido(cpf, true)) return;
     await this.verificarCpfDuplicado(cpf);
@@ -815,7 +820,7 @@ export class PreCadastroFormComponent implements OnInit, OnDestroy {
 
     const payloadBase = {
       nomeCompleto: this.limpar(this.model.nomeCompleto),
-      cpf: this.limpar(this.model.cpf),
+      cpf: this.cpfSoDigitos(this.model.cpf),
       endereco: this.limpar(this.model.endereco),
       telefone: this.limpar(this.model.telefone),
       email: this.limpar(this.model.email),

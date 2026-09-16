@@ -148,14 +148,23 @@ export class PreCadastroService {
    * NOVO: Busca por uma lista de IDs (para espelhar pessoas de grupos).
    */
   async buscarPorCpf(cpf: string): Promise<PreCadastro[]> {
-    if (!cpf) return [];
-    const [snap1, snap2] = await Promise.all([
-      getDocs(query(collection(this.db, 'pre_cadastros'), where('cpf', '==', cpf))),
-      getDocs(query(collection(this.db, 'pre-cadastros'), where('cpf', '==', cpf))),
+    // Normaliza para só-dígitos: é o formato que passamos a salvar sempre.
+    const digits = (cpf || '').replace(/\D/g, '');
+    if (digits.length !== 11) return [];
+
+    // Compatibilidade com dados legados salvos com máscara (ex.: "251.856.842-75")
+    // antes da normalização — enquanto essa base não for migrada, buscamos os
+    // dois formatos para não deixar passar duplicata.
+    const masked = digits.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4');
+    const variantes = Array.from(new Set([digits, masked]));
+
+    const snaps = await Promise.all([
+      getDocs(query(collection(this.db, 'pre_cadastros'), where('cpf', 'in', variantes))),
+      getDocs(query(collection(this.db, 'pre-cadastros'), where('cpf', 'in', variantes))),
     ]);
     const seen = new Set<string>();
     const result: PreCadastro[] = [];
-    for (const snap of [snap1, snap2]) {
+    for (const snap of snaps) {
       snap.docs.forEach(d => {
         if (!seen.has(d.id)) {
           seen.add(d.id);

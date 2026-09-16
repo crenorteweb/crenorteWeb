@@ -197,6 +197,16 @@
               <strong>{{ gruposCpfFiltrados().length }}</strong> grupo(s) de CPFs duplicados
             </span>
           </div>
+          <div class="col-12 col-md-auto ms-auto">
+            <button class="btn btn-outline-warning btn-sm" (click)="exportarCpfsDuplicados()"
+                    [disabled]="gruposCpf().length === 0"
+                    title="Exporta todos os grupos de CPFs duplicados para uma planilha (XLSX)">
+              <i class="bi bi-file-earmark-excel me-1"></i> Exportar planilha para análise
+              <span *ngIf="gruposCpf().length > 0" class="badge bg-warning text-dark ms-1">
+                {{ gruposCpf().length }}
+              </span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

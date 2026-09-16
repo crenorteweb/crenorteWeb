@@ -46,3 +46,6 @@ serviceAccountKey.json
 
 # Claude Code
 .claude/
+
+# Relatorio de auditoria de CPFs (contem dados pessoais de clientes)
+scripts/cpf_duplicados.json
