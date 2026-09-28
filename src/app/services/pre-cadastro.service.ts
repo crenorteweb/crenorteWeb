@@ -292,7 +292,10 @@ export class PreCadastroService {
       snap = await getDocs(qy);
     }
 
-    return snap.docs.map(d => ({ uid: d.id, ...(d.data() as any) })) as UsuarioAssessor[];
+    return snap.docs.map(d => {
+      const x = d.data() as any;
+      return { ...x, uid: x?.uid || d.id };
+    }) as UsuarioAssessor[];
   }
 
   async listarParaCaixa(uid: string | string[]): Promise<PreCadastro[]> {

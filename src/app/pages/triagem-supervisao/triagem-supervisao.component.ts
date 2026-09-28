@@ -438,6 +438,25 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   // ====================================================
   // RESOLVE NOME DO USUÁRIO (igual módulo Lista)
   // ====================================================
+  /**
+   * Busca os dados do colaborador pelo Auth UID. Alguns cadastros têm
+   * document ID diferente do Auth UID (o UID fica no campo `uid`), então
+   * tenta primeiro pelo ID do doc e depois pelo campo `uid`.
+   */
+  private async getColaboradorData(uid: string): Promise<any> {
+    try {
+      const snap = await getDoc(doc(this.afs, 'colaboradores', uid));
+      if (snap.exists()) return snap.data() || {};
+      const qs = await getDocs(
+        fsQuery(collection(this.afs, 'colaboradores'), where('uid', '==', uid), limit(1))
+      );
+      return qs.empty ? {} : (qs.docs[0].data() || {});
+    } catch (e) {
+      console.warn('[TriagemSupervisao] falha ao buscar colaborador:', e);
+      return {};
+    }
+  }
+
   private async resolveUserName(uid: string): Promise<string> {
     if (this.nomeCache.has(uid)) return this.nomeCache.get(uid)!;
 
@@ -539,8 +558,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       // Processa admins primeiro (aparecem no topo da lista)
       snapAdmins.docs.forEach((d) => {
         const data = d.data() as any;
-        map.set(d.id, {
-          uid: d.id,
+        const uid = data?.uid || d.id;
+        map.set(uid, {
+          uid,
           nome: `[Admin] ${data?.nome || data?.email || 'Admin'}`,
           email: data?.email || null,
           rota: data?.rota || null,
@@ -550,8 +570,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
       snapAssessores.docs.forEach((d) => {
         const data = d.data() as any;
-        map.set(d.id, {
-          uid: d.id,
+        const uid = data?.uid || d.id;
+        map.set(uid, {
+          uid,
           nome: data?.nome || data?.displayName || data?.email || 'Assessor',
           email: data?.email || null,
           rota: data?.rota || null,
@@ -946,7 +967,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
         .map(d => {
           const data = d.data() as any;
           return {
-            uid: d.id,
+            uid: data?.uid || d.id,
             nome: data?.nome || data?.email || 'Usuário',
             papel: data?.papel || '',
           };
@@ -1855,9 +1876,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.enviandoLote = true;
     this.loteErro = null;
     try {
-      const colabRef = doc(this.afs, 'colaboradores', destinoUid);
-      const colabSnap = await getDoc(colabRef);
-      const colabData: any = colabSnap.data() || {};
+      const colabData: any = await this.getColaboradorData(destinoUid);
       const destinoNome = colabData?.nome || colabData?.displayName || colabData?.email || null;
 
       const meUid = this.currentUserUid;
@@ -1938,9 +1957,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!pre?.id) return;
 
     try {
-      const colabRef = doc(this.afs, 'colaboradores', assessorUid);
-      const colabSnap = await getDoc(colabRef);
-      const colabData: any = colabSnap.data() || {};
+      const colabData: any = await this.getColaboradorData(assessorUid);
       const assessorNome =
         colabData?.nome || colabData?.displayName || colabData?.email || null;
 
@@ -2057,9 +2074,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (!gid) return;
 
     try {
-      const colabRef = doc(this.afs, 'colaboradores', assessorUid);
-      const colabSnap = await getDoc(colabRef);
-      const colabData: any = colabSnap.data() || {};
+      const colabData: any = await this.getColaboradorData(assessorUid);
       const assessorNome =
         colabData?.nome || colabData?.displayName || colabData?.email || null;
 

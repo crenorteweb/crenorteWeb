@@ -222,7 +222,7 @@ export class AdminValidacoesComponent implements OnInit {
     this.analistasCache.set(
       snap.docs.map(d => {
         const x = d.data() as any;
-        return { uid: d.id, nome: x?.nome ?? x?.displayName ?? d.id };
+        return { uid: x?.uid || d.id, nome: x?.nome ?? x?.displayName ?? d.id };
       })
     );
   }

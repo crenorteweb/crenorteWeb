@@ -186,7 +186,7 @@ export class VisitasComponent implements OnInit, OnDestroy {
       const allAssessors = snap.docs.map(d => {
         const data = d.data() as any;
         return {
-          uid: d.id,
+          uid: data.uid || d.id,
           nome: data.nome || 'Assessor',
           rota: data.rota || null,
           analistaResponsavelUid: data.analistaResponsavelUid || data.analistaId || null,
