@@ -24,6 +24,8 @@ export class BotoesExportacao {
   @Input() filtroAnalistaNome = '';
   /** Todos os registros do período sem filtro de analista — usado no relatório geral por dia */
   @Input() registrosGeral: PreCadastro[] = [];
+  /** Filtro "Com novas tentativas" ativo na aba Analisados — indicado no título do PDF */
+  @Input() filtroTentativas = false;
   /** Quando true, gera PDF de resumo de encaminhamentos (usa os dados abaixo) */
   @Input() modoEncaminhados = false;
   @Input() encaminhadosPorRemetente: { nome: string; count: number }[] = [];
@@ -95,10 +97,11 @@ export class BotoesExportacao {
   private getCabecalhos(): string[] {
     const base = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro'];
     if (this.modoAdicionados) return base;
-    if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário'];
-    if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise'];
-    if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário'];
-    if (this.cargo === 'geral')      return [...base, 'Assessor', 'Analista', 'Resultado', 'Horário da Análise'];
+    const extra = this.filtroTentativas ? ['Elegibilidade', 'Tentativas'] : ['Elegibilidade'];
+    if (this.cargo === 'assessor')   return [...base, 'Status', 'Horário', ...extra];
+    if (this.cargo === 'analista')   return [...base, 'Cadastrado por', 'Resultado', 'Horário da Análise', ...extra];
+    if (this.cargo === 'supervisor') return [...base, 'Assessor Responsável', 'Horário', ...extra];
+    if (this.cargo === 'geral')      return [...base, 'Assessor', 'Encaminhado por', 'Analista', 'Resultado', 'Horário da Análise', ...extra];
     return base;
   }
 
@@ -114,16 +117,26 @@ export class BotoesExportacao {
       ];
       if (this.modoAdicionados)
         return base;
+      const extra = [this.elegivelLabel(r)];
+      if (this.filtroTentativas) extra.push(String(r.totalTentativas ?? 0));
       if (this.cargo === 'assessor')
-        return [...base, r.status || '—', this.formatarHora(r.encaminhadoEm)];
+        return [...base, r.status || '—', this.formatarHora(r.encaminhadoEm), ...extra];
       if (this.cargo === 'analista')
-        return [...base, r.assessorNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm)];
+        return [...base, r.assessorNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm), ...extra];
       if (this.cargo === 'supervisor')
-        return [...base, r.assessorNome || '—', this.formatarHora(r.encaminhadoEm)];
+        return [...base, r.assessorNome || '—', this.formatarHora(r.encaminhadoEm), ...extra];
       if (this.cargo === 'geral')
-        return [...base, r.assessorNome || '—', r.analistaNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm)];
+        return [...base, r.assessorNome || '—', r.encaminhadoPorNome || '—', r.analistaNome || '—', r.resultado || '—', this.formatarHora(r.analisadoEm), ...extra];
       return base;
     });
+  }
+
+  private elegivelLabel(r: PreCadastro): string {
+    const s = r.elegivel?.status;
+    if (s === 'sim')            return 'Elegível';
+    if (s === 'nao')            return 'Não elegível';
+    if (s === 'nao_verificado') return 'Não verificado';
+    return '—';
   }
 
   // ── Helpers de data ──────────────────────────────────────────────────────
@@ -167,9 +180,11 @@ export class BotoesExportacao {
 
     doc.setFontSize(12);
     doc.setTextColor(40, 40, 40);
+    const sub = [subtitulo, !this.modoAdicionados && this.filtroTentativas ? 'Com novas tentativas' : '']
+      .filter(Boolean).join(' · ');
     const titulo = this.modoAdicionados
-      ? `Relatório de Cadastros Adicionados${subtitulo ? ' · ' + subtitulo : ''}`
-      : `Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}${subtitulo ? ' · ' + subtitulo : ''}`;
+      ? `Relatório de Cadastros Adicionados${sub ? ' · ' + sub : ''}`
+      : `Relatório de Produção — ${cargoLabel[this.cargo || ''] || ''}${sub ? ' · ' + sub : ''}`;
     doc.text(titulo, 14, 27);
 
     // nome a exibir: analista filtrado em modo geral tem prioridade sobre nomeColaborador
@@ -190,7 +205,7 @@ export class BotoesExportacao {
     doc.text(`Período: ${periodo}`, 14, 41);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(0, 100, 50);
-    doc.text(`Total de CPFs analisados: ${lista.length}`, 14, 47);
+    doc.text(lista.some(r => !r.resultado) ? `Total de CPFs: ${lista.length}` : `Total de CPFs analisados: ${lista.length}`, 14, 47);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(80, 80, 80);
 
@@ -295,7 +310,8 @@ export class BotoesExportacao {
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Produção');
-    const nome = this.nomeArquivo('xlsx').replace('.xlsx', `${sufixo}.xlsx`);
+    const sufixoTent = !this.modoAdicionados && this.filtroTentativas ? '_novas_tentativas' : '';
+    const nome = this.nomeArquivo('xlsx').replace('.xlsx', `${sufixo}${sufixoTent}.xlsx`);
     XLSX.writeFile(wb, nome);
   }
 
@@ -330,7 +346,7 @@ export class BotoesExportacao {
 
     const cabecalhos = [
       'Nome do Cliente', 'CPF', 'Telefone', 'Município', 'UF', 'Bairro',
-      'Assessor', 'Analista', 'Data do Encaminhamento', 'Encaminhado Para',
+      'Assessor', 'Analista', 'Data do Encaminhamento', 'Encaminhado Por', 'Encaminhado Para',
     ];
     const linhas = lista.map(r => [
       r.clienteNome          || '—',
@@ -342,6 +358,7 @@ export class BotoesExportacao {
       r.assessorNome         || '—',
       r.analistaNome         || '—',
       this.formatarTimestamp(r.encaminhadoEm),
+      r.encaminhadoPorNome   || '—',
       r.encaminhadoParaNome  || '—',
     ]);
 
@@ -350,7 +367,7 @@ export class BotoesExportacao {
     ws['!cols'] = [
       { wch: 32 }, { wch: 16 }, { wch: 16 },
       { wch: 20 }, { wch: 6  }, { wch: 22 },
-      { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 24 },
+      { wch: 24 }, { wch: 24 }, { wch: 22 }, { wch: 24 }, { wch: 24 },
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Elegíveis');

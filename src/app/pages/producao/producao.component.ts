@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { catchError, finalize } from 'rxjs/operators';
 import { EMPTY } from 'rxjs';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { HeaderComponent } from '../shared/header/header.component';
 import { ProducaoService } from '../../services/producao.service';
@@ -54,18 +57,29 @@ export class ProducaoComponent {
   filtroAnalista     = signal<string>('');
   filtroMunicipio    = signal<string>('');
   filtroBairro       = signal<string>('');
+  filtroTentativas   = signal(false);
   clienteSelecionado = signal<PreCadastro | null>(null);
   carregando         = signal(false);
   jaCarregou         = signal(false);
   erro               = signal<string | null>(null);
 
   // ── Relatório de cadastros adicionados (modo geral) ───────────────────────
-  abaAtiva                  = signal<'analisados' | 'adicionados' | 'encaminhados' | 'caixa_assessores'>('analisados');
+  abaAtiva                  = signal<'analisados' | 'adicionados' | 'novas_tentativas' | 'encaminhados' | 'caixa_assessores'>('analisados');
   registrosAdicionados      = signal<PreCadastro[]>([]);
   filtroOrigemAdicionados   = signal<string>('');
   carregandoAdicionados     = signal(false);
   jaCarregouAdicionados     = signal(false);
   erroAdicionados           = signal<string | null>(null);
+
+  // ── Tentativas de recadastro pelo site (clientes já cadastrados) ──────────
+  registrosTentativas       = signal<PreCadastro[]>([]);
+  carregandoTentativas      = signal(false);
+  mostrarListaTentativas    = signal(false);
+
+  // ── Aba "Novas tentativas": já analisados antes do período que tentaram de novo ──
+  filtroRetornoResultado    = signal<'todos' | 'apto' | 'inapto' | 'nao_analisado'>('todos');
+  filtroRetornoMunicipio    = signal<string>('');
+  termoBuscaRetorno         = signal<string>('');
 
   // ── Relatório de encaminhamentos (modo geral) ─────────────────────────────
   registrosEncaminhados     = signal<PreCadastro[]>([]);
@@ -79,8 +93,8 @@ export class ProducaoComponent {
   jaCarregouCaixaAssessores = signal(false);
   erroCaixaAssessores       = signal<string | null>(null);
 
-  /** Registros filtrados por origem/analista/município/bairro (sem busca CPF) — alimenta os cards de resumo */
-  registrosPorOrigem = computed(() => {
+  /** Filtros de origem/analista/município/bairro (sem tentativas e sem busca CPF) */
+  private registrosBaseFiltros = computed(() => {
     let lista = this.registrosOriginais();
 
     const origem = this.filtroOrigem().trim();
@@ -96,6 +110,19 @@ export class ProducaoComponent {
     if (bairro) lista = lista.filter(r => normalizarTexto((r.bairro || '').trim()) === bairro);
 
     return lista;
+  });
+
+  /** Quantidade de clientes com novas tentativas de cadastro (respeita os demais filtros) */
+  contarComTentativas = computed(() =>
+    this.registrosBaseFiltros().filter(r => (r.totalTentativas ?? 0) > 0).length
+  );
+
+  /** Registros filtrados por origem/analista/município/bairro/tentativas (sem busca CPF) — alimenta os cards de resumo */
+  registrosPorOrigem = computed(() => {
+    const lista = this.registrosBaseFiltros();
+    return this.filtroTentativas()
+      ? lista.filter(r => (r.totalTentativas ?? 0) > 0)
+      : lista;
   });
 
   origensDisponiveis = computed(() => {
@@ -211,6 +238,156 @@ export class ProducaoComponent {
     return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
   });
 
+  /** Tentativas aparecem junto da origem Site / portal (ou sem filtro de origem) */
+  exibirTentativas = computed(() => {
+    const o = this.filtroOrigemAdicionados().trim();
+    return !o || o === 'Site / portal';
+  });
+
+  /** Total de tentativas (eventos) no período — um cliente pode tentar mais de uma vez */
+  totalTentativasNoPeriodo = computed(() =>
+    this.registrosTentativas().reduce((acc, r) => acc + (r.tentativasNoPeriodo ?? 0), 0)
+  );
+
+  /** Data/hora de início do período selecionado (ms) */
+  private inicioPeriodoMs(): number {
+    const ini = this.dataInicio();
+    if (!ini) return 0;
+    const [y, m, d] = ini.split('-').map(Number);
+    return new Date(y, m - 1, d, 0, 0, 0, 0).getTime();
+  }
+
+  private tsMs(ts: any): number {
+    if (!ts) return 0;
+    try {
+      const d: Date = ts?.toDate ? ts.toDate() : new Date(ts);
+      return isNaN(d.getTime()) ? 0 : d.getTime();
+    } catch { return 0; }
+  }
+
+  /**
+   * Clientes que tentaram se cadastrar novamente no período e NÃO foram analisados
+   * no período: os analisados antes do início do período + os ainda não analisados.
+   */
+  retornosAposAnalise = computed(() => {
+    const inicio = this.inicioPeriodoMs();
+    return this.registrosTentativas().filter(r => {
+      if (r.resultado !== 'apto' && r.resultado !== 'inapto') return true; // não analisado
+      const analise = this.tsMs(r.analisadoEm);
+      return !analise || analise < inicio;
+    });
+  });
+
+  retornosMunicipios = computed(() => {
+    const map = new Map<string, string>();
+    this.retornosAposAnalise().forEach(r => {
+      const m = (r.municipio || '').trim();
+      if (m && !map.has(normalizarTexto(m))) map.set(normalizarTexto(m), m);
+    });
+    return Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  /** Base com filtro de município (alimenta contadores) */
+  private retornosBase = computed(() => {
+    const mun = normalizarTexto(this.filtroRetornoMunicipio().trim());
+    const lista = this.retornosAposAnalise();
+    return mun ? lista.filter(r => normalizarTexto((r.municipio || '').trim()) === mun) : lista;
+  });
+
+  retornosFiltrados = computed(() => {
+    let lista = this.retornosBase();
+    const fr = this.filtroRetornoResultado();
+    if (fr === 'nao_analisado') lista = lista.filter(r => !r.resultado);
+    else if (fr !== 'todos') lista = lista.filter(r => r.resultado === fr);
+    const digits = this.termoBuscaRetorno().replace(/\D/g, '');
+    if (digits) lista = lista.filter(r => (r.cpf || '').replace(/\D/g, '').includes(digits));
+    return lista;
+  });
+
+  contarRetorno(fr: 'todos' | 'apto' | 'inapto' | 'nao_analisado'): number {
+    const base = this.retornosBase();
+    if (fr === 'todos') return base.length;
+    if (fr === 'nao_analisado') return base.filter(r => !r.resultado).length;
+    return base.filter(r => r.resultado === fr).length;
+  }
+
+  contarRetornoElegiveis = computed(() =>
+    this.retornosBase().filter(r => r.elegivel?.status === 'sim').length
+  );
+
+  elegivelLabel(r: PreCadastro): string {
+    const s = r.elegivel?.status;
+    if (s === 'sim')            return 'Elegível';
+    if (s === 'nao')            return 'Não elegível';
+    if (s === 'nao_verificado') return 'Não verificado';
+    return '—';
+  }
+
+  private fmtData(ts: any, comHora = false): string {
+    const ms = this.tsMs(ts);
+    if (!ms) return '—';
+    const d = new Date(ms);
+    return comHora
+      ? d.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : d.toLocaleDateString('pt-BR');
+  }
+
+  private linhasRetorno(): { cab: string[]; linhas: string[][] } {
+    const cab = ['Nome do Cliente', 'CPF', 'Telefone', 'Município', 'Bairro', 'Origem',
+                 'Cadastrado em', 'Resultado anterior', 'Analisado em', 'Analista',
+                 'Elegibilidade', 'Última tentativa'];
+    const linhas = this.retornosFiltrados().map(r => [
+      r.clienteNome || '—', r.cpf || '—', r.telefone || '—', r.municipio || '—', r.bairro || '—',
+      r.origem || '—', this.fmtData(r.criadoEm),
+      r.resultado === 'apto' ? 'Apto' : r.resultado === 'inapto' ? 'Inapto' : 'Não analisado',
+      this.fmtData(r.analisadoEm), r.analistaNome || '—', this.elegivelLabel(r),
+      this.fmtData(r.ultimaTentativaEm, true),
+    ]);
+    return { cab, linhas };
+  }
+
+  private nomeArquivoRetorno(ext: string): string {
+    const p = this.dataInicio() === this.dataFim() ? this.dataInicio() : `${this.dataInicio()}_a_${this.dataFim()}`;
+    return `novas_tentativas_${p}.${ext}`;
+  }
+
+  exportarExcelRetornos() {
+    const { cab, linhas } = this.linhasRetorno();
+    if (!linhas.length) return;
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+    ws['!cols'] = [32, 16, 16, 20, 20, 18, 14, 16, 14, 24, 16, 18].map(wch => ({ wch }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Novas tentativas');
+    XLSX.writeFile(wb, this.nomeArquivoRetorno('xlsx'));
+  }
+
+  exportarPDFRetornos() {
+    const { cab, linhas } = this.linhasRetorno();
+    if (!linhas.length) return;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFontSize(18); doc.setTextColor(0, 141, 69); doc.text('CRENORTE', 14, 18);
+    doc.setFontSize(12); doc.setTextColor(40, 40, 40);
+    const fr = this.filtroRetornoResultado();
+    const frLabel = { todos: '', apto: 'Eram aptos', inapto: 'Eram inaptos', nao_analisado: 'Não analisados' }[fr];
+    doc.text(`Novas tentativas — clientes não analisados no período${frLabel ? ' · ' + frLabel : ''}`, 14, 27);
+    doc.setFontSize(10); doc.setTextColor(80, 80, 80);
+    const fmt = (s: string) => s.split('-').reverse().join('/');
+    const periodo = this.dataInicio() === this.dataFim() ? fmt(this.dataInicio()) : `${fmt(this.dataInicio())} a ${fmt(this.dataFim())}`;
+    doc.text(`Período das tentativas: ${periodo}`, 14, 35);
+    doc.text(`Total de clientes: ${linhas.length}`, 14, 41);
+    autoTable(doc, {
+      head: [cab], body: linhas, startY: 47,
+      styles: { fontSize: 7.5, cellPadding: 2 },
+      headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 240] },
+      margin: { left: 10, right: 10 },
+    });
+    const finalY = (doc as any).lastAutoTable?.finalY ?? 100;
+    doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 10, finalY + 8);
+    doc.save(this.nomeArquivoRetorno('pdf'));
+  }
+
   encaminhadosPorRemetente = computed(() => {
     const map = new Map<string, { uid: string; nome: string; count: number }>();
     this.registrosEncaminhados().forEach(r => {
@@ -289,12 +466,18 @@ export class ProducaoComponent {
     this.colaborador.set(null);
     this.registrosOriginais.set([]);
     this.registrosAdicionados.set([]);
+    this.registrosTentativas.set([]);
+    this.mostrarListaTentativas.set(false);
+    this.filtroRetornoResultado.set('todos');
+    this.filtroRetornoMunicipio.set('');
+    this.termoBuscaRetorno.set('');
     this.termoBusca.set('');
     this.filtroResultado.set('todos');
     this.filtroOrigem.set('');
     this.filtroAnalista.set('');
     this.filtroMunicipio.set('');
     this.filtroBairro.set('');
+    this.filtroTentativas.set(false);
     this.filtroOrigemAdicionados.set('');
     this.abaAtiva.set('analisados');
     this.jaCarregou.set(false);
@@ -360,6 +543,7 @@ export class ProducaoComponent {
     this.filtroAnalista.set('');
     this.filtroMunicipio.set('');
     this.filtroBairro.set('');
+    this.filtroTentativas.set(false);
     this.termoBusca.set('');
 
     const obs$ =
@@ -403,6 +587,27 @@ export class ProducaoComponent {
       }),
     ).subscribe(registros => {
       this.registrosAdicionados.set(registros);
+    });
+
+    this.buscarTentativas(dataInicio, dataFim);
+  }
+
+  private buscarTentativas(dataInicio: string, dataFim: string) {
+    this.carregandoTentativas.set(true);
+    this.registrosTentativas.set([]);
+    this.mostrarListaTentativas.set(false);
+    this.filtroRetornoResultado.set('todos');
+    this.filtroRetornoMunicipio.set('');
+    this.termoBuscaRetorno.set('');
+
+    this.svc.buscarTentativasRecadastro(dataInicio, dataFim).pipe(
+      catchError(e => {
+        console.error('[producao] erro ao buscar tentativas de recadastro', e);
+        return EMPTY;
+      }),
+      finalize(() => this.carregandoTentativas.set(false)),
+    ).subscribe(registros => {
+      this.registrosTentativas.set(registros);
     });
   }
 
@@ -479,6 +684,6 @@ export class ProducaoComponent {
   }
 
   get mostrarFiltroNaoAnalisado(): boolean {
-    return this.cargo() === 'assessor' || this.cargo() === 'supervisor';
+    return this.cargo() === 'assessor' || this.cargo() === 'supervisor' || this.cargo() === 'geral';
   }
 }

@@ -4,6 +4,7 @@ import {
   collection,
   query,
   where,
+  orderBy,
   getDocs,
   documentId,
   Timestamp,
@@ -162,6 +163,14 @@ export class ProducaoService {
       encaminhadoParaUid: this.cleanStr(raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || raw.analistaUid),
       encaminhadoParaNome: this.cleanStr(raw.encaminhadoParaNome || raw.designadoParaNome || raw.encaminhamento?.assessorNome || raw.analistaNome)
         || nomes?.get(this.cleanStr(raw.encaminhadoParaUid || raw.designadoParaUid || raw.encaminhamento?.assessorUid || raw.analistaUid)) || '',
+      ...(() => {
+        const lista = Array.isArray(raw.tentativasContato) ? raw.tentativasContato : [];
+        const ms = lista.map((t: any) => this.tentativaMs(t)).filter((x: number) => x > 0);
+        return {
+          totalTentativas: lista.length,
+          ultimaTentativaEm: ms.length ? new Date(Math.max(...ms)) : null,
+        };
+      })(),
     };
   }
 
@@ -193,6 +202,11 @@ export class ProducaoService {
 
   buscarCaixaAssessores(): Observable<PreCadastro[]> {
     return from(this._caixaAssessores());
+  }
+
+  /** Clientes que já tinham cadastro e tentaram se cadastrar de novo pelo site no período */
+  buscarTentativasRecadastro(dataInicio: string, dataFim: string): Observable<PreCadastro[]> {
+    return from(this._tentativasRecadastro(dataInicio, dataFim));
   }
 
   // ── Implementações privadas ───────────────────────────────────────────────
@@ -354,6 +368,19 @@ export class ProducaoService {
     const nomes = new Map([...nomesAssessores, ...nomesAnalistas]);
 
     const result = filtered.map(r => this.mapRaw(r, nomes));
+
+    // Inclui como "não analisados" os clientes que já tinham cadastro, tentaram
+    // novamente pelo site no período e ainda não passaram por análise.
+    try {
+      const idsPresentes = new Set(result.map(r => r.id));
+      const tentativas = await this._tentativasRecadastro(dataInicio, dataFim);
+      tentativas
+        .filter(t => !t.resultado && !idsPresentes.has(t.id))
+        .forEach(t => result.push(t));
+    } catch (e) {
+      console.warn('[producao] não foi possível incluir tentativas não analisadas', e);
+    }
+
     result.sort((a, b) =>
       this.getTime(b.analisadoEm ?? b.encaminhadoEm) -
       this.getTime(a.analisadoEm ?? a.encaminhadoEm)
@@ -430,6 +457,67 @@ export class ProducaoService {
 
     const result = all.map(r => this.mapRaw(r, nomes));
     result.sort((a, b) => this.getTime(b.encaminhadoEm) - this.getTime(a.encaminhadoEm));
+    this.cache.set(key, result, 3 * 60 * 1000);
+    return result;
+  }
+
+  /** Converte um item de `tentativasContato` (Timestamp, Date, string ou objeto com data) em ms */
+  private tentativaMs(t: any): number {
+    if (!t) return 0;
+    if (typeof t.toMillis === 'function') return t.toMillis();
+    if (typeof t.seconds === 'number') return t.seconds * 1000;
+    if (t instanceof Date) return t.getTime();
+    if (typeof t === 'string' || typeof t === 'number') {
+      const ms = new Date(t).getTime();
+      return isNaN(ms) ? 0 : ms;
+    }
+    if (typeof t === 'object') return this.tentativaMs(t.em ?? t.data ?? t.timestamp ?? t.createdAt);
+    return 0;
+  }
+
+  private async _tentativasRecadastro(dataInicio: string, dataFim: string): Promise<PreCadastro[]> {
+    const key = this.cacheKey('tentativasRecadastro', dataInicio, dataFim);
+    const cached = this.cache.get<PreCadastro[]>(key);
+    if (cached) return cached;
+
+    // orderBy em campo array retorna apenas docs que possuem o campo
+    // (requer o fieldOverride de `tentativasContato` em firestore.indexes.json).
+    // Fallback: varre os cadastros de origem Site / portal.
+    let raws: any[];
+    try {
+      const snap = await getDocs(query(this.preCadRef, orderBy('tentativasContato')));
+      raws = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    } catch (e) {
+      console.warn('[producao] índice de tentativasContato indisponível, usando fallback por origem', e);
+      const snap = await getDocs(query(this.preCadRef, where('origem', '==', 'Site / portal')));
+      raws = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
+    }
+
+    const [yi, mi, di] = dataInicio.split('-').map(Number);
+    const [yf, mf, df] = dataFim.split('-').map(Number);
+    const ini = new Date(yi, mi - 1, di, 0, 0, 0, 0).getTime();
+    const fim = new Date(yf, mf - 1, df, 23, 59, 59, 999).getTime();
+
+    const comTentativa: { raw: any; noPeriodo: number; total: number; ultima: number }[] = [];
+    raws.forEach(r => {
+      const lista = Array.isArray(r.tentativasContato) ? r.tentativasContato : [];
+      if (!lista.length) return;
+      const ms = lista.map((t: any) => this.tentativaMs(t)).filter((x: number) => x > 0);
+      const noPeriodo = ms.filter((x: number) => x >= ini && x <= fim).length;
+      if (!noPeriodo) return;
+      comTentativa.push({ raw: r, noPeriodo, total: lista.length, ultima: Math.max(...ms) });
+    });
+
+    const uids = [...new Set(comTentativa.map(c => this.cleanStr(c.raw.createdByUid)).filter(Boolean) as string[])];
+    const nomes = await this.fetchNomesByUids(uids);
+
+    const result = comTentativa.map(c => ({
+      ...this.mapRaw(c.raw, nomes),
+      tentativasNoPeriodo: c.noPeriodo,
+      totalTentativas: c.total,
+      ultimaTentativaEm: c.ultima ? new Date(c.ultima) : null,
+    }));
+    result.sort((a, b) => (b.ultimaTentativaEm?.getTime() ?? 0) - (a.ultimaTentativaEm?.getTime() ?? 0));
     this.cache.set(key, result, 3 * 60 * 1000);
     return result;
   }

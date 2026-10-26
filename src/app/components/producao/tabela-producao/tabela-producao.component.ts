@@ -36,6 +36,22 @@ export class TabelaProducao {
     return 'badge bg-secondary';
   }
 
+  getElegivelLabel(item: PreCadastro): string {
+    const s = item.elegivel?.status;
+    if (s === 'sim')            return 'Elegível';
+    if (s === 'nao')            return 'Não elegível';
+    if (s === 'nao_verificado') return 'Não verificado';
+    return '—';
+  }
+
+  getElegivelClasse(item: PreCadastro): string {
+    const s = item.elegivel?.status;
+    if (s === 'sim')            return 'badge bg-warning text-dark';
+    if (s === 'nao')            return 'badge bg-secondary';
+    if (s === 'nao_verificado') return 'badge bg-light text-muted border';
+    return 'text-muted';
+  }
+
   getStatusLabel(item: PreCadastro): string {
     if (item.status === 'apto')           return 'Apto';
     if (item.status === 'inapto')         return 'Inapto';

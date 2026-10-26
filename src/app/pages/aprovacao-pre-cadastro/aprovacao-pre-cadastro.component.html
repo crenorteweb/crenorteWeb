@@ -183,8 +183,8 @@
             <li *ngIf="item.origem" class="text-muted">
               <i class="bi bi-signpost me-1"></i><span class="fw-semibold">Origem:</span> {{ item.origem }}
             </li>
-            <li *ngIf="item.valorSolicitado" class="text-muted">
-              <i class="bi bi-cash me-1"></i><span class="fw-semibold">Solicitado:</span> R${{ item.valorSolicitado | number:'1.0-0' }}
+            <li *ngIf="valorSolicitadoFmt(item) as vs" class="text-muted">
+              <i class="bi bi-cash me-1"></i><span class="fw-semibold">Solicitado:</span> {{ vs }}
             </li>
             <li class="text-muted">
               <i class="bi bi-person-check me-1"></i><span class="fw-semibold">Criado por:</span>

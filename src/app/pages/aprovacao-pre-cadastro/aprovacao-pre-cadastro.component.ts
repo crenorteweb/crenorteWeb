@@ -1002,6 +1002,28 @@ export class AprovacaoPreCadastroComponent implements OnInit, OnDestroy {
   /** ==== Helpers de CPF + datas ==== **/
   private digits(s: any): string { return String(s ?? '').replace(/\D+/g, ''); }
 
+  /**
+   * Formata o valor solicitado de forma tolerante. Registros vindos do site/portal
+   * podem gravar o valor como texto (ex.: "R$ 2.000,00"); o pipe `number` lança
+   * exceção nesses casos e interrompe a renderização do restante do card.
+   */
+  valorSolicitadoFmt(item: any): string {
+    const raw = item?.valorSolicitadoFormatado ?? item?.valorSolicitado;
+    if (raw === null || raw === undefined || raw === '') return '';
+    let n: number;
+    if (typeof raw === 'number') {
+      n = raw;
+    } else {
+      const txt = String(raw).replace(/[^\d,.-]/g, '');
+      // formato BR (1.234,56) ou simples (1234.56)
+      n = txt.includes(',') || /^-?\d{1,3}(\.\d{3})+$/.test(txt)
+        ? Number(txt.replace(/\./g, '').replace(',', '.'))
+        : Number(txt);
+    }
+    if (!isFinite(n) || n <= 0) return typeof raw === 'string' ? raw : '';
+    return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+  }
+
   cpfMask(val?: string | null): string {
     const d = this.digits(val);
     if (d.length !== 11) return val ?? '';

@@ -59,9 +59,18 @@
   <!-- Linha 1: busca geral + botão limpar -->
   <div class="row g-2 align-items-center mb-2">
     <div class="col-12 col-md-8 col-lg-6">
-      <input type="text" class="form-control"
-        placeholder="Buscar por nome, CPF, telefone, cidade, grupo…"
-        [(ngModel)]="searchTerm" (ngModelChange)="onSearchChange()" />
+      <div class="input-group">
+        <input type="text" class="form-control"
+          placeholder="Buscar por nome, CPF, telefone, cidade, grupo…"
+          [(ngModel)]="searchTerm" (keyup.enter)="buscar()" />
+        <button type="button" class="btn btn-success" (click)="buscar()" [disabled]="buscandoCpf">
+          <span *ngIf="buscandoCpf" class="spinner-border spinner-border-sm me-1"></span>
+          <i *ngIf="!buscandoCpf" class="bi bi-search me-1"></i>Buscar
+        </button>
+      </div>
+      <div *ngIf="modoBuscaCpf" class="form-text">
+        <i class="bi bi-database me-1"></i>Resultado buscado direto no banco pelo CPF.
+      </div>
     </div>
     <div class="col-12 col-md-4 col-lg-6 d-flex justify-content-md-end gap-2">
       <button type="button" class="btn btn-sm btn-outline-success"
@@ -69,7 +78,7 @@
         <i class="bi bi-file-earmark-pdf me-1"></i>Relatório PDF
       </button>
       <button type="button" class="btn btn-sm btn-outline-secondary"
-        (click)="searchTerm = ''; setEnvioFilter('todos'); setAnalistaFilter('todos'); limparCriador(); filtroUf = ''; filtroCidade = ''; filtroBairro = ''; filtroAprovadorUid = ''; aplicarFiltrosPessoas()">
+        (click)="limparFiltros()">
         <i class="bi bi-x-circle me-1"></i>Limpar filtros
       </button>
     </div>
@@ -386,7 +395,6 @@
               <div class="row g-1">
                 <div class="col-12" *ngIf="p.cpf">
                   <span class="text-muted">CPF:</span> {{ cpfMask(p.cpf) }}
-                  <span class="ms-2 text-muted">Sexo:</span> {{ p.sexo || '—' }}
                 </div>
                 <div class="col-12">
                   <span class="text-muted">Tel:</span>
@@ -396,9 +404,9 @@
                   <span *ngIf="!whatsHref(p.telefone)" class="ms-1">{{ p.telefone || '—' }}</span>
                 </div>
                 <div class="col-12">
-                  <span class="text-muted">Local:</span>
-                  {{ p.cidade || '—' }}<ng-container *ngIf="p.uf">/{{ p.uf }}</ng-container>
-                  <ng-container *ngIf="p.bairro"> &nbsp;·&nbsp; {{ p.bairro }}</ng-container>
+                  <span class="text-muted">Cidade:</span> {{ p.cidade || '—' }}
+                  <span class="ms-2 text-muted">UF:</span> {{ p.uf || '—' }}
+                  <span class="ms-2 text-muted">Bairro:</span> {{ p.bairro || '—' }}
                 </div>
                 <div class="col-12" *ngIf="p.modalidade">
                   <span class="text-muted">Modalidade:</span> {{ p.modalidade }}
@@ -552,6 +560,21 @@
       Nenhum pré-cadastro encontrado na sua triagem.
     </div>
 
+    <!-- Diagnóstico: CPF buscado no banco que não pode ser exibido -->
+    <ng-container *ngIf="!buscandoCpf && diagnosticoCpf">
+      <div *ngIf="!diagnosticoCpf.length" class="alert alert-warning">
+        <i class="bi bi-search me-1"></i>Este CPF não existe em <code>pre_cadastros</code> (nem com nem sem máscara).
+      </div>
+      <div *ngFor="let d of diagnosticoCpf" class="alert alert-warning">
+        <div class="fw-semibold mb-1">
+          <i class="bi bi-info-circle me-1"></i>{{ d.nome }} — {{ cpfMask($any(d.item).cpf) }} existe, mas não aparece aqui porque:
+        </div>
+        <ul class="mb-0 small">
+          <li *ngFor="let m of d.motivos">{{ m }}</li>
+        </ul>
+      </div>
+    </ng-container>
+
     <!-- Grid de cards -->
     <div class="row g-3">
       <div class="col-12 col-md-6 col-xl-4" *ngFor="let p of pessoasPaginadas">
@@ -582,10 +605,9 @@
           <div class="card-body py-2 small">
             <div class="row g-1">
 
-              <!-- CPF + Sexo -->
+              <!-- CPF -->
               <div class="col-12" *ngIf="p.cpf">
                 <span class="text-muted">CPF:</span> {{ cpfMask(p.cpf) }}
-                <span class="ms-2 text-muted">Sexo:</span> {{ p.sexo || '—' }}
               </div>
 
               <!-- Telefone -->
@@ -599,9 +621,9 @@
 
               <!-- Localidade -->
               <div class="col-12">
-                <span class="text-muted">Local:</span>
-                {{ p.cidade || '—' }}<ng-container *ngIf="p.uf">/{{ p.uf }}</ng-container>
-                <ng-container *ngIf="p.bairro"> &nbsp;·&nbsp; {{ p.bairro }}</ng-container>
+                <span class="text-muted">Cidade:</span> {{ p.cidade || '—' }}
+                <span class="ms-2 text-muted">UF:</span> {{ p.uf || '—' }}
+                <span class="ms-2 text-muted">Bairro:</span> {{ p.bairro || '—' }}
               </div>
 
               <!-- Modalidade + Origem -->

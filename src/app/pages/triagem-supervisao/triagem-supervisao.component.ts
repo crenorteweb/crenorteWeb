@@ -6,7 +6,7 @@ import autoTable from 'jspdf-autotable';
 
 import { HeaderComponent } from '../shared/header/header.component';
 
-import { PreCadastroService, filtrarUfsNorte } from '../../services/pre-cadastro.service';
+import { PreCadastroService, filtrarUfsNorte, UFS_NORTE } from '../../services/pre-cadastro.service';
 import { GrupoSolidarioService } from '../../services/grupo-solidario.service';
 
 import { PreCadastro } from '../../models/pre-cadastro.model';
@@ -80,6 +80,9 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
   aba: Aba = 'pessoas';
 
   searchTerm = '';
+
+  /** Diagnóstico quando a busca é um CPF que não aparece na lista de Pessoas */
+  diagnosticoCpf: { item: PreCadastro; nome: string; motivos: string[] }[] | null = null;
   filtrosEnvio = new Set<string>();
 
   // ====== filtro por quem cadastrou (autocomplete + select) ======
@@ -684,10 +687,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       this.pessoas = filtrarUfsNorte(norm).filter(r => {
         // Sempre exibe se encaminhado para analista (caixaAtual === 'analista' ou analistaUid definido)
         if ((r as any).caixaAtual === 'analista' || !!(r as any).analistaUid) return true;
-        if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
-        const origem = ((r as any).origem ?? '').trim().toLowerCase();
-        const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
-        return !ehCallCenter;
+        return (((r as any).aprovacao?.status || 'nao_verificado') === 'apto');
       }) as typeof norm;
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -820,10 +820,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       });
       const aptos = norm.filter(r => {
         if ((r as any).caixaAtual === 'analista' || !!(r as any).analistaUid) return true;
-        if (((r as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
-        const origem = ((r as any).origem ?? '').trim().toLowerCase();
-        const ehCallCenter = origem === 'site / portal' && (r as any)?.elegivel?.status === 'sim';
-        return !ehCallCenter;
+        return (((r as any).aprovacao?.status || 'nao_verificado') === 'apto');
       });
       this.pessoas = aptos;
       this.pessoasView = [...aptos];
@@ -1092,10 +1089,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
 
       this.pessoas = Array.from(atuais.values()).filter(p => {
         if ((p as any).caixaAtual === 'analista' || !!(p as any).analistaUid) return true;
-        if (((p as any).aprovacao?.status || 'nao_verificado') !== 'apto') return false;
-        const origem = ((p as any).origem ?? '').trim().toLowerCase();
-        const ehCallCenter = origem === 'site / portal' && (p as any)?.elegivel?.status === 'sim';
-        return !ehCallCenter;
+        return (((p as any).aprovacao?.status || 'nao_verificado') === 'apto');
       });
       this.pessoasView = [...this.pessoas];
     } catch (e) {
@@ -1298,10 +1292,112 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     this.aplicarFiltrosMinhaCaixa();
   }
 
-  onSearchChange() {
+  /** Termo efetivamente aplicado (só muda ao clicar em "Buscar" ou pressionar Enter). */
+  termoAplicado = '';
+  /** true quando a aba Pessoas está mostrando o resultado de uma busca de CPF direto no banco. */
+  modoBuscaCpf = false;
+  buscandoCpf = false;
+
+  private termoEhCpf(t: string): string | null {
+    const digits = (t || '').replace(/\D/g, '');
+    return digits.length === 11 && !/[a-zA-Z]/.test(t || '') ? digits : null;
+  }
+
+  /** Disparado pelo botão "Buscar" ou Enter no campo de busca. */
+  async buscar(): Promise<void> {
+    this.termoAplicado = (this.searchTerm || '').trim();
+    this.diagnosticoCpf = null;
+    const cpf = this.termoEhCpf(this.termoAplicado);
+
+    if (this.aba === 'pessoas' && cpf) {
+      await this.buscarCpfNoBanco(cpf);
+      return;
+    }
+
+    // Termo comum (nome, telefone, cidade…): filtra a lista já carregada
+    await this.sairModoBuscaCpf();
     if (this.aba === 'pessoas') this.aplicarFiltrosPessoas();
     else if (this.aba === 'grupos') this.aplicarFiltrosGrupos();
-    else this.aplicarFiltrosMinhaCaixa();
+  }
+
+  /** Limpa a busca e todos os filtros, voltando à lista carregada. */
+  async limparFiltros(): Promise<void> {
+    this.searchTerm = '';
+    this.termoAplicado = '';
+    this.diagnosticoCpf = null;
+    this.modoBuscaCpf = false;
+    this.filtroUf = '';
+    this.filtroCidade = '';
+    this.filtroBairro = '';
+    this.filtroAprovadorUid = '';
+    this.setEnvioFilter('todos');
+    this.setAnalistaFilter('todos');
+    this.limparCriador(); // restaura pessoas/grupos e reaplica filtros
+  }
+
+  /** Restaura a lista normal da aba Pessoas depois de uma busca por CPF. */
+  private async sairModoBuscaCpf(): Promise<void> {
+    if (!this.modoBuscaCpf) return;
+    this.modoBuscaCpf = false;
+    if (this.filtroCriadorUid) await this._buscarPorCriador(this.filtroCriadorUid);
+    else this.pessoas = [...this.pessoasTodos];
+  }
+
+  /**
+   * Busca o CPF direto no Firestore (com e sem máscara), sem depender da carga
+   * inicial da tela (limitada a 500 registros por grupo de colaboradores).
+   * Aplica apenas as regras de exibição da aba (UF atendida + apto ou na caixa
+   * do analista); o que for barrado aparece no aviso com o motivo.
+   */
+  private async buscarCpfNoBanco(cpf: string): Promise<void> {
+    this.buscandoCpf = true;
+    try {
+      const encontrados = await this.preSvc.buscarPorCpf(cpf);
+      const visiveis: PreCadastro[] = [];
+      const ocultos: { item: PreCadastro; nome: string; motivos: string[] }[] = [];
+      for (const r of encontrados) {
+        const diag = this.motivosForaDaLista(r);
+        if (diag.motivos.length) ocultos.push(diag);
+        else visiveis.push(this.normalizarPessoa(r));
+      }
+      this.modoBuscaCpf = true;
+      this.pessoas = visiveis;
+      this.diagnosticoCpf = ocultos.length || !encontrados.length ? ocultos : null;
+      this.aplicarFiltrosPessoas();
+    } catch (e) {
+      console.error('[TriagemSupervisao] erro ao buscar CPF no banco:', e);
+      this.diagnosticoCpf = [];
+    } finally {
+      this.buscandoCpf = false;
+    }
+  }
+
+  private normalizarPessoa(r: PreCadastro): PreCadastro {
+    const x: any = r;
+    return {
+      ...x,
+      agendamentoStatus: x.agendamentoStatus || 'nao_agendado',
+      formalizacao: { status: x.formalizacao?.status || 'nao_formalizado', ...(x.formalizacao || {}) },
+      desistencia:  { status: x.desistencia?.status  || 'nao_desistiu',    ...(x.desistencia  || {}) },
+    } as PreCadastro;
+  }
+
+  /** Regras de exibição da aba Pessoas que impedem o cadastro de aparecer. */
+  private motivosForaDaLista(r: PreCadastro) {
+    const x: any = r;
+    const motivos: string[] = [];
+    const naCaixaAnalista = x.caixaAtual === 'analista' || !!x.analistaUid;
+    const status = x.aprovacao?.status || 'nao_verificado';
+    const uf = String(x.uf ?? '').toUpperCase().trim();
+
+    if (!(UFS_NORTE as readonly string[]).includes(uf)) {
+      motivos.push(`UF "${x.uf || 'vazia'}" não está entre as UFs atendidas (${UFS_NORTE.join(', ')}).`);
+    }
+    if (!naCaixaAnalista && status !== 'apto') {
+      const label = status === 'inapto' ? 'Inapto' : 'Não verificado (ainda não aprovado)';
+      motivos.push(`Aprovação: ${label}. A aba Pessoas só mostra cadastros aptos.`);
+    }
+    return { item: r, nome: x.nomeCompleto || x.nome || '(sem nome)', motivos };
   }
 
   setEnvioFilter(f: FiltroEnvio) {
@@ -1380,7 +1476,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       list = list.filter((p) => (p as any).createdByUid === this.filtroCriadorUid);
     }
 
-    const term = this.normalize(this.searchTerm);
+    const term = this.normalize(this.termoAplicado);
     if (term === 'apto' || term === 'nao_verificado') {
       list = list.filter((p) => {
         const status = (p as any).aprovacao?.status || 'nao_verificado';
@@ -1390,7 +1486,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       list = list.filter((p) => {
         const blob = this.normalize(
           `${(p as any).nomeCompleto || (p as any).nome || ''} ${(p as any).cpf || ''
-          } ${(p as any).telefone || ''} ${(p as any).email || ''} ${(p as any).bairro || ''
+          } ${String((p as any).cpf || '').replace(/\D/g, '')} ${(p as any).telefone || ''} ${(p as any).email || ''} ${(p as any).bairro || ''
           } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).grupoNome || ''
           } ${(p as any).aprovacao?.status || ''} ${(p as any).createdByNome || ''} ${(p as any).modalidade || ''} ${(p as any).sexo || ''}`
         );
@@ -1424,7 +1520,7 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
       list = list.filter((g) => (g as any).createdByUid === this.filtroCriadorUid);
     }
 
-    const term = this.normalize(this.searchTerm);
+    const term = this.normalize(this.termoAplicado);
     if (term) {
       list = list.filter((g) => {
         const coord: any = (g as any).coordenadorView || {};
@@ -1493,8 +1589,8 @@ export class TriagemSupervisaoComponent implements OnInit, OnDestroy {
     if (term) {
       pessoas = pessoas.filter(p => {
         const blob = this.normalize(
-          `${(p as any).nomeCompleto || ''} ${(p as any).cpf || ''} ${(p as any).telefone || ''
-          } ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).encaminhadoPorNome || ''
+          `${(p as any).nomeCompleto || ''} ${(p as any).cpf || ''} ${String((p as any).cpf || '').replace(/\D/g, '')
+          } ${(p as any).telefone || ''} ${(p as any).cidade || ''} ${(p as any).uf || ''} ${(p as any).encaminhadoPorNome || ''
           } ${(p as any).origem || ''} ${(p as any).bairro || ''}`
         );
         return blob.includes(term);

@@ -16,6 +16,7 @@
         <th>Município</th>
         <th>Bairro</th>
         <th style="width:130px">Cadastrado em</th>
+        <th>Elegibilidade</th>
 
         <ng-container *ngIf="cargo === 'assessor'">
           <th>Status</th>
@@ -50,7 +51,14 @@
         title="Clique para ver detalhes"
       >
         <td class="text-center text-muted small">{{ i + 1 }}</td>
-        <td class="fw-semibold">{{ item.clienteNome || '—' }}</td>
+        <td class="fw-semibold">
+          {{ item.clienteNome || '—' }}
+          <span *ngIf="(item.totalTentativas ?? 0) > 0"
+                class="badge bg-warning text-dark ms-1 fw-normal"
+                [title]="'Tentou se cadastrar novamente pelo site — última em ' + (item.ultimaTentativaEm | date:'dd/MM/yyyy HH:mm')">
+            <i class="bi bi-arrow-repeat"></i> {{ item.totalTentativas }}
+          </span>
+        </td>
         <td><code class="small">{{ item.cpf || '—' }}</code></td>
         <td class="small">{{ item.telefone || '—' }}</td>
         <td class="small">{{ item.municipio || '—' }}</td>
@@ -61,6 +69,7 @@
           </ng-container>
           <ng-container *ngIf="!item.criadoEm">—</ng-container>
         </td>
+        <td><span [class]="getElegivelClasse(item)">{{ getElegivelLabel(item) }}</span></td>
 
         <ng-container *ngIf="cargo === 'assessor'">
           <td><span [class]="getBadgeClasse(item)">{{ getStatusLabel(item) }}</span></td>

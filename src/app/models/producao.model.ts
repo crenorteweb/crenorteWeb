@@ -39,6 +39,10 @@ export interface PreCadastro {
   encaminhadoPorNome?: string;
   encaminhadoParaUid?: string;
   encaminhadoParaNome?: string;
+  /** Tentativas de recadastro pelo site/portal (cliente que já tinha cadastro) */
+  tentativasNoPeriodo?: number;
+  totalTentativas?: number;
+  ultimaTentativaEm?: Date | null;
 }
 
 export interface Cliente {
