@@ -55,6 +55,18 @@
     <li class="nav-item">
       <button
         class="nav-link"
+        [class.active]="abaAtiva() === 'falta_analisar'"
+        (click)="abaAtiva.set('falta_analisar')"
+        title="CPFs do período que ainda não foram analisados"
+      >
+        <i class="bi bi-hourglass-split me-1"></i>Falta analisar
+        <span *ngIf="jaCarregouAdicionados() && !carregandoAdicionados() && !carregandoTentativas() && pendentes().length > 0"
+          class="badge bg-secondary ms-1">{{ pendentes().length }}</span>
+      </button>
+    </li>
+    <li class="nav-item">
+      <button
+        class="nav-link"
         [class.active]="abaAtiva() === 'analisados'"
         (click)="abaAtiva.set('analisados')"
       >
@@ -161,7 +173,7 @@
       <div class="row g-3 mb-4">
         <div class="col-6 col-lg-3">
           <div class="card shadow-sm h-100"><div class="card-body">
-            <div class="text-muted small"><i class="bi bi-check-circle me-1"></i>Aptos</div>
+            <div class="text-muted small"><i class="bi bi-check-circle me-1"></i>Aptos não elegíveis</div>
             <div class="fw-bold fs-2 text-success">{{ contarGeral('apto') }}</div>
           </div></div>
         </div>
@@ -224,7 +236,7 @@
             <button type="button"
               [class]="filtroGeralResultado() === 'apto' ? 'btn btn-success btn-sm' : 'btn btn-outline-success btn-sm'"
               (click)="filtroGeralResultado.set('apto')">
-              Aptos <span class="badge ms-1" [class.bg-white]="filtroGeralResultado() === 'apto'" [class.text-dark]="filtroGeralResultado() === 'apto'" [class.bg-success]="filtroGeralResultado() !== 'apto'">{{ contarGeral('apto') }}</span>
+              Aptos não elegíveis <span class="badge ms-1" [class.bg-white]="filtroGeralResultado() === 'apto'" [class.text-dark]="filtroGeralResultado() === 'apto'" [class.bg-success]="filtroGeralResultado() !== 'apto'">{{ contarGeral('apto') }}</span>
             </button>
             <button type="button"
               [class]="filtroGeralResultado() === 'apto_elegivel' ? 'btn btn-warning btn-sm' : 'btn btn-outline-warning btn-sm text-dark'"
@@ -261,6 +273,17 @@
                 (click)="filtroGeralTipo.set('tentativa')">
                 <i class="bi bi-arrow-repeat me-1"></i>Novas tentativas <span class="badge ms-1" [class.bg-white]="filtroGeralTipo() === 'tentativa'" [class.text-dark]="filtroGeralTipo() === 'tentativa'" [class.bg-primary]="filtroGeralTipo() !== 'tentativa'">{{ contarGeralTipo('tentativa') }}</span>
               </button>
+            </div>
+
+            <div *ngIf="geralOrigens().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-signpost-split me-1"></i>Origem
+              </label>
+              <select class="form-select form-select-sm" style="min-width: 170px"
+                      [ngModel]="filtroGeralOrigem()" (ngModelChange)="filtroGeralOrigem.set($event)">
+                <option value="">Todas</option>
+                <option *ngFor="let o of geralOrigens()" [value]="o.origem">{{ o.origem }} ({{ o.total }})</option>
+              </select>
             </div>
 
             <div *ngIf="geralUfs().length > 0" class="d-flex align-items-center gap-2">
@@ -305,6 +328,7 @@
                   <th>CPF</th>
                   <th>Telefone</th>
                   <th>Município</th>
+                  <th>Origem</th>
                   <th>Entrada</th>
                   <th>Cadastrado em</th>
                   <th>Situação</th>
@@ -323,6 +347,7 @@
                   <td><code class="small">{{ r.cpf || '—' }}</code></td>
                   <td class="small">{{ r.telefone || '—' }}</td>
                   <td class="small">{{ r.municipio || '—' }}<span *ngIf="r.uf" class="text-muted"> / {{ r.uf }}</span></td>
+                  <td class="small">{{ r.origem || '—' }}</td>
                   <td>
                     <span class="badge" [class.bg-primary]="r.tipoEntrada === 'novo'" [class.bg-info]="r.tipoEntrada === 'tentativa'"
                           [class.text-dark]="r.tipoEntrada === 'tentativa'">
@@ -348,6 +373,188 @@
                     <ng-template #semTentativa><span class="text-muted">—</span></ng-template>
                   </td>
                   <td class="small text-nowrap">{{ r.ultimaTentativaEm ? (r.ultimaTentativaEm | date:'dd/MM/yyyy HH:mm') : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </ng-container>
+  </ng-container>
+
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <!-- ABA: FALTA ANALISAR (CPFs do período sem análise)                     -->
+  <!-- ══════════════════════════════════════════════════════════════════════ -->
+  <ng-container *ngIf="abaAtiva() === 'falta_analisar'">
+
+    <div *ngIf="erroAdicionados()" class="alert alert-danger">
+      <i class="bi bi-exclamation-triangle me-2"></i>{{ erroAdicionados() }}
+    </div>
+
+    <div *ngIf="carregandoAdicionados() || carregandoTentativas()" class="text-center py-5">
+      <div class="spinner-border text-secondary" style="width:3rem;height:3rem;" role="status"></div>
+      <p class="mt-3 text-muted">Carregando pendentes...</p>
+    </div>
+
+    <div *ngIf="!carregandoAdicionados() && !carregandoTentativas() && !jaCarregouAdicionados()" class="text-center py-5 text-muted">
+      <i class="bi bi-search fs-1"></i>
+      <p class="mt-3 mb-0">Selecione o período e clique em Buscar.</p>
+    </div>
+
+    <ng-container *ngIf="!carregandoAdicionados() && !carregandoTentativas() && jaCarregouAdicionados()">
+
+      <div class="alert alert-light border small mb-4">
+        <i class="bi bi-info-circle me-1"></i>
+        CPFs do período que <strong>ainda não foram analisados</strong>: novos cadastros e clientes que tentaram se
+        cadastrar de novo. A coluna <strong>Aguardando há</strong> conta a partir da criação do cadastro
+        (novo cadastro) ou da última tentativa (nova tentativa).
+      </div>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-md-4">
+          <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small"><i class="bi bi-hourglass-split me-1"></i>Falta analisar</div>
+            <div class="fw-bold fs-2 text-warning-emphasis">{{ pendFiltrados().length }}</div>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4">
+          <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small"><i class="bi bi-person-plus me-1"></i>Novos cadastros</div>
+            <div class="fw-bold fs-2 text-primary">{{ contarPendTipo('novo') }}</div>
+          </div></div>
+        </div>
+        <div class="col-6 col-md-4">
+          <div class="card shadow-sm h-100"><div class="card-body">
+            <div class="text-muted small"><i class="bi bi-arrow-repeat me-1"></i>Novas tentativas</div>
+            <div class="fw-bold fs-2 text-info-emphasis">{{ contarPendTipo('tentativa') }}</div>
+          </div></div>
+        </div>
+      </div>
+
+      <div *ngIf="pendentes().length === 0" class="text-center py-5 text-muted">
+        <i class="bi bi-check2-all fs-1"></i>
+        <p class="mt-3 mb-0 fs-5">Todos os clientes do período já foram analisados.</p>
+      </div>
+
+      <div *ngIf="pendentes().length > 0" class="card shadow-sm">
+        <div class="card-header bg-white py-3">
+          <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+            <span class="fw-semibold text-warning-emphasis">
+              <i class="bi bi-hourglass-split me-2"></i>CPFs aguardando análise
+            </span>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <div class="input-group input-group-sm" style="width: 220px">
+                <span class="input-group-text"><i class="bi bi-search"></i></span>
+                <input type="text" class="form-control" placeholder="Buscar por CPF..."
+                       [ngModel]="termoBuscaPend()" (ngModelChange)="termoBuscaPend.set($event)">
+              </div>
+              <span class="badge bg-secondary">{{ pendFiltrados().length }} registros</span>
+              <button type="button" class="btn btn-outline-danger btn-sm" (click)="exportarPDFPend()"
+                      [disabled]="pendFiltrados().length === 0">
+                <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+              </button>
+              <button type="button" class="btn btn-outline-success btn-sm" (click)="exportarExcelPend()"
+                      [disabled]="pendFiltrados().length === 0">
+                <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
+              </button>
+            </div>
+          </div>
+
+          <div class="d-flex align-items-center gap-3 flex-wrap">
+            <div class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-sort-down me-1"></i>Ordem
+              </label>
+              <select class="form-select form-select-sm" style="min-width: 190px"
+                      [ngModel]="ordemPend()" (ngModelChange)="ordemPend.set($event)">
+                <option value="antigos">Mais antigos primeiro</option>
+                <option value="recentes">Mais recentes primeiro</option>
+              </select>
+            </div>
+
+            <div *ngIf="pendOrigens().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-signpost-split me-1"></i>Origem
+              </label>
+              <select class="form-select form-select-sm" style="min-width: 170px"
+                      [ngModel]="filtroPendOrigem()" (ngModelChange)="filtroPendOrigem.set($event)">
+                <option value="">Todas</option>
+                <option *ngFor="let o of pendOrigens()" [value]="o.origem">{{ o.origem }} ({{ o.total }})</option>
+              </select>
+            </div>
+
+            <div *ngIf="pendUfs().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-map me-1"></i>UF
+              </label>
+              <select class="form-select form-select-sm" style="min-width: 90px"
+                      [ngModel]="filtroPendUf()" (ngModelChange)="onFiltroPendUf($event)">
+                <option value="">Todas</option>
+                <option *ngFor="let uf of pendUfs()" [value]="uf">{{ uf }}</option>
+              </select>
+            </div>
+
+            <div *ngIf="pendMunicipios().length > 0" class="d-flex align-items-center gap-2">
+              <label class="form-label mb-0 small fw-semibold text-muted text-nowrap">
+                <i class="bi bi-building me-1"></i>Município
+              </label>
+              <select class="form-select form-select-sm" style="min-width: 170px"
+                      [ngModel]="filtroPendMunicipio()" (ngModelChange)="filtroPendMunicipio.set($event)">
+                <option value="">Todos</option>
+                <optgroup label="── Prioritários ──">
+                  <option *ngFor="let m of pendMunicipios()" [value]="m.valor" [hidden]="!m.prioritario">{{ m.valor }}</option>
+                </optgroup>
+                <optgroup label="── Demais ──">
+                  <option *ngFor="let m of pendMunicipios()" [value]="m.valor" [hidden]="m.prioritario">{{ m.valor }}</option>
+                </optgroup>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="card-body p-0">
+          <div *ngIf="pendFiltrados().length === 0" class="text-center py-5 text-muted">
+            Nenhum registro para os filtros selecionados.
+          </div>
+          <div *ngIf="pendFiltrados().length > 0" class="table-responsive">
+            <table class="table table-hover table-striped align-middle mb-0">
+              <thead>
+                <tr>
+                  <th class="text-center" style="width:44px">#</th>
+                  <th>CPF</th>
+                  <th>Nome do Cliente</th>
+                  <th>Telefone</th>
+                  <th>Município</th>
+                  <th>Origem</th>
+                  <th>Entrada</th>
+                  <th>Cadastro criado em</th>
+                  <th>Última tentativa</th>
+                  <th>Aguardando há</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let r of pendFiltrados(); let i = index" style="cursor:pointer"
+                    (click)="abrirModal(r)" title="Clique para ver detalhes">
+                  <td class="text-center text-muted small">{{ i + 1 }}</td>
+                  <td><code class="small">{{ r.cpf || '—' }}</code></td>
+                  <td class="fw-semibold">{{ r.clienteNome || '—' }}</td>
+                  <td class="small">{{ r.telefone || '—' }}</td>
+                  <td class="small">{{ r.municipio || '—' }}<span *ngIf="r.uf" class="text-muted"> / {{ r.uf }}</span></td>
+                  <td class="small">{{ r.origem || '—' }}</td>
+                  <td>
+                    <span class="badge" [class.bg-primary]="r.tipoEntrada === 'novo'" [class.bg-info]="r.tipoEntrada === 'tentativa'"
+                          [class.text-dark]="r.tipoEntrada === 'tentativa'">
+                      {{ r.tipoEntrada === 'novo' ? 'Novo cadastro' : 'Nova tentativa' }}
+                    </span>
+                  </td>
+                  <td class="text-nowrap fw-semibold">{{ dataHora(r.criadoEm) }}</td>
+                  <td class="small text-nowrap">
+                    {{ r.ultimaTentativaEm ? dataHora(r.ultimaTentativaEm) : '—' }}
+                    <span *ngIf="(r.tentativasNoPeriodo ?? 0) > 1" class="badge bg-info text-dark ms-1"
+                          title="Tentativas no período">{{ r.tentativasNoPeriodo }}x</span>
+                  </td>
+                  <td class="small text-nowrap">{{ aguardandoHa(r) }}</td>
                 </tr>
               </tbody>
             </table>

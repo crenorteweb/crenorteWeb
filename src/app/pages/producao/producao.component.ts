@@ -64,7 +64,7 @@ export class ProducaoComponent {
   erro               = signal<string | null>(null);
 
   // ── Relatório de cadastros adicionados (modo geral) ───────────────────────
-  abaAtiva                  = signal<'visao_geral' | 'analisados' | 'adicionados' | 'novas_tentativas' | 'encaminhados' | 'caixa_assessores'>('visao_geral');
+  abaAtiva                  = signal<'visao_geral' | 'falta_analisar' | 'analisados' | 'adicionados' | 'novas_tentativas' | 'encaminhados' | 'caixa_assessores'>('visao_geral');
   registrosAdicionados      = signal<PreCadastro[]>([]);
   filtroOrigemAdicionados   = signal<string>('');
   carregandoAdicionados     = signal(false);
@@ -393,6 +393,7 @@ export class ProducaoComponent {
   filtroGeralTipo      = signal<'todos' | 'novo' | 'tentativa'>('todos');
   filtroGeralMunicipio = signal<string>('');
   filtroGeralUf        = signal<string>('');
+  filtroGeralOrigem    = signal<string>('');
   termoBuscaGeral      = signal<string>('');
 
   /**
@@ -435,6 +436,17 @@ export class ProducaoComponent {
     return uf ? lista.filter(r => this.ufDe(r) === uf) : lista;
   });
 
+  geralOrigens = computed(() => {
+    const map = new Map<string, number>();
+    this.visaoGeral().forEach(r => {
+      const o = (r.origem || '').trim() || 'Sem origem';
+      map.set(o, (map.get(o) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([origem, total]) => ({ origem, total }))
+      .sort((a, b) => b.total - a.total);
+  });
+
   onFiltroGeralUf(uf: string) {
     this.filtroGeralUf.set(uf);
     this.filtroGeralMunicipio.set('');
@@ -449,10 +461,12 @@ export class ProducaoComponent {
     return ordenarComPrioridade(Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR')), isCidadePrioritaria);
   });
 
-  /** Base só com filtros de UF e município (alimenta os contadores de tipo) */
+  /** Base só com filtros de origem, UF e município (alimenta os contadores de tipo) */
   private geralPorMunicipio = computed(() => {
     const mun = normalizarTexto(this.filtroGeralMunicipio().trim());
-    const lista = this.geralPorUf();
+    const origem = this.filtroGeralOrigem();
+    let lista = this.geralPorUf();
+    if (origem) lista = lista.filter(r => ((r.origem || '').trim() || 'Sem origem') === origem);
     return mun ? lista.filter(r => normalizarTexto((r.municipio || '').trim()) === mun) : lista;
   });
 
@@ -467,6 +481,7 @@ export class ProducaoComponent {
     if (fr === 'todos')         return true;
     if (fr === 'nao_analisado') return r.resultado !== 'apto' && r.resultado !== 'inapto';
     if (fr === 'apto_elegivel') return r.resultado === 'apto' && r.elegivel?.status === 'sim';
+    if (fr === 'apto')          return r.resultado === 'apto' && r.elegivel?.status !== 'sim'; // aptos não elegíveis
     return r.resultado === fr;
   }
 
@@ -538,7 +553,7 @@ export class ProducaoComponent {
     const periodo = this.dataInicio() === this.dataFim() ? fmt(this.dataInicio()) : `${fmt(this.dataInicio())} a ${fmt(this.dataFim())}`;
     doc.text(`Período: ${periodo}`, 14, 35);
     doc.text(
-      `Total: ${this.contarGeral('todos')}  ·  Aptos: ${this.contarGeral('apto')}  ·  Aptos e elegíveis: ${this.contarGeral('apto_elegivel')}` +
+      `Total: ${this.contarGeral('todos')}  ·  Aptos não elegíveis: ${this.contarGeral('apto')}  ·  Aptos e elegíveis: ${this.contarGeral('apto_elegivel')}` +
       `  ·  Inaptos: ${this.contarGeral('inapto')}  ·  Falta analisar: ${this.contarGeral('nao_analisado')}` +
       `  ·  Tentativas no período: ${this.totalTentativasGeral()}` +
       `  ·  Listados: ${linhas.length}`, 14, 41);
@@ -553,6 +568,144 @@ export class ProducaoComponent {
     doc.setFontSize(8); doc.setTextColor(120);
     doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 8, finalY + 8);
     doc.save(this.nomeArquivoGeral('pdf'));
+  }
+
+  // ── Aba "Falta analisar": CPFs do período ainda sem análise ─────────────────
+  filtroPendUf        = signal<string>('');
+  filtroPendMunicipio = signal<string>('');
+  filtroPendOrigem    = signal<string>('');
+  termoBuscaPend      = signal<string>('');
+  ordemPend           = signal<'antigos' | 'recentes'>('antigos');
+
+  /** Clientes do período (novos + novas tentativas) que ainda não foram analisados */
+  pendentes = computed(() =>
+    this.visaoGeral().filter(r => r.resultado !== 'apto' && r.resultado !== 'inapto')
+  );
+
+  pendUfs = computed(() => {
+    const set = new Set<string>();
+    this.pendentes().forEach(r => { const uf = this.ufDe(r); if (uf) set.add(uf); });
+    return Array.from(set).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  });
+
+  private pendPorUf = computed(() => {
+    const uf = this.filtroPendUf();
+    return uf ? this.pendentes().filter(r => this.ufDe(r) === uf) : this.pendentes();
+  });
+
+  pendMunicipios = computed(() => {
+    const map = new Map<string, string>();
+    this.pendPorUf().forEach(r => {
+      const m = (r.municipio || '').trim();
+      if (m && !map.has(normalizarTexto(m))) map.set(normalizarTexto(m), m);
+    });
+    return ordenarComPrioridade(Array.from(map.values()).sort((a, b) => a.localeCompare(b, 'pt-BR')), isCidadePrioritaria);
+  });
+
+  pendOrigens = computed(() => {
+    const map = new Map<string, number>();
+    this.pendentes().forEach(r => {
+      const o = (r.origem || '').trim() || 'Sem origem';
+      map.set(o, (map.get(o) ?? 0) + 1);
+    });
+    return Array.from(map.entries())
+      .map(([origem, total]) => ({ origem, total }))
+      .sort((a, b) => b.total - a.total);
+  });
+
+  onFiltroPendUf(uf: string) {
+    this.filtroPendUf.set(uf);
+    this.filtroPendMunicipio.set('');
+  }
+
+  /** Data de referência: para nova tentativa, a última tentativa; para novo cadastro, a criação */
+  private refPendMs(r: PreCadastro & { tipoEntrada: 'novo' | 'tentativa' }): number {
+    return r.tipoEntrada === 'tentativa'
+      ? (this.tsMs(r.ultimaTentativaEm) || this.tsMs(r.criadoEm))
+      : this.tsMs(r.criadoEm);
+  }
+
+  pendFiltrados = computed(() => {
+    let lista = this.pendPorUf();
+    const origem = this.filtroPendOrigem();
+    if (origem) lista = lista.filter(r => ((r.origem || '').trim() || 'Sem origem') === origem);
+    const mun = normalizarTexto(this.filtroPendMunicipio().trim());
+    if (mun) lista = lista.filter(r => normalizarTexto((r.municipio || '').trim()) === mun);
+    const digits = this.termoBuscaPend().replace(/\D/g, '');
+    if (digits) lista = lista.filter(r => (r.cpf || '').replace(/\D/g, '').includes(digits));
+    const dir = this.ordemPend() === 'antigos' ? 1 : -1;
+    return [...lista].sort((a, b) => dir * (this.refPendMs(a) - this.refPendMs(b)));
+  });
+
+  contarPendTipo(tipo: 'novo' | 'tentativa'): number {
+    return this.pendFiltrados().filter(r => r.tipoEntrada === tipo).length;
+  }
+
+  dataHora(ts: any): string {
+    return this.fmtData(ts, true);
+  }
+
+  /** Há quanto tempo o cliente está aguardando análise (desde a criação ou a última tentativa) */
+  aguardandoHa(r: PreCadastro & { tipoEntrada: 'novo' | 'tentativa' }): string {
+    const ms = this.refPendMs(r);
+    if (!ms) return '—';
+    const horas = Math.floor((Date.now() - ms) / 3_600_000);
+    if (horas < 1)  return 'menos de 1 h';
+    if (horas < 24) return `${horas} h`;
+    const dias = Math.floor(horas / 24);
+    return dias === 1 ? '1 dia' : `${dias} dias`;
+  }
+
+  private linhasPend(): { cab: string[]; linhas: string[][] } {
+    const cab = ['CPF', 'Nome do Cliente', 'Telefone', 'Município', 'UF', 'Origem', 'Entrada',
+                 'Cadastro criado em', 'Última tentativa', 'Tentativas no período', 'Aguardando há'];
+    const linhas = this.pendFiltrados().map(r => [
+      r.cpf || '—', r.clienteNome || '—', r.telefone || '—', r.municipio || '—', r.uf || '—',
+      r.origem || '—', r.tipoEntrada === 'novo' ? 'Novo cadastro' : 'Nova tentativa',
+      this.fmtData(r.criadoEm, true), this.fmtData(r.ultimaTentativaEm, true),
+      String(r.tentativasNoPeriodo ?? 0), this.aguardandoHa(r),
+    ]);
+    return { cab, linhas };
+  }
+
+  private nomeArquivoPend(ext: string): string {
+    const p = this.dataInicio() === this.dataFim() ? this.dataInicio() : `${this.dataInicio()}_a_${this.dataFim()}`;
+    return `falta_analisar_${p}.${ext}`;
+  }
+
+  exportarExcelPend() {
+    const { cab, linhas } = this.linhasPend();
+    if (!linhas.length) return;
+    const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+    ws['!cols'] = [16, 32, 16, 20, 6, 18, 16, 18, 18, 12, 14].map(wch => ({ wch }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Falta analisar');
+    XLSX.writeFile(wb, this.nomeArquivoPend('xlsx'));
+  }
+
+  exportarPDFPend() {
+    const { cab, linhas } = this.linhasPend();
+    if (!linhas.length) return;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+    doc.setFontSize(18); doc.setTextColor(0, 141, 69); doc.text('CRENORTE', 14, 18);
+    doc.setFontSize(12); doc.setTextColor(40, 40, 40);
+    doc.text('Falta analisar — CPFs do período ainda sem análise', 14, 27);
+    doc.setFontSize(10); doc.setTextColor(80, 80, 80);
+    const fmt = (s: string) => s.split('-').reverse().join('/');
+    const periodo = this.dataInicio() === this.dataFim() ? fmt(this.dataInicio()) : `${fmt(this.dataInicio())} a ${fmt(this.dataFim())}`;
+    doc.text(`Período: ${periodo}`, 14, 35);
+    doc.text(`Total: ${linhas.length}  ·  Novos cadastros: ${this.contarPendTipo('novo')}  ·  Novas tentativas: ${this.contarPendTipo('tentativa')}`, 14, 41);
+    autoTable(doc, {
+      head: [cab], body: linhas, startY: 47,
+      styles: { fontSize: 7.5, cellPadding: 1.8 },
+      headStyles: { fillColor: [0, 141, 69], textColor: 255, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [240, 249, 240] },
+      margin: { left: 8, right: 8 },
+    });
+    const finalY = (doc as any).lastAutoTable?.finalY ?? 100;
+    doc.setFontSize(8); doc.setTextColor(120);
+    doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 8, finalY + 8);
+    doc.save(this.nomeArquivoPend('pdf'));
   }
 
   encaminhadosPorRemetente = computed(() => {
@@ -642,7 +795,12 @@ export class ProducaoComponent {
     this.filtroGeralTipo.set('todos');
     this.filtroGeralMunicipio.set('');
     this.filtroGeralUf.set('');
+    this.filtroGeralOrigem.set('');
     this.termoBuscaGeral.set('');
+    this.filtroPendUf.set('');
+    this.filtroPendMunicipio.set('');
+    this.filtroPendOrigem.set('');
+    this.termoBuscaPend.set('');
     this.termoBusca.set('');
     this.filtroResultado.set('todos');
     this.filtroOrigem.set('');
@@ -751,7 +909,12 @@ export class ProducaoComponent {
     this.filtroGeralTipo.set('todos');
     this.filtroGeralMunicipio.set('');
     this.filtroGeralUf.set('');
+    this.filtroGeralOrigem.set('');
     this.termoBuscaGeral.set('');
+    this.filtroPendUf.set('');
+    this.filtroPendMunicipio.set('');
+    this.filtroPendOrigem.set('');
+    this.termoBuscaPend.set('');
 
     this.svc.buscarAdicionados(dataInicio, dataFim).pipe(
       catchError(e => {
