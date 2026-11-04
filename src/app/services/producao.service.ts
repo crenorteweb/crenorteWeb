@@ -169,6 +169,7 @@ export class ProducaoService {
         return {
           totalTentativas: lista.length,
           ultimaTentativaEm: ms.length ? new Date(Math.max(...ms)) : null,
+          historicoTentativas: [...ms].sort((a: number, b: number) => b - a).map((x: number) => new Date(x)),
         };
       })(),
     };

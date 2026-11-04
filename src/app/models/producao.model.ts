@@ -43,6 +43,8 @@ export interface PreCadastro {
   tentativasNoPeriodo?: number;
   totalTentativas?: number;
   ultimaTentativaEm?: Date | null;
+  /** Datas de todas as tentativas de recadastro, da mais recente para a mais antiga */
+  historicoTentativas?: Date[];
 }
 
 export interface Cliente {

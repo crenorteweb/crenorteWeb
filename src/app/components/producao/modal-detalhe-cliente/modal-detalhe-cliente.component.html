@@ -182,6 +182,33 @@
           </div>
         </section>
 
+        <!-- Histórico de tentativas de recadastro -->
+        <section class="mt-4 mb-2">
+          <h6 class="secao-titulo">
+            <i class="bi bi-arrow-repeat me-2"></i>Histórico de tentativas
+            <span *ngIf="preCadastro?.historicoTentativas?.length" class="badge bg-info text-dark ms-1">
+              {{ preCadastro?.historicoTentativas?.length }}
+            </span>
+          </h6>
+          <div *ngIf="!preCadastro?.historicoTentativas?.length" class="text-muted small">
+            O cliente não tentou se cadastrar novamente.
+          </div>
+          <ul *ngIf="preCadastro?.historicoTentativas?.length" class="list-group list-group-flush small">
+            <li *ngFor="let d of preCadastro?.historicoTentativas; let i = index"
+                class="list-group-item px-0 d-flex justify-content-between align-items-center">
+              <span>
+                <span class="text-muted me-2">{{ (preCadastro?.historicoTentativas?.length ?? 0) - i }}ª</span>
+                {{ d | date:'dd/MM/yyyy HH:mm' }}
+              </span>
+              <span *ngIf="preCadastro?.analisadoEm" class="badge"
+                    [class.bg-warning]="depoisDaAnalise(d)" [class.text-dark]="depoisDaAnalise(d)"
+                    [class.bg-light]="!depoisDaAnalise(d)" [class.text-muted]="!depoisDaAnalise(d)">
+                {{ depoisDaAnalise(d) ? 'Depois da análise' : 'Antes da análise' }}
+              </span>
+            </li>
+          </ul>
+        </section>
+
       </ng-container>
     </div>
 

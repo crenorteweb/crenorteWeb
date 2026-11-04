@@ -68,5 +68,13 @@ export class ModalDetalheCliente implements OnChanges {
     } catch { return '—'; }
   }
 
+  /** Tentativa feita depois da análise do pré-cadastro? */
+  depoisDaAnalise(d: Date): boolean {
+    const a = this.preCadastro?.analisadoEm;
+    if (!a) return false;
+    const ms = a?.toDate ? a.toDate().getTime() : new Date(a).getTime();
+    return !isNaN(ms) && d.getTime() > ms;
+  }
+
   onOverlayClick() { this.fechar.emit(); }
 }
